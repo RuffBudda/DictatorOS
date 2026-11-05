@@ -1,7 +1,7 @@
 #!/bin/bash
 # System-level tweaks. Run with:  sudo ~/dotfiles/system/install.sh
-#  1. Limine boot menu: hidden (quiet, 1 s; tap a key at power-on to open it), in
-#     DictatorOS colours with a DictatorOS entry. Snapshots for rollbacks live there.
+#  1. Limine boot menu: 10 s countdown in DictatorOS colours, entries DictatorOS,
+#     Oryx Windows and Personal Windows; no Snapshots submenu.
 #  2. Boot splash (Plymouth / disk-unlock screen): black, no Omarchy logo.
 #  3. Login screen (SDDM, only seen after logout): black, no Omarchy logo.
 #  Both match the lock screen: no box, red ✱ stars (SDDM also gets the thin red clock).
@@ -24,13 +24,15 @@ if [[ ${1:-} == --from-hook ]]; then
   [[ -f /etc/systemd/logind.conf.d/dotfiles-lid.conf ]] || ok=0
   grep -q '^interface_branding: DictatorOS' /boot/limine.conf 2>/dev/null || ok=0
   grep -q '^/+\?DictatorOS$' /boot/limine.conf 2>/dev/null || ok=0
+  grep -q '^/Oryx Windows$' /boot/limine.conf 2>/dev/null || ok=0
+  ! systemctl is-enabled -q limine-snapper-sync.service 2>/dev/null || ok=0
   grep -q 'name.sprite\|entry.y = Window.GetHeight() / 2' /usr/share/plymouth/themes/omarchy-black/omarchy-black.script 2>/dev/null || ok=0
   (( ok )) && { echo "dotfiles: system settings intact"; exit 0; }
   echo "dotfiles: re-applying system settings reset by the update"
 fi
 
-BOOT_TIMEOUT="${BOOT_TIMEOUT:-1}"    # seconds to tap a key for the menu; 0 = never show it
-BOOT_MENU="${BOOT_MENU:-hidden}"     # "shown" = always show the menu with a countdown
+BOOT_TIMEOUT="${BOOT_TIMEOUT:-10}"   # seconds before booting the default entry
+BOOT_MENU="${BOOT_MENU:-shown}"      # "hidden" = quiet (tap a key at power-on to see it)
 LOCK_NAME="${LOCK_NAME:-}"  # optional name above the boot password box; empty = no name (matches lock screen)
 
 # Rounded password box (matches the 8px window rounding and red theme).
@@ -68,8 +70,24 @@ for conf in /boot/limine.conf /boot/limine/limine.conf /boot/EFI/limine/limine.c
   # Menu entry name: Omarchy → DictatorOS (entries are matched by machine-id,
   # and TARGET_OS_NAME below keeps kernel/snapshot updates using the new name).
   sed -i 's|^/\(+\?\)Omarchy$|/\1DictatorOS|' "$conf"
+  # No Snapshots submenu (the entry and everything indented under it).
+  perl -0pi -e 's/^( *)\/\/Snapshots\n(?:\1 +\S.*\n|[ \t]*\n)*//mg' "$conf"
+  # Windows installs: chainload each one's own boot manager from its EFI partition.
+  # name|EFI partition PARTUUID (skipped on machines without that partition)
+  for win in "Oryx Windows|2e9498e0-b9be-4682-8990-82ce3384b6f9" \
+             "Personal Windows|f1ce4f0a-d1de-4739-9935-179251042b54"; do
+    name=${win%%|*}; guid=${win##*|}
+    lsblk -no PARTUUID | grep -qx "$guid" || continue
+    grep -qx "/$name" "$conf" && continue
+    printf '\n/%s\n    comment: Windows Boot Manager on its own EFI partition (dotfiles)\n    protocol: efi\n    path: guid(%s):/EFI/Microsoft/Boot/bootmgfw.efi\n' \
+      "$name" "$guid" >>"$conf"
+    echo "Limine: added $name"
+  done
   echo "Updated $conf"
 done
+# Stop limine-snapper-sync from adding the Snapshots submenu back. (Snapper
+# still takes snapshots; they just aren't offered in the boot menu.)
+systemctl disable --now limine-snapper-sync.service 2>/dev/null || true
 if [[ -f /etc/default/limine ]]; then
   if grep -q '^TARGET_OS_NAME=' /etc/default/limine; then
     sed -i 's/^TARGET_OS_NAME=.*/TARGET_OS_NAME="DictatorOS"/' /etc/default/limine

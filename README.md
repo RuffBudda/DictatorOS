@@ -78,8 +78,8 @@
   btop, Steam… all tile); Super+Left/Right snaps a lone window to half the screen
   without floating it.
 - **Black + red**: custom *Red* theme, solid black wallpaper, no logos on boot,
-  login or lock screens, rounded corners everywhere. The (hidden) Limine boot menu is red
-  on black too, and the boot entry is called DictatorOS.
+  login or lock screens, rounded corners everywhere. The Limine boot menu is red on black
+  too, with DictatorOS and both Windows installs.
 - **Chromium to match**: red-accented toolbar, tabs down the left side, and a black
   new tab page with only a red Google logo and a search box. No bookmarks bar, no
   AI Mode / Gemini / Lens.
@@ -129,9 +129,11 @@ in its profile.
 
 **`system/install.sh`** (root). Each step is idempotent:
 
-1. Limine boot menu hidden (quiet, 1 s: tap any key right after power-on to open it),
-   coloured red and black with the entry renamed DictatorOS. To always show it with a
-   countdown: `sudo BOOT_MENU=shown BOOT_TIMEOUT=10 ~/dotfiles/system/install.sh`.
+1. Limine boot menu, red on black with a 10 s countdown. Entries: **DictatorOS**,
+   **Oryx Windows** (drive 1) and **Personal Windows** (drive 2), each Windows booting its
+   own boot manager; added only if that partition exists. No Snapshots submenu
+   (`limine-snapper-sync` is disabled; Snapper still takes snapshots). To hide the menu:
+   `sudo BOOT_MENU=hidden BOOT_TIMEOUT=1 ~/dotfiles/system/install.sh`.
 2. Black Plymouth boot splash with no logo; the disk-unlock screen says "enter password"
    in dim red, then shows red ✱ stars as you type (no box), like the lock screen.
 3. SDDM login screen like the lock screen: thin red clock, red stars, no box.
@@ -217,8 +219,8 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 - **Login screen** (SDDM, after logout): the same thin red clock and red stars; press Enter.
 - **Disk unlock at boot** (Plymouth): black, "enter password" in dim red until you type,
   then red stars centred, no box (no clock: Plymouth scripts can't read the time).
-- **Boot menu** (Limine): hidden; tap a key at power-on to open it. Red on black,
-  "DictatorOS" title and entry; Snapper snapshots appear here for rolling back a bad update.
+- **Boot menu** (Limine): 10 s countdown, red on black, "DictatorOS" title. Choose
+  DictatorOS, Oryx Windows or Personal Windows. Snapshots are not listed.
 - **Admin password prompts** use Omarchy's standard dialog.
 
 ### Chromium
@@ -340,7 +342,8 @@ Common tweaks:
   `/etc/chromium/policies/managed/{dotfiles,claude,minimal}.json`, then run
   `sudo plymouth-set-default-theme omarchy && sudo limine-mkinitcpio`. The Limine
   colours and entry name are restored from `/boot/limine.conf.bak.<timestamp>`; also
-  remove `TARGET_OS_NAME` from `/etc/default/limine`.
+  remove `TARGET_OS_NAME` from `/etc/default/limine`, and
+  `sudo systemctl enable --now limine-snapper-sync` to bring back boot-menu snapshots.
 - Chromium: remove the `blank-newtab` path and `VerticalTabs` from
   `~/.config/chromium-flags.conf`.
 - Apps removed by `apps.sh` can be reinstalled with `omarchy-pkg-add <name>`.
