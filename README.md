@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/logo.png" alt="DictatorOS logo: a crowned grid of tiles" width="260"></p>
+<p align="center"><img src="docs/logo.png" alt="DictatorOS logo: a crown made of tiles" width="300"></p>
 
 <h1 align="center">DictatorOS</h1>
 
@@ -299,8 +299,10 @@ Spacing matches window gaps, and they sit below the bar when it's shown.
 ### `fetch` / `neofetch`
 
 `fastfetch/config.jsonc` + `fastfetch/logo.txt`: system info reads **DictatorOS (Omarchy x.y)** in red,
-with a parody logo (a crown over a grid of tiles). `fetch` and `neofetch` (`bin/fetch`, linked into
-`~/.local/bin`) both run it; neofetch itself is discontinued.
+with the DictatorOS logo: a crown made of tiles over the name. `fetch` and `neofetch`
+(`bin/fetch`, linked into `~/.local/bin`) both run it; neofetch itself is discontinued.
+In a terminal the crown is built first (rows rise from the bottom, then the name types
+out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips that.
 
 ### Theme
 
@@ -380,7 +382,7 @@ backgrounds/         red-stripes wallpaper (SVG source + PNG) and plain black
 bin/                 scripts used by bindings, widgets and hooks
 chromium/            black search-only new tab page (Chromium extension)
 docs/                README images
-fastfetch/           fastfetch config and the DictatorOS logo
+fastfetch/           fastfetch config and the DictatorOS crown logo
 hypr/                Hyprland config: bindings, desktops, tiling, monitors, displays, input, look and feel
 icons/               app icons
 omarchy/

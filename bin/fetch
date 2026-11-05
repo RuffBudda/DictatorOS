@@ -2,4 +2,46 @@
 # `fetch` / `neofetch`: show the DictatorOS system info (fastfetch).
 # neofetch itself is discontinued; both names run fastfetch with the
 # DictatorOS config (~/dotfiles/fastfetch/config.jsonc).
+#
+# In a terminal the crown is built first: its rows rise from the bottom, then
+# the name types out (~0.7 s). fastfetch then prints the same logo in the same
+# place, with the system info beside it. Skipped when output isn't a terminal,
+# when arguments are given, or with FETCH_NO_ANIM=1.
+LOGO="$HOME/dotfiles/fastfetch/logo.txt"
+PAD_TOP=2 PAD_LEFT=2   # must match "padding" in fastfetch/config.jsonc
+
+animate() {
+  local -a lines crown
+  mapfile -t lines <"$LOGO"
+  local h=${#lines[@]} n=0 i k
+  for ((i = 0; i < h; i++)); do [[ -z ${lines[i]// } ]] && break; ((n++)); done   # crown = lines before the first blank
+  local word="${lines[h-1]}" pad red=$'\e[1;31m' off=$'\e[0m'
+  printf -v pad '%*s' "$PAD_LEFT" ''
+
+  printf '\e[?25l'                                   # hide cursor
+  trap 'printf "\e[?25h"' EXIT
+  for ((i = 0; i < PAD_TOP + h; i++)); do printf '\n'; done   # reserve space (scrolls if needed)
+  printf '\e[%dA' "$h"                               # back to the logo's first line
+
+  # 1. Crown rows rise from the bottom.
+  for ((k = 1; k <= n; k++)); do
+    for ((i = 0; i < n; i++)); do
+      if ((i >= n - k)); then printf '\e[2K%s%s%s%s\n' "$pad" "$red" "${lines[i]}" "$off"
+      else printf '\e[2K\n'; fi
+    done
+    printf '\e[%dA' "$n"; sleep 0.07
+  done
+  # 2. The name types out.
+  printf '\e[%dB' "$((h - 1))"
+  for ((i = 1; i <= ${#word}; i++)); do
+    printf '\r\e[2K%s%s%s%s' "$pad" "$red" "${word:0:i}" "$off"; sleep 0.018
+  done
+  # Back to where fastfetch should start printing (top padding included).
+  printf '\r\e[%dA' "$((h - 1 + PAD_TOP))"
+  printf '\e[?25h'
+}
+
+if [[ -t 1 && $# -eq 0 && -z ${FETCH_NO_ANIM:-} && -r $LOGO ]]; then
+  animate
+fi
 exec fastfetch "$@"
