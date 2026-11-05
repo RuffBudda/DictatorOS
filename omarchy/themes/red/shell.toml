@@ -1,11 +1,11 @@
-# Red theme shell colours (transparent bar, red icons/text).
+# Red theme shell colours (solid black bar, red icons/text).
 # Omarchy shell surfaces. Colors derive from colors.toml; sizes and the
 # typographic scale come from the keys below. Themes can ship
 # themes/<name>/shell.toml to replace this generated file.
 
 [bar]
 # Alpha companions (where present) range from 0 (invisible) to 1 (opaque).
-background       = "#0a0a0a"
+background       = "#000000"
 background-alpha = 1.0
 text             = "#e5383b"
 # Modules calling attention to themselves (recording, voxtype, alerts, updates)

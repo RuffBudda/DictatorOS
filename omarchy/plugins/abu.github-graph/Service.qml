@@ -204,12 +204,26 @@ Item {
       spacing: 10
       readonly property int cell: 11
       readonly property int gap: 3
+      // As wide as the ring boxes on the left (3 rings): show only the most
+      // recent weeks that fit. Without rings, show the whole year.
+      readonly property real targetWidth: sysFrame.visible ? sysFrame.width
+        : (whoopFrame.visible ? whoopFrame.width : 0)
+      readonly property int shownWeeks: targetWidth > 0
+        ? Math.max(1, Math.min(root.weeks.length, Math.floor((targetWidth - 2 * root.pad + gap) / (cell + gap))))
+        : root.weeks.length
+      readonly property var shown: root.weeks.slice(root.weeks.length - shownWeeks)
+      readonly property int shownTotal: {
+        var t = 0
+        for (var i = 0; i < shown.length; i++)
+          for (var j = 0; j < shown[i].length; j++) t += shown[i][j].c
+        return t
+      }
 
       Row {
         Layout.alignment: Qt.AlignRight
         spacing: card.gap
         Repeater {
-          model: root.weeks
+          model: card.shown
           Column {
             required property var modelData
             spacing: card.gap
@@ -229,8 +243,12 @@ Item {
 
       Text {
         Layout.alignment: Qt.AlignRight
+        Layout.maximumWidth: card.shownWeeks * (card.cell + card.gap) - card.gap
+        elide: Text.ElideLeft
         textFormat: Text.PlainText
-        text: root.login + "  ·  " + root.total + " contributions in the last year"
+        text: card.shownWeeks >= root.weeks.length
+          ? root.login + "  ·  " + root.total + " contributions in the last year"
+          : root.login + "  ·  " + card.shownTotal + " in " + card.shownWeeks + " weeks"
         color: Commons.Color.accent
         font.family: Style.font.family
         font.pixelSize: 12
