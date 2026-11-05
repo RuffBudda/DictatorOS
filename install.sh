@@ -34,7 +34,6 @@ link omarchy/hooks/post-update.d/dotfiles-check.hook ~/.config/omarchy/hooks/pos
 link omarchy/plugins/abu.notifications         ~/.config/omarchy/plugins/abu.notifications
 link omarchy/plugins/abu.alttab              ~/.config/omarchy/plugins/abu.alttab
 link omarchy/plugins/abu.lock                ~/.config/omarchy/plugins/abu.lock
-link omarchy/plugins/abu.polkit              ~/.config/omarchy/plugins/abu.polkit
 link omarchy/plugins/abu.workspaces          ~/.config/omarchy/plugins/abu.workspaces
 link omarchy/plugins/abu.bar                 ~/.config/omarchy/plugins/abu.bar
 link omarchy/plugins/abu.monitor             ~/.config/omarchy/plugins/abu.monitor
