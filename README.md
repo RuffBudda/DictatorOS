@@ -12,6 +12,12 @@
 
 > *Citizens of the desktop,*
 >
+> You may have read another manifesto on your way here. A long one. It explained, in the
+> tone usually reserved for wine lists and keynotes, that your computer is *omakase*: the
+> chef has chosen everything for you, the chef has strong feelings about your editor, and
+> the chef would like you to know that this is, in fact, a love letter. We admire the
+> confidence. We have simply removed the chef.
+>
 > For too long you have lived under the tyranny of choice: windows drifting wherever
 > they pleased, colours of every stripe, apps seizing your focus without warning. That era
 > is over. By order of the Supreme Leader of this laptop, the following decrees take
@@ -41,6 +47,10 @@
 > 12. **The browser wears the uniform.** AI Mode, Gemini and Lens are exiled; the new tab
 >     page is a red logo and a single search bar.
 > 13. **Alt+Tab is a fundamental right**, as are Win+D, Win+E, Win+P and Ctrl+Shift+Esc.
+> 14. **Opinions are mandatory, and they are ours.** Upstream's opinions may petition like
+>     any other update (see decree 7). They will be read, eventually, and framed, never.
+>     The menu formerly known as the chef's special now lives on Super+Alt+Space.
+> 15. **Manifestos shall be short.** This one is shorter than Omarchy's. That is also a decree.
 >
 > Long live the tiles.
 >
@@ -190,6 +200,8 @@ Then the app choices and, optionally, WHOOP:
   qemu-user-static-binfmt, and `intel-ucode` on AMD machines only.
   Edit `REMOVE_PKGS` at the top to keep any of them.
 - **rmdesk**: clones it to `~/Work/rmdesk` and builds its Python environment.
+- **Vicinae** (AUR `vicinae-bin`): a Raycast-style launcher on Super+Space, started as a
+  user service, with the DictatorOS theme (`vicinae/`) and telemetry off.
 
 Keep machines in sync with `git -C ~/dotfiles pull` (and commit + push your own changes).
 
@@ -207,6 +219,7 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 | **Super+D** | Show desktop (hide all windows on all screens); again to bring them back |
 | **Super+Left / Right** | Lone window: snap to the left/right half (stays tiled). With others: move left/right. At the screen edge: move to the next/previous screen, wherever it sits |
 | **Super+Up / Down** | Lone window: snap to the top/bottom half. Side-by-side windows: stack them vertically (this one on top for Up, at the bottom for Down). Stacked: move up/down |
+| **Super+Space** | Launcher (Vicinae, Raycast-style): apps, calculator, clipboard history, emoji, files, web search. The Omarchy menu is on Super+Alt+Space |
 | **Super+L** | Lock screen |
 | **Super+E** | Files |
 | **Ctrl+Shift+Esc** | Task Manager (Mission Center). btop is Super+Shift+T |
@@ -381,6 +394,7 @@ applications/        launcher entries (Display settings, New VPN profile, rmdesk
 backgrounds/         red-stripes wallpaper (SVG source + PNG) and plain black
 bin/                 scripts used by bindings, widgets and hooks
 chromium/            black search-only new tab page (Chromium extension)
+vicinae/             launcher settings and the DictatorOS theme
 docs/                README images
 fastfetch/           fastfetch config and the DictatorOS crown logo
 hypr/                Hyprland config: bindings, desktops, tiling, monitors, displays, input, look and feel

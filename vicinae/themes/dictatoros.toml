@@ -1,0 +1,69 @@
+# DictatorOS: black with red accents (colours from omarchy/themes/red/colors.toml).
+[meta]
+name = "DictatorOS"
+description = "Black and red. Long live the tiles."
+variant = "dark"
+inherits = "vicinae-dark"
+
+[colors.core]
+accent = "#e5383b"
+accent_foreground = "#000000"
+background = "#000000"
+foreground = "#e8d5d6"
+secondary_background = "#0a0a0a"
+border = "#e5383b"
+
+[colors.main_window]
+border = "#e5383b"
+footer = { background = "#0a0a0a" }
+
+[colors.settings_window]
+border = "#e5383b"
+
+[colors.accents]
+blue = "#e5383b"
+green = "#d9534f"
+magenta = "#ba181b"
+orange = "#ff5a36"
+red = "#e5383b"
+yellow = "#ff7b54"
+cyan = "#c9184a"
+purple = "#e01e37"
+
+[colors.text]
+default = "#e8d5d6"
+muted = "#8a5a5d"
+danger = "#ff4d4f"
+success = "#f26a6d"
+placeholder = "#5c1a1e"
+selection = { background = "#3a0d10", foreground = "#ff4d4f" }
+
+[colors.text.links]
+default = "#e5383b"
+visited = "#ba181b"
+
+[colors.input]
+border = "#3a0d10"
+border_focus = "#e5383b"
+border_error = "#ff4d4f"
+
+[colors.button.primary]
+background = "#0a0a0a"
+foreground = "#e8d5d6"
+hover = { background = "#161011" }
+focus = { outline = "#e5383b" }
+
+[colors.list.item.hover]
+foreground = "#ff4d4f"
+secondary_foreground = "#e8d5d6"
+
+[colors.list.item.selection]
+background = "#3a0d10"
+foreground = "#ff4d4f"
+secondary_background = "#3a0d10"
+secondary_foreground = "#e8d5d6"
+
+[colors.grid.item]
+background = "#0a0a0a"
+hover = { outline = "#8a5a5d" }
+selection = { outline = "#e5383b" }

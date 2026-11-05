@@ -45,6 +45,8 @@ link omarchy/plugins/abu.power             ~/.config/omarchy/plugins/abu.power
 link omarchy/plugins/abu.wallpaper-fade      ~/.config/omarchy/plugins/abu.wallpaper-fade
 link omarchy/themes/red                      ~/.config/omarchy/themes/red
 link fastfetch/config.jsonc                    ~/.config/fastfetch/config.jsonc
+link vicinae/settings.json                   ~/.config/vicinae/settings.json
+link vicinae/themes/dictatoros.toml          ~/.local/share/vicinae/themes/dictatoros.toml
 link bin/fetch                                ~/.local/bin/fetch
 link bin/fetch                                ~/.local/bin/neofetch
 

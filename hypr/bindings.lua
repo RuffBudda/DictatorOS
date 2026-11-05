@@ -190,6 +190,17 @@ o.bind("SUPER + RIGHT", "Snap / move window right", function() snap("r") end)
 o.bind("SUPER + UP", "Stack / move window up", function() snap("u") end)
 o.bind("SUPER + DOWN", "Stack / move window down", function() snap("d") end)
 
+-- ── Launcher: Vicinae (Raycast-style) on SUPER + SPACE ───────────────────
+-- Apps, calculator, clipboard history, emoji, files, web search and more.
+-- The Omarchy menu moves to SUPER + ALT + SPACE (it replaces Omarchy's simple
+-- app picker there, which Vicinae makes redundant). Falls back to the Omarchy
+-- menu if Vicinae isn't installed.
+hl.unbind("SUPER + SPACE")
+hl.unbind("SUPER + ALT + SPACE")
+o.bind("SUPER + SPACE", "Launcher (Vicinae)",
+  "command -v vicinae >/dev/null && vicinae toggle || omarchy-menu root")
+o.bind("SUPER + ALT + SPACE", "Omarchy menu", { menu = "root" })
+
 -- ── Network Displays: cast to a wireless display ────────────────────────
 o.bind("SUPER + N", "Network Displays (cast)", bin .. "cast")
 

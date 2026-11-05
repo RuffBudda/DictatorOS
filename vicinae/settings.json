@@ -1,0 +1,16 @@
+{
+	"$schema": "https://vicinae.com/schemas/config.json",
+	// DictatorOS: red-and-black theme, opaque window, Esc closes, fresh search every time.
+	"theme": {
+		"light": { "name": "dictatoros", "icon_theme": "auto" },
+		"dark": { "name": "dictatoros", "icon_theme": "auto" }
+	},
+	"launcher_window": {
+		"opacity": 1,
+		"blur": { "enabled": false }
+	},
+	"escape_key_behavior": "close_window",
+	// No usage statistics to the Vicinae server (set to true to share them).
+	"telemetry": { "system_info": false },
+	"pop_to_root_on_close": true
+}
