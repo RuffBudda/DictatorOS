@@ -1,7 +1,7 @@
 #!/bin/bash
 # System-level tweaks. Run with:  sudo ~/dotfiles/system/install.sh
-#  1. Hide the Limine boot menu (quiet + 1s timeout: invisible, but tapping any
-#     key right after power-on still shows it, so snapshots stay reachable).
+#  1. Limine boot menu: shown for 10 s (with countdown) in DictatorOS colours (black, red title,
+#     red highlight bar). Snapshots appear there for rolling back updates.
 #  2. Boot splash (Plymouth / disk-unlock screen): black, no Omarchy logo.
 #  3. Login screen (SDDM, only seen after logout): black, no Omarchy logo.
 #  Both match the lock screen: no box, red ✱ stars (SDDM also gets the thin red clock).
@@ -20,13 +20,13 @@ if [[ ${1:-} == --from-hook ]]; then
   [[ -f /etc/chromium/policies/managed/dotfiles.json ]] || ok=0
   [[ -f /etc/udev/rules.d/90-dotfiles-battery.rules ]] || ok=0
   [[ -f /etc/systemd/logind.conf.d/dotfiles-lid.conf ]] || ok=0
-  grep -q '^quiet: yes' /boot/limine.conf 2>/dev/null || ok=0
+  grep -q '^interface_branding: DictatorOS' /boot/limine.conf 2>/dev/null || ok=0
   grep -q 'name.sprite\|entry.y = Window.GetHeight() / 2' /usr/share/plymouth/themes/omarchy-black/omarchy-black.script 2>/dev/null || ok=0
   (( ok )) && { echo "dotfiles: system settings intact"; exit 0; }
   echo "dotfiles: re-applying system settings reset by the update"
 fi
 
-BOOT_TIMEOUT="${BOOT_TIMEOUT:-1}"   # seconds; 0 = never show menu at all
+BOOT_TIMEOUT="${BOOT_TIMEOUT:-10}"   # seconds the menu waits; 0 = boot straight away
 LOCK_NAME="${LOCK_NAME:-}"  # optional name above the boot password box; empty = no name (matches lock screen)
 
 # Rounded password box (matches the 8px window rounding and red theme).
@@ -45,7 +45,22 @@ for conf in /boot/limine.conf /boot/limine/limine.conf /boot/EFI/limine/limine.c
   else
     sed -i "1i timeout: $BOOT_TIMEOUT" "$conf"
   fi
-  grep -q '^quiet:' "$conf" && sed -i 's/^quiet:.*/quiet: yes/' "$conf" || sed -i '1i quiet: yes' "$conf"
+  # set_key <key> <value>: replace the global option, or add it at the top.
+  set_key() {
+    if grep -q "^$1:" "$conf"; then sed -i "s|^$1:.*|$1: $2|" "$conf"; else sed -i "1i $1: $2" "$conf"; fi
+  }
+  set_key quiet no
+  # DictatorOS colours (from omarchy/themes/red/colors.toml)
+  set_key interface_branding DictatorOS
+  set_key interface_branding_color e5383b
+  set_key interface_help_color 8a5a5d
+  set_key interface_help_color_bright e5383b
+  set_key backdrop 000000
+  set_key term_background 000000
+  set_key term_foreground e5383b     # red text; the highlighted entry is drawn inverted (red bar, black text)
+  set_key term_palette '0a0a0a;e5383b;d9534f;ff7b54;e5383b;ba181b;c9184a;e8d5d6'
+  set_key term_palette_bright '5c1a1e;ff4d4f;f26a6d;ff9a76;ff595e;e01e37;ff4d6d;fff2f2'
+  sed -i 's/^# Terminal colors (Tokyo Night palette)/# Terminal colors (DictatorOS red palette)/' "$conf"
   echo "Updated $conf"
 done
 
