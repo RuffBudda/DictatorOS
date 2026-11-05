@@ -13,7 +13,11 @@
 		"rounding": 16,
 		"clock": { "enabled": false },
 		"compact_mode": { "enabled": true },
-		"size": { "width": 680, "height": 420 }
+		// Short panel: in compact mode the bar sits at the top of this (centred) box,
+		// so 320 tall keeps the bar close to the middle of the screen.
+		"size": { "width": 680, "height": 320 },
+		// Soft, wide drop shadow and a thin red border (drawn by vicinae itself).
+		"client_side_decorations": { "enabled": true, "border_width": 1, "shadow_size": 36 }
 	},
 	"favorites": [],
 	"escape_key_behavior": "close_window",
