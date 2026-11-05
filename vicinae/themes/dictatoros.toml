@@ -15,7 +15,7 @@ border = "#e5383b"
 
 [colors.main_window]
 border = "#e5383b"
-footer = { background = "#0a0a0a" }
+footer = { background = "#000000" }   # blend the footer into the panel (it cannot be hidden)
 
 [colors.settings_window]
 border = "#e5383b"
