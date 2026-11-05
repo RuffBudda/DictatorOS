@@ -1,0 +1,34 @@
+# DictatorOS: black backgrounds, red accents everywhere.
+# Everything Omarchy themes (bar, borders, terminal, menus, lock screen)
+# is generated from this file.
+mode = "dark"
+
+accent = "#e5383b"
+selection = "#3a0d10"
+muted = "#5c1a1e"
+
+background = "#000000"
+dark_background = "#050505"
+darker_background = "#000000"
+lighter_background = "#161011"
+
+foreground = "#e8d5d6"
+dark_foreground = "#8a5a5d"
+light_foreground = "#f0e0e1"
+bright_foreground = "#fff2f2"
+
+red = "#e5383b"
+yellow = "#ff7b54"
+orange = "#ff5a36"
+green = "#d9534f"
+cyan = "#c9184a"
+blue = "#e5383b"
+magenta = "#ba181b"
+brown = "#660708"
+
+bright_red = "#ff4d4f"
+bright_yellow = "#ff9a76"
+bright_green = "#f26a6d"
+bright_cyan = "#ff4d6d"
+bright_blue = "#ff595e"
+bright_magenta = "#e01e37"
