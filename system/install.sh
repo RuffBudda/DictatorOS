@@ -21,6 +21,7 @@ if [[ ${1:-} == --from-hook ]]; then
   [[ -f /etc/udev/rules.d/90-dotfiles-battery.rules ]] || ok=0
   [[ -f /etc/systemd/logind.conf.d/dotfiles-lid.conf ]] || ok=0
   grep -q '^interface_branding: DictatorOS' /boot/limine.conf 2>/dev/null || ok=0
+  grep -q '^/+\?DictatorOS$' /boot/limine.conf 2>/dev/null || ok=0
   grep -q 'name.sprite\|entry.y = Window.GetHeight() / 2' /usr/share/plymouth/themes/omarchy-black/omarchy-black.script 2>/dev/null || ok=0
   (( ok )) && { echo "dotfiles: system settings intact"; exit 0; }
   echo "dotfiles: re-applying system settings reset by the update"
@@ -61,8 +62,18 @@ for conf in /boot/limine.conf /boot/limine/limine.conf /boot/EFI/limine/limine.c
   set_key term_palette '0a0a0a;e5383b;d9534f;ff7b54;e5383b;ba181b;c9184a;e8d5d6'
   set_key term_palette_bright '5c1a1e;ff4d4f;f26a6d;ff9a76;ff595e;e01e37;ff4d6d;fff2f2'
   sed -i 's/^# Terminal colors (Tokyo Night palette)/# Terminal colors (DictatorOS red palette)/' "$conf"
+  # Menu entry name: Omarchy → DictatorOS (entries are matched by machine-id,
+  # and TARGET_OS_NAME below keeps kernel/snapshot updates using the new name).
+  sed -i 's|^/\(+\?\)Omarchy$|/\1DictatorOS|' "$conf"
   echo "Updated $conf"
 done
+if [[ -f /etc/default/limine ]]; then
+  if grep -q '^TARGET_OS_NAME=' /etc/default/limine; then
+    sed -i 's/^TARGET_OS_NAME=.*/TARGET_OS_NAME="DictatorOS"/' /etc/default/limine
+  else
+    echo 'TARGET_OS_NAME="DictatorOS"' >> /etc/default/limine
+  fi
+fi
 
 # ── 2. Plymouth ────────────────────────────────────────────
 SRC=/usr/share/plymouth/themes/omarchy
