@@ -77,7 +77,7 @@ PY
 fi
 
 # Apply now
-omarchy-theme-bg-set "$DOT/backgrounds/black.png" || true
+omarchy-theme-bg-set "$DOT/backgrounds/red-stripes.png" || true
 if command -v hyprctl >/dev/null; then
   hyprctl reload >/dev/null && hyprctl configerrors
 fi

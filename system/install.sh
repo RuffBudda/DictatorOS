@@ -1,7 +1,8 @@
 #!/bin/bash
 # System-level tweaks. Run with:  sudo ~/dotfiles/system/install.sh
 #  1. Limine boot menu: 10 s countdown in DictatorOS colours, entries DictatorOS,
-#     Oryx Windows and Personal Windows; no Snapshots submenu; Limine first in
+#     Oryx Windows and Personal Windows (DictatorOS is one line, no kernel tree);
+#     no Snapshots submenu; Limine first in
 #     the firmware boot order.
 #  2. Boot splash (Plymouth / disk-unlock screen): black, no Omarchy logo.
 #  3. Login screen (SDDM, only seen after logout): black, no Omarchy logo.
@@ -116,6 +117,14 @@ if [[ -f /etc/default/limine ]]; then
     echo 'TARGET_OS_NAME="DictatorOS"' >> /etc/default/limine
   fi
 fi
+
+# DictatorOS as one boot line (no kernel tree under it). limine-entry-tool
+# rebuilds the tree on every kernel update, so a post hook flattens it again.
+HOOK=/etc/boot/hooks/post.d/zz-dotfiles-limine-flatten
+install -D -m 755 -o root -g root "$(dirname "$(readlink -f "$0")")/limine-flatten" "$HOOK"
+for conf in /boot/limine.conf /boot/limine/limine.conf /boot/EFI/limine/limine.conf; do
+  [[ -f $conf ]] && "$HOOK" "$conf"
+done
 
 # Firmware boot order: Limine first (Windows updates like to put themselves first).
 if command -v efibootmgr >/dev/null; then
@@ -377,7 +386,10 @@ echo "Lid close: ignore (no automatic sleep)"
 # ── 7. Re-apply all of this automatically after relevant package updates ──
 # The hook runs a root-owned copy (never the user-writable file in ~/dotfiles).
 self=$(readlink -f "$0"); copy=/usr/local/lib/dotfiles/system-install.sh
-[[ $self == "$copy" ]] || install -D -m 755 -o root -g root "$self" "$copy"   # skip when run as the copy (from the hook)
+if [[ $self != "$copy" ]]; then   # skip when run as the copy (from the hook)
+  install -D -m 755 -o root -g root "$self" "$copy"
+  install -D -m 755 -o root -g root "$(dirname "$self")/limine-flatten" /usr/local/lib/dotfiles/limine-flatten
+fi
 mkdir -p /etc/pacman.d/hooks
 cat >/etc/pacman.d/hooks/zz-dotfiles-system.hook <<'HOOK'
 [Trigger]

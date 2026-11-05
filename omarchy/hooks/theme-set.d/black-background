@@ -1,3 +1,3 @@
 #!/bin/bash
-# Keep the wallpaper solid black no matter which theme is applied.
-omarchy-theme-bg-set "$HOME/dotfiles/backgrounds/black.png" >/dev/null 2>&1
+# Keep the DictatorOS wallpaper (red stripes on black) whichever theme is applied.
+omarchy-theme-bg-set "$HOME/dotfiles/backgrounds/red-stripes.png" >/dev/null 2>&1

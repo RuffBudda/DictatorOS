@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Show DictatorOS as one bootable line in the Limine menu (no kernel tree).
+
+limine-entry-tool always writes the OS as a folder with the kernel under it:
+
+    /+DictatorOS                 ->   /DictatorOS
+      //linux-omarchy                   (protocol, path, cmdline of linux-omarchy)
+        protocol / path / cmdline
+
+This rewrites that folder into a single entry that boots the main kernel
+(the "*-fallback" kernel and any other sub-entries are dropped from the menu).
+The OS header comments, including the machine-id line, are kept so
+limine-entry-tool still recognises the entry next time. Run as a
+limine-entry-tool post hook (/etc/boot/hooks/post.d/), after every
+regeneration, and by system/install.sh. Safe to re-run.
+"""
+import re
+import sys
+
+CONF = sys.argv[1] if len(sys.argv) > 1 else "/boot/limine.conf"
+OS_NAME = "DictatorOS"
+BOOT_KEYS = ("protocol", "path", "kernel_path", "image_path", "cmdline",
+             "kernel_cmdline", "module_path", "module_string", "resolution")
+
+lines = open(CONF, encoding="utf-8").read().split("\n")
+
+# Find the OS entry: "/DictatorOS" or "/+DictatorOS" at the top level.
+start = next((i for i, l in enumerate(lines) if re.fullmatch(r"/\+?" + OS_NAME, l.strip()) and l.startswith("/")), None)
+if start is None:
+    sys.exit(0)
+end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("/")), len(lines))
+block = lines[start + 1:end]
+
+# Header = lines before the first sub-entry ("//...").
+first_child = next((i for i, l in enumerate(block) if l.lstrip().startswith("//")), None)
+if first_child is None:  # already flat: only make sure the caption is right
+    fixed = [("comment: " + OS_NAME if l.strip() == "comment: Omarchy" else l) for l in lines[start:end]]
+    if fixed != lines[start:end]:
+        lines[start:end] = fixed
+        open(CONF, "w", encoding="utf-8").write("\n".join(lines))
+    sys.exit(0)
+
+header = [l for l in block[:first_child]
+          if l.strip() and not l.strip().split(":", 1)[0] in BOOT_KEYS]
+
+# Main kernel = first sub-entry whose name doesn't end in "fallback".
+children = [i for i, l in enumerate(block) if re.match(r"^\s*//[^/]", l)]
+main = next((i for i in children if not block[i].strip().endswith("fallback")), children[0])
+nxt = next((i for i in children if i > main), len(block))
+boot = []
+for l in block[main + 1:nxt]:
+    s = l.strip()
+    if s.startswith("//"):  # deeper sub-entries (old snapshots etc.)
+        break
+    if s.split(":", 1)[0] in BOOT_KEYS:
+        boot.append(s)
+if not any(b.startswith(("path:", "kernel_path:", "image_path:")) for b in boot):
+    sys.exit("limine-flatten: no kernel path found; leaving limine.conf unchanged")
+
+# The first comment is the caption Limine shows under the menu; name it too.
+header = [("comment: " + OS_NAME if h.strip() == "comment: Omarchy" else h) for h in header]
+new_block = ["/" + OS_NAME] + [h.lstrip() for h in header] + boot + [""]
+lines[start:end] = new_block
+
+# The flat entry is now the first bootable item: boot it by default.
+lines = [("default_entry: 1" if l.startswith("default_entry:") else l) for l in lines]
+
+open(CONF, "w", encoding="utf-8").write("\n".join(lines))
+print("limine-flatten: " + OS_NAME + " is a single boot entry")

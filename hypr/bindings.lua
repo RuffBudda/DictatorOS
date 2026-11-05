@@ -10,13 +10,17 @@ local bin = os.getenv("HOME") .. "/dotfiles/bin/"
 -- SUPER + LEFT/RIGHT were "focus window left/right"; now they move the
 -- window within the tiling layout; at the edge it goes to the next (RIGHT)
 -- or previous (LEFT) screen, whether that screen is beside, above or below.
--- SUPER + UP/DOWN keep Omarchy's default (focus window above/below).
+-- SUPER + UP/DOWN stack windows vertically: they move the window up/down, and
+-- turn side-by-side windows into a top/bottom stack (this window on top for UP,
+-- at the bottom for DOWN). A single window snaps to the top/bottom half.
 -- With a single window on the workspace, SUPER + LEFT/RIGHT snaps it to the
 -- left/right half instead. It stays tiled (no floating): the workspace just
 -- gets a wide outer gap on the other side. Pressing the opposite arrow, or
 -- opening another window there, returns to normal full-width tiling.
 hl.unbind("SUPER + LEFT")
 hl.unbind("SUPER + RIGHT")
+hl.unbind("SUPER + UP")
+hl.unbind("SUPER + DOWN")
 
 local half_snap = {}  -- workspace id -> { dir = "l"|"r", rule = <workspace rule> }
 
@@ -65,27 +69,54 @@ local function move_to_other_screen(win, dir)
   return true
 end
 
+local function center_y(w)
+  local at, size = w.at or {}, w.size or {}
+  return (at.y or at[2] or 0) + (size.y or size[2] or 0) / 2
+end
+
 -- Is there another tiled window on this workspace in that direction?
 local function neighbour_in(win, dir)
-  local cx = center_x(win)
+  local cx, cy = center_x(win), center_y(win)
   for _, w in ipairs(hl.get_workspace_windows(win.workspace.id)) do
     if w.address ~= win.address and w.mapped and not w.floating then
-      local wx = center_x(w)
-      if (dir == "l" and wx < cx - 1) or (dir == "r" and wx > cx + 1) then return true end
+      local wx, wy = center_x(w), center_y(w)
+      if (dir == "l" and wx < cx - 1) or (dir == "r" and wx > cx + 1)
+        or (dir == "u" and wy < cy - 1) or (dir == "d" and wy > cy + 1) then return true end
     end
   end
   return false
+end
+
+-- SUPER + UP/DOWN with several windows: move the window up/down; if it has
+-- nothing above or below (windows side by side), stack them vertically with
+-- this window on top (UP) or at the bottom (DOWN).
+local function stack(win, dir)
+  if neighbour_in(win, dir) then
+    hl.dispatch(hl.dsp.window.move({ direction = dir }))
+    return
+  end
+  if neighbour_in(win, dir == "u" and "d" or "u") then return end  -- already at that end of a stack
+  hl.dispatch(hl.dsp.layout("togglesplit"))
+  local t
+  t = hl.timer(function()
+    t:set_enabled(false)
+    local w = hl.get_active_window()
+    if w and neighbour_in(w, dir) then hl.dispatch(hl.dsp.layout("swapsplit")) end
+  end, { timeout = 60, type = "oneshot" })
 end
 
 local function snap(dir)
   local win = hl.get_active_window()
   if not win or not win.workspace then return end
   local ws = win.workspace
-  local other = dir == "l" and "r" or "l"
+  local vertical = dir == "u" or dir == "d"
+  local other = ({ l = "r", r = "l", u = "d", d = "u" })[dir]
 
   if win.floating or tiled_count(ws) > 1 then
     clear_half_snap(ws.id)
-    if neighbour_in(win, dir) or not move_to_other_screen(win, dir) then
+    if vertical then
+      stack(win, dir)
+    elseif neighbour_in(win, dir) or not move_to_other_screen(win, dir) then
       hl.dispatch(hl.dsp.window.move({ direction = dir }))
     end
     return
@@ -96,20 +127,28 @@ local function snap(dir)
     clear_half_snap(ws.id)
     return
   end
-  if current and current.dir == dir then    -- same arrow again: other screen
+  if current and current.dir == dir then    -- same arrow again: other screen (left/right only)
+    if vertical then return end
     clear_half_snap(ws.id)
     move_to_other_screen(win, dir)
     return
   end
+  if current then clear_half_snap(ws.id) end  -- e.g. left half -> top half
 
   local m = win.monitor or hl.get_active_monitor()
-  local width = (m.transform % 2 == 1 and m.height or m.width) / m.scale
+  local rotated = m.transform % 2 == 1
+  local width = (rotated and m.height or m.width) / m.scale
+  local height = (rotated and m.width or m.height) / m.scale
   local g = gap_px()
-  local half = math.floor((width - 3 * g) / 2)
-  local far = math.floor(width - g - half)
-  local gaps = dir == "l"
-    and { top = g, right = far, bottom = g, left = g }
-    or { top = g, right = g, bottom = g, left = far }
+  local span = vertical and height or width
+  local half = math.floor((span - 3 * g) / 2)
+  local far = math.floor(span - g - half)
+  local gaps = ({
+    l = { top = g, right = far, bottom = g, left = g },
+    r = { top = g, right = g, bottom = g, left = far },
+    u = { top = g, right = g, bottom = far, left = g },
+    d = { top = far, right = g, bottom = g, left = g },
+  })[dir]
   half_snap[ws.id] = { dir = dir, rule = hl.workspace_rule({ workspace = tostring(ws.id), gaps_out = gaps }) }
 end
 
@@ -148,6 +187,8 @@ _G.dotfiles_snap = snap  -- for testing
 _G.dotfiles_move_to_other_screen = function(addr, dir) local w = hl.get_window("address:" .. addr); if w then return move_to_other_screen(w, dir) end end
 o.bind("SUPER + LEFT", "Snap / move window left", function() snap("l") end)
 o.bind("SUPER + RIGHT", "Snap / move window right", function() snap("r") end)
+o.bind("SUPER + UP", "Stack / move window up", function() snap("u") end)
+o.bind("SUPER + DOWN", "Stack / move window down", function() snap("d") end)
 
 -- ── Network Displays: cast to a wireless display ────────────────────────
 o.bind("SUPER + N", "Network Displays (cast)", bin .. "cast")

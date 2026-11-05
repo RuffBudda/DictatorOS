@@ -76,8 +76,9 @@
   unplugging or re-plugging a monitor keeps windows where they belong.
 - **Tiling only**: no floating popups layered over your work (installer terminals,
   btop, Steam… all tile); Super+Left/Right snaps a lone window to half the screen
-  without floating it.
-- **Black + red**: custom *Red* theme, solid black wallpaper, no logos on boot,
+  without floating it; Super+Up/Down stacks windows vertically (or snaps a lone window
+  to the top/bottom half).
+- **Black + red**: custom *Red* theme, red-stripes-on-black wallpaper, no logos on boot,
   login or lock screens, rounded corners everywhere. The Limine boot menu is red on black
   too, with DictatorOS and both Windows installs.
 - **Chromium to match**: red-accented toolbar, tabs down the left side, and a black
@@ -131,7 +132,9 @@ in its profile.
 
 1. Limine boot menu, red on black with a 10 s countdown. Entries: **DictatorOS**,
    **Oryx Windows** (drive 1) and **Personal Windows** (drive 2), each Windows booting its
-   own boot manager; added only if that partition exists. No Snapshots submenu
+   own boot manager; added only if that partition exists. DictatorOS is a single line
+   (no kernel tree): `system/limine-flatten`, also installed as a limine-entry-tool post
+   hook (`/etc/boot/hooks/post.d/`) so kernel updates keep it flat. No Snapshots submenu
    (`limine-snapper-sync` is disabled; Snapper still takes snapshots). Limine is put first
    in the firmware boot order. To hide the menu:
    `sudo BOOT_MENU=hidden BOOT_TIMEOUT=1 ~/dotfiles/system/install.sh`.
@@ -353,7 +356,7 @@ Common tweaks:
 
 ```
 applications/        launcher entries (Display settings, New VPN profile, rmdesk)
-backgrounds/         black wallpaper
+backgrounds/         red-stripes wallpaper (SVG source + PNG) and plain black
 bin/                 scripts used by bindings, widgets and hooks
 chromium/            black search-only new tab page (Chromium extension)
 docs/                README images
