@@ -1,7 +1,7 @@
 #!/bin/bash
 # System-level tweaks. Run with:  sudo ~/dotfiles/system/install.sh
-#  1. Limine boot menu: shown for 10 s (with countdown) in DictatorOS colours (black, red title,
-#     red highlight bar). Snapshots appear there for rolling back updates.
+#  1. Limine boot menu: hidden (quiet, 1 s; tap a key at power-on to open it), in
+#     DictatorOS colours with a DictatorOS entry. Snapshots for rollbacks live there.
 #  2. Boot splash (Plymouth / disk-unlock screen): black, no Omarchy logo.
 #  3. Login screen (SDDM, only seen after logout): black, no Omarchy logo.
 #  Both match the lock screen: no box, red ✱ stars (SDDM also gets the thin red clock).
@@ -29,7 +29,8 @@ if [[ ${1:-} == --from-hook ]]; then
   echo "dotfiles: re-applying system settings reset by the update"
 fi
 
-BOOT_TIMEOUT="${BOOT_TIMEOUT:-10}"   # seconds the menu waits; 0 = boot straight away
+BOOT_TIMEOUT="${BOOT_TIMEOUT:-1}"    # seconds to tap a key for the menu; 0 = never show it
+BOOT_MENU="${BOOT_MENU:-hidden}"     # "shown" = always show the menu with a countdown
 LOCK_NAME="${LOCK_NAME:-}"  # optional name above the boot password box; empty = no name (matches lock screen)
 
 # Rounded password box (matches the 8px window rounding and red theme).
@@ -52,7 +53,7 @@ for conf in /boot/limine.conf /boot/limine/limine.conf /boot/EFI/limine/limine.c
   set_key() {
     if grep -q "^$1:" "$conf"; then sed -i "s|^$1:.*|$1: $2|" "$conf"; else sed -i "1i $1: $2" "$conf"; fi
   }
-  set_key quiet no
+  [[ $BOOT_MENU == shown ]] && set_key quiet no || set_key quiet yes
   # DictatorOS colours (from omarchy/themes/red/colors.toml)
   set_key interface_branding DictatorOS
   set_key interface_branding_color e5383b
@@ -118,6 +119,19 @@ perl -0pi -e 's/bullet\.image\.Scale\(7, 7\)/bullet.image/;
   s/fun position_bullet\(index\) \{.*?\n\}/fun position_bullet(index) {\n  step = bullet.image.GetWidth() + 12;\n  bullet.sprites[index].SetPosition(Window.GetWidth() \/ 2 - (global.bullet_count * step - 12) \/ 2 + index * step, entry.y + entry.image.GetHeight() \/ 2 - bullet.image.GetHeight() \/ 2, 10002);\n}/s;
   s/(  for \(index = 0; index < bullets_to_show; index\+\+\) \{)/  global.bullet_count = bullets_to_show;\n$1/;
   s/(      position_bullet\(index\);\n    \}\n)/    }\n    position_bullet(index);\n/' "$DST/omarchy-black.script"
+# With no clock there, say what the screen wants: "enter password" in dim red
+# where the stars go, hidden as soon as you start typing.
+magick -background none -fill 'rgba(229,56,59,0.75)' -font JetBrains-Mono-Regular -pointsize 26 \
+  label:'enter password' "$DST/prompt.png"
+perl -0pi -e 's/(  global\.bullet_count = bullets_to_show;\n)/$1  pwhint.sprite.SetPosition(Window.GetWidth() \/ 2 - pwhint.image.GetWidth() \/ 2, entry.y + entry.image.GetHeight() \/ 2 - pwhint.image.GetHeight() \/ 2, 10003);\n  if (bullets_to_show == 0) { pwhint.sprite.SetOpacity(1); } else { pwhint.sprite.SetOpacity(0); }\n/;
+  s/(fun hide_password_dialog\(\) \{\n)/$1  pwhint.sprite.SetOpacity(0);\n/' "$DST/omarchy-black.script"
+cat >>"$DST/omarchy-black.script" <<'PLY'
+
+#----------------------------------------- Password prompt (dotfiles) -------------
+pwhint.image = Image("prompt.png");
+pwhint.sprite = Sprite(pwhint.image);
+pwhint.sprite.SetOpacity(0);
+PLY
 plymouth-set-default-theme omarchy-black
 echo "Rebuilding initramfs…"
 if command -v limine-mkinitcpio >/dev/null; then limine-mkinitcpio; else mkinitcpio -P; fi

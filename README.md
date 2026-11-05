@@ -78,8 +78,8 @@
   btop, Steam… all tile); Super+Left/Right snaps a lone window to half the screen
   without floating it.
 - **Black + red**: custom *Red* theme, solid black wallpaper, no logos on boot,
-  login or lock screens, rounded corners everywhere. The Limine boot menu is red on
-  black too, and the boot entry is called DictatorOS.
+  login or lock screens, rounded corners everywhere. The (hidden) Limine boot menu is red
+  on black too, and the boot entry is called DictatorOS.
 - **Chromium to match**: red-accented toolbar, tabs down the left side, and a black
   new tab page with only a red Google logo and a search box. No bookmarks bar, no
   AI Mode / Gemini / Lens.
@@ -129,10 +129,11 @@ in its profile.
 
 **`system/install.sh`** (root). Each step is idempotent:
 
-1. Limine boot menu in red and black with a 10 s countdown; the entry is renamed
-   DictatorOS (`BOOT_TIMEOUT=0` to skip the menu).
-2. Black Plymouth boot splash with no logo; the disk-unlock password shows as red ✱
-   stars with no box, like the lock screen.
+1. Limine boot menu hidden (quiet, 1 s: tap any key right after power-on to open it),
+   coloured red and black with the entry renamed DictatorOS. To always show it with a
+   countdown: `sudo BOOT_MENU=shown BOOT_TIMEOUT=10 ~/dotfiles/system/install.sh`.
+2. Black Plymouth boot splash with no logo; the disk-unlock screen says "enter password"
+   in dim red, then shows red ✱ stars as you type (no box), like the lock screen.
 3. SDDM login screen like the lock screen: thin red clock, red stars, no box.
 4. Chromium policies: YouTube notifications blocked, Claude extension installed,
    no bookmarks bar / home / cast buttons or new-tab cards, AI Mode, Gemini and Lens off.
@@ -158,7 +159,7 @@ Then the app choices and, optionally, WHOOP:
   removes Basecamp, X, Discord, HEY, the Google web apps and the Office web apps.
 - **Removes** apps this setup doesn't use: Obsidian, Pinta, Kdenlive, OBS, Xournal++,
   cliamp, Aether, Moonlight, LocalSend, Gliff, Superwhisper (and its leftovers), owe,
-  Disktree, Evince, yt-dlp, herdr, tobi-try, lazygit, ttfx, .NET, Ruby, the
+  Disktree, Evince, yt-dlp, tobi-try, lazygit, ttfx, .NET, Ruby, the
   MariaDB/PostgreSQL client libraries, the Chinese/Japanese/Korean input add-ons
   (the fcitx5 core stays: Omarchy uses it for compose keys), asdcontrol,
   qemu-user-static-binfmt, and `intel-ucode` on AMD machines only.
@@ -214,10 +215,10 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 - **Screen stays on while locked on AC power**; on battery it turns off after 5 s.
 - **Idle**: no screensaver, no automatic lock, no automatic sleep.
 - **Login screen** (SDDM, after logout): the same thin red clock and red stars; press Enter.
-- **Disk unlock at boot** (Plymouth): black, red stars centred, no box (no clock:
-  Plymouth scripts can't read the time).
-- **Boot menu** (Limine): red on black, "DictatorOS" title and entry, 10 s countdown.
-  Snapper snapshots appear here for rolling back a bad update.
+- **Disk unlock at boot** (Plymouth): black, "enter password" in dim red until you type,
+  then red stars centred, no box (no clock: Plymouth scripts can't read the time).
+- **Boot menu** (Limine): hidden; tap a key at power-on to open it. Red on black,
+  "DictatorOS" title and entry; Snapper snapshots appear here for rolling back a bad update.
 - **Admin password prompts** use Omarchy's standard dialog.
 
 ### Chromium
@@ -288,6 +289,7 @@ red icons, red lock screen. The wallpaper is forced to solid black on every them
 
 ### Other
 
+- **Notifications** hide after 10 s, urgent ones included (they stay in the history).
 - `apps.sh`: app choices (fonts, removals, Claude Desktop, fwupd, web apps, rmdesk;
   see [Install](#install)).
 - `bin/rmdesk` + launcher: a reMarkable 2 desktop app (separate project with its own venv).

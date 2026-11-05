@@ -9,7 +9,7 @@ REMOVE_PKGS=(
   kdenlive obs-studio obsidian pinta xournalpp cliamp aether
   moonlight-qt localsend gliff superwhisper-bin owe disktree-bin evince yt-dlp
   # terminal / developer extras
-  herdr tobi-try lazygit ttfx
+  tobi-try lazygit ttfx     # (herdr stays: Omarchy starts its server at login)
   dotnet-runtime ruby rubygems mariadb-libs postgresql-libs
   # Chinese/Japanese/Korean input add-ons (the fcitx5 core stays: Omarchy uses it
   # for Shift+CapsLock compose sequences)

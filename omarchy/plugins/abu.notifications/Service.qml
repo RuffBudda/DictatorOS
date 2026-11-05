@@ -99,15 +99,12 @@ Item {
   readonly property int normalPopupDuration: 8000
   readonly property int maxPopupDuration: 30000
 
+  // dotfiles: every toast (critical included) hides after 10 s; it stays in
+  // the notification history either way.
+  readonly property int autoHideDuration: 10000
+
   function durationFor(urgency, expireTimeout) {
-    switch (urgency) {
-    case NotificationUrgency.Critical:
-      return 0
-    case NotificationUrgency.Low:
-      return Math.min(maxPopupDuration, Math.max(lowPopupDuration, requestedDuration(expireTimeout)))
-    default:
-      return Math.min(maxPopupDuration, Math.max(normalPopupDuration, requestedDuration(expireTimeout)))
-    }
+    return autoHideDuration
   }
 
   function requestedDuration(expireTimeout) {
