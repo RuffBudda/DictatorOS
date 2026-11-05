@@ -1,14 +1,21 @@
 {
 	"$schema": "https://vicinae.com/schemas/config.json",
-	// DictatorOS: red-and-black theme, opaque window, Esc closes, fresh search every time.
+	// DictatorOS: Spotlight-style. Just a search bar until you type, red-and-black
+	// theme, no clock or favorites, Esc closes, fresh search every time.
+	// (Everything behind it is dimmed by a Hyprland layer rule in hypr/looknfeel.lua.)
 	"theme": {
 		"light": { "name": "dictatoros", "icon_theme": "auto" },
 		"dark": { "name": "dictatoros", "icon_theme": "auto" }
 	},
 	"launcher_window": {
 		"opacity": 1,
-		"blur": { "enabled": false }
+		"blur": { "enabled": false },
+		"rounding": 16,
+		"clock": { "enabled": false },
+		"compact_mode": { "enabled": true },
+		"size": { "width": 680, "height": 420 }
 	},
+	"favorites": [],
 	"escape_key_behavior": "close_window",
 	// No usage statistics to the Vicinae server (set to true to share them).
 	"telemetry": { "system_info": false },
