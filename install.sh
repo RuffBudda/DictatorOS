@@ -48,6 +48,34 @@ link bin/fetch                                ~/.local/bin/neofetch
 
 chmod +x "$DOT"/bin/*
 
+# ── Chromium: tabs on the left + black search-only new tab page ──
+# (Colours come from the Red theme's chromium.theme; policies from system/install.sh.)
+FLAGS=~/.config/chromium-flags.conf
+if [[ -f $FLAGS ]]; then
+  # Omarchy's yt-dlp extension needs yt-dlp, which apps.sh removes.
+  sed -i 's#,/usr/share/omarchy/default/chromium/extensions/yt-dlp##' "$FLAGS"
+  grep -q '^--enable-features=' "$FLAGS" || echo '--enable-features=VerticalTabs' >>"$FLAGS"
+  sed -i '/^--enable-features=/{/VerticalTabs/!s/$/,VerticalTabs/}' "$FLAGS"
+  grep -q '^--load-extension=' "$FLAGS" || echo "--load-extension=$DOT/chromium/blank-newtab" >>"$FLAGS"
+  grep -q "$DOT/chromium/blank-newtab" "$FLAGS" || sed -i "s#^--load-extension=.*#&,$DOT/chromium/blank-newtab#" "$FLAGS"
+  echo "Chromium flags: vertical tabs, new tab page"
+fi
+# Turn vertical tabs on in the profile (only while Chromium is closed, as it
+# rewrites its Preferences file on exit).
+PREFS=~/.config/chromium/Default/Preferences
+if [[ -f $PREFS ]] && ! pgrep -x chromium >/dev/null; then
+  python3 -I - "$PREFS" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d.setdefault("vertical_tabs", {})["enabled"] = True
+ntp = d.setdefault("ntp", {})
+ntp["shortcust_visible"] = False          # (sic) Chromium's pref name
+ntp["animated_doodles_enabled"] = False
+json.dump(d, open(p, "w"), separators=(",", ":"))
+PY
+  echo "Chromium: vertical tabs on"
+fi
+
 # Apply now
 omarchy-theme-bg-set "$DOT/backgrounds/black.png" || true
 if command -v hyprctl >/dev/null; then

@@ -78,9 +78,13 @@
   btop, Steam… all tile); Super+Left/Right snaps a lone window to half the screen
   without floating it.
 - **Black + red**: custom *Red* theme, solid black wallpaper, no logos on boot,
-  login or lock screens, rounded corners everywhere.
+  login or lock screens, rounded corners everywhere. The Limine boot menu is red on
+  black too, and the boot entry is called DictatorOS.
+- **Chromium to match**: red-accented toolbar, tabs down the left side, and a black
+  new tab page with only a red Google logo and a search box. No bookmarks bar, no
+  AI Mode / Gemini / Lens.
 - **Minimal lock screen**: a big thin red clock; type your password and it unlocks
-  as soon as it's complete (no Enter).
+  as soon as it's complete (no Enter). The login and disk-unlock screens look the same.
 - **Desktop widgets**: GitHub contribution graph, WHOOP recovery/strain/sleep rings
   and live CPU/GPU/RAM rings, sitting on the wallpaper behind your windows.
 - **Bar on demand**: top bar hidden by default, Super+B to show it; transparent with
@@ -119,23 +123,47 @@ omarchy theme set red
 - `applications/*.desktop` → `~/.local/share/applications/`
 - `fastfetch/config.jsonc` → `~/.config/fastfetch/`; `bin/fetch` → `~/.local/bin/fetch` and `~/.local/bin/neofetch`
 
+It also edits `~/.config/chromium-flags.conf` (vertical tabs, the `chromium/blank-newtab`
+new tab page, no yt-dlp extension) and, while Chromium is closed, turns vertical tabs on
+in its profile.
+
 **`system/install.sh`** (root). Each step is idempotent:
 
-1. Hides the Limine boot menu (quiet, 1 s; tap a key at power-on to see it).
-2. Black Plymouth boot splash with no logo; password box matching the lock screen.
-3. Black SDDM login screen with no logo.
-4. Chromium policy blocking YouTube notifications.
+1. Limine boot menu in red and black with a 10 s countdown; the entry is renamed
+   DictatorOS (`BOOT_TIMEOUT=0` to skip the menu).
+2. Black Plymouth boot splash with no logo; the disk-unlock password shows as red ✱
+   stars with no box, like the lock screen.
+3. SDDM login screen like the lock screen: thin red clock, red stars, no box.
+4. Chromium policies: YouTube notifications blocked, Claude extension installed,
+   no bookmarks bar / home / cast buttons or new-tab cards, AI Mode, Gemini and Lens off.
 5. Battery: Lenovo *Conservation mode* (charging stops at about 80 %), re-applied on boot.
 6. No automatic sleep: closing the lid does nothing (battery or AC).
 7. A pacman hook that re-applies all of the above after relevant package updates.
    It runs a root-owned copy of the script, never the user-writable one.
 
-Then, optionally:
+Then the app choices and, optionally, WHOOP:
 
 ```bash
+~/dotfiles/apps.sh                    # apps, fonts, removals (asks for sudo; safe to re-run)
 ~/dotfiles/bin/whoop-auth             # connect WHOOP once (rings appear)
-~/dotfiles/apps.sh                    # app choices: removals, Claude Desktop, Microsoft web apps
 ```
+
+**`apps.sh`** (asks for sudo):
+
+- **Adds** Claude Desktop, fwupd, Office-compatible fonts (Carlito for Calibri, Caladea
+  for Cambria, Liberation/Croscore for Arial, Times New Roman and Courier New) and about 35
+  common font families from the Arch repos, plus ~30 more Google Fonts (Poppins,
+  Raleway, Playfair Display, Merriweather, Lora, DM Sans…) into `~/.local/share/fonts/google`.
+- **Web apps**: keeps WhatsApp and Zoom; adds Outlook, Outlook Calendar and Teams;
+  removes Basecamp, X, Discord, HEY, the Google web apps and the Office web apps.
+- **Removes** apps this setup doesn't use: Obsidian, Pinta, Kdenlive, OBS, Xournal++,
+  cliamp, Aether, Moonlight, LocalSend, Gliff, Superwhisper (and its leftovers), owe,
+  Disktree, Evince, yt-dlp, herdr, tobi-try, lazygit, ttfx, .NET, Ruby, the
+  MariaDB/PostgreSQL client libraries, the Chinese/Japanese/Korean input add-ons
+  (the fcitx5 core stays: Omarchy uses it for compose keys), asdcontrol,
+  qemu-user-static-binfmt, and `intel-ucode` on AMD machines only.
+  Edit `REMOVE_PKGS` at the top to keep any of them.
+- **rmdesk**: clones it to `~/Work/rmdesk` and builds its Python environment.
 
 Keep machines in sync with `git -C ~/dotfiles pull` (and commit + push your own changes).
 
@@ -185,7 +213,23 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
   change). The password field only shows on the main screen.
 - **Screen stays on while locked on AC power**; on battery it turns off after 5 s.
 - **Idle**: no screensaver, no automatic lock, no automatic sleep.
-- **Boot and login screens**: black, no logos, rounded red password boxes.
+- **Login screen** (SDDM, after logout): the same thin red clock and red stars; press Enter.
+- **Disk unlock at boot** (Plymouth): black, red stars centred, no box (no clock:
+  Plymouth scripts can't read the time).
+- **Boot menu** (Limine): red on black, "DictatorOS" title and entry, 10 s countdown.
+  Snapper snapshots appear here for rolling back a bad update.
+- **Admin password prompts** use Omarchy's standard dialog.
+
+### Chromium
+
+- **Colours**: `omarchy/themes/red/chromium.theme` gives Chromium the red accent, so the
+  toolbar, tab strip and focus outlines are red (no Chromium blue).
+- **Tabs down the left side** (vertical tabs).
+- **New tab page** (`chromium/blank-newtab`, loaded with `--load-extension`): black, red
+  Google logo, a DictatorOS-style search box that searches Google. A small background
+  script also replaces Chromium's own page in the first tab after start-up.
+- **Policies** (`system/install.sh`): Claude extension, no bookmarks bar, home or cast
+  buttons, no new-tab cards, AI Mode / Gemini / Lens off, YouTube notifications blocked.
 
 ### Bar and panels
 
@@ -244,8 +288,8 @@ red icons, red lock screen. The wallpaper is forced to solid black on every them
 
 ### Other
 
-- `apps.sh`: app choices (removes some preinstalled apps; adds Claude Desktop, fwupd and
-  Outlook/Teams web apps).
+- `apps.sh`: app choices (fonts, removals, Claude Desktop, fwupd, web apps, rmdesk;
+  see [Install](#install)).
 - `bin/rmdesk` + launcher: a reMarkable 2 desktop app (separate project with its own venv).
 - `bin/block-text`: render text in the Omarchy logo's block-letter style.
 - `preview/`: HTML mock-ups used while designing the lock screen.
@@ -291,8 +335,13 @@ Common tweaks:
 - System tweaks: delete `/etc/pacman.d/hooks/zz-dotfiles-system.hook`,
   `/etc/sddm.conf.d/zz-dotfiles.conf`, `/etc/systemd/logind.conf.d/dotfiles-lid.conf`,
   `/etc/udev/rules.d/90-dotfiles-battery.rules` and
-  `/etc/chromium/policies/managed/dotfiles.json`, then run
-  `sudo plymouth-set-default-theme omarchy && sudo limine-mkinitcpio`.
+  `/etc/chromium/policies/managed/{dotfiles,claude,minimal}.json`, then run
+  `sudo plymouth-set-default-theme omarchy && sudo limine-mkinitcpio`. The Limine
+  colours and entry name are restored from `/boot/limine.conf.bak.<timestamp>`; also
+  remove `TARGET_OS_NAME` from `/etc/default/limine`.
+- Chromium: remove the `blank-newtab` path and `VerticalTabs` from
+  `~/.config/chromium-flags.conf`.
+- Apps removed by `apps.sh` can be reinstalled with `omarchy-pkg-add <name>`.
 
 ## Repository layout
 
@@ -300,6 +349,7 @@ Common tweaks:
 applications/        launcher entries (Display settings, New VPN profile, rmdesk)
 backgrounds/         black wallpaper
 bin/                 scripts used by bindings, widgets and hooks
+chromium/            black search-only new tab page (Chromium extension)
 docs/                README images
 fastfetch/           fastfetch config and the DictatorOS logo
 hypr/                Hyprland config: bindings, desktops, tiling, monitors, displays, input, look and feel
@@ -314,7 +364,7 @@ packages/            patched gnome-network-displays build
 preview/             design mock-ups
 system/              root-level tweaks (install.sh, Bluetooth fix)
 install.sh           user-level installer
-apps.sh              app choices
+apps.sh              app choices: fonts, removals, web apps, rmdesk
 ```
 
 ## Third-party plugins

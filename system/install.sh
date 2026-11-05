@@ -5,7 +5,8 @@
 #  2. Boot splash (Plymouth / disk-unlock screen): black, no Omarchy logo.
 #  3. Login screen (SDDM, only seen after logout): black, no Omarchy logo.
 #  Both match the lock screen: no box, red ✱ stars (SDDM also gets the thin red clock).
-#  4. Chromium: block YouTube notifications.  5. Battery: stop charging at ~80%.
+#  4. Chromium: block YouTube notifications, Claude extension, minimal toolbar,
+#     AI features off.  5. Battery: stop charging at ~80%.
 #  6. No automatic sleep (lid close ignored).
 #  7. A pacman hook re-applies all of this after relevant updates (root-owned copy).
 # Safe to re-run (e.g. after an `omarchy update` that resets anything).
@@ -18,6 +19,7 @@ if [[ ${1:-} == --from-hook ]]; then
   [[ $(plymouth-set-default-theme 2>/dev/null) == omarchy-black ]] || ok=0
   [[ -f /etc/sddm.conf.d/zz-dotfiles.conf ]] || ok=0
   [[ -f /etc/chromium/policies/managed/dotfiles.json ]] || ok=0
+  [[ -f /etc/chromium/policies/managed/minimal.json && -f /etc/chromium/policies/managed/claude.json ]] || ok=0
   [[ -f /etc/udev/rules.d/90-dotfiles-battery.rules ]] || ok=0
   [[ -f /etc/systemd/logind.conf.d/dotfiles-lid.conf ]] || ok=0
   grep -q '^interface_branding: DictatorOS' /boot/limine.conf 2>/dev/null || ok=0
@@ -251,6 +253,38 @@ cat >/etc/chromium/policies/managed/dotfiles.json <<'JSON'
 }
 JSON
 echo "Chromium: YouTube notifications blocked"
+
+# Claude extension (from the Chrome Web Store), installed for every profile.
+cat >/etc/chromium/policies/managed/claude.json <<'JSON'
+{
+  "ExtensionSettings": {
+    "fcoeoabgfenejglbffodgkkbkcdhcgfn": {
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx",
+      "toolbar_pin": "default_unpinned"
+    }
+  }
+}
+JSON
+# Minimal browser: no bookmarks bar, home or cast buttons, no new-tab cards,
+# and Google AI Mode / Gemini / Lens switched off.
+cat >/etc/chromium/policies/managed/minimal.json <<'JSON'
+{
+  "BookmarkBarEnabled": false,
+  "ShowHomeButton": false,
+  "ShowAppsShortcutInBookmarkBar": false,
+  "ShowCastIconInToolbar": false,
+  "NTPCardsVisible": false,
+  "NTPCustomBackgroundEnabled": false,
+  "NTPFooterExtensionAttributionEnabled": false,
+  "NTPFooterManagementNoticeEnabled": false,
+  "AIModeSettings": 1,
+  "GeminiSettings": 1,
+  "LensOverlaySettings": 1,
+  "GenAiDefaultSettings": 2
+}
+JSON
+echo "Chromium: Claude extension, minimal toolbar, AI features off"
 
 # ── 5. Battery: Lenovo Conservation mode (stops charging at ~80%) ─────
 # BAT1 offers charge_types "Fast Standard Long_Life"; Long_Life is Lenovo's
