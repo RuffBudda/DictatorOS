@@ -52,6 +52,9 @@
 >     any other update (see decree 7). They will be read, eventually, and framed, never.
 >     The menu formerly known as the chef's special now lives on Super+Alt+Space.
 > 15. **Manifestos shall be short.** This one is shorter than Omarchy's. That is also a decree.
+> 16. **Political discussion is banned on this machine.** We did not invent this policy; we
+>     found it in the chef's other restaurant, where it was served to the staff in 2021.
+>     It is the one recipe of his we kept, and the only one that suits a dictatorship.
 >
 > Long live the tiles.
 >
