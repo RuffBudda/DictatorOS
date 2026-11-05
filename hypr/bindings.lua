@@ -208,7 +208,7 @@ o.bind("SUPER + E", "Files", { omarchy = "nautilus" })
 o.bind("CTRL + SHIFT + ESCAPE", "Task Manager", { launch = "missioncenter" })
 
 -- ── Top bar show/hide ───────────────────────────────────────────────────
--- The bar starts hidden; SUPER+B shows it (windows move down) or hides it.
+-- The bar shows by default; SUPER+B hides it (windows move up) or shows it again.
 o.bind("SUPER + B", "Show / hide top bar", "omarchy-toggle-bar")
 
 -- ── Screenshots (Windows: Win+Shift+S snip) ─────────────────────────────

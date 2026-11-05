@@ -1,4 +1,6 @@
-# DictatorOS
+<p align="center"><img src="docs/logo.png" alt="DictatorOS logo: a crowned grid of tiles" width="260"></p>
+
+<h1 align="center">DictatorOS</h1>
 
 ![Omarchy 4.5](https://img.shields.io/badge/Omarchy-4.5-e5383b?style=flat-square&labelColor=0a0a0a) ![Hyprland 0.56 Lua](https://img.shields.io/badge/Hyprland-0.56%20(Lua)-e5383b?style=flat-square&labelColor=0a0a0a) ![Arch Linux](https://img.shields.io/badge/Arch-Linux-e5383b?style=flat-square&labelColor=0a0a0a&logo=archlinux&logoColor=e5383b) ![License: MIT](https://img.shields.io/badge/License-MIT-e5383b?style=flat-square&labelColor=0a0a0a) ![Floating windows: banned](https://img.shields.io/badge/floating%20windows-banned-e5383b?style=flat-square&labelColor=0a0a0a) ![Focus stealing: illegal](https://img.shields.io/badge/focus%20stealing-illegal-e5383b?style=flat-square&labelColor=0a0a0a) ![Colours: red and black](https://img.shields.io/badge/colours-red%20%26%20black-e5383b?style=flat-square&labelColor=0a0a0a)
 
@@ -16,19 +18,29 @@
 > effect immediately.
 >
 > 1. **Windows shall tile.** Floating is treason. Installer terminals, task monitors and
->    games alike shall stand in line.
+>    games alike shall stand in line, side by side or one above the other (Super+arrows).
 > 2. **There is one desktop.** Screens that try to show different workspaces will be
 >    re-educated, and a screen that leaves will have its windows returned to the motherland.
 > 3. **The colours of the state are red and black.** All other colours are confiscated.
->    The wallpaper is black. It will remain black.
-> 4. **No application may seize your attention.** Focus belongs to the people.
-> 5. **The bar appears only when summoned** (Super+B). The Leader dislikes clutter.
-> 6. **Updates may petition; they may not decree.** Every change an update attempts is
+>    Terminals are black, the bar is black, and transparency has been abolished.
+> 4. **The banner of the state is shown only to the idle.** Where citizens work, there is
+>    black; on an empty desktop the red stripes are drawn up from the ground.
+> 5. **No application may seize your attention.** Focus belongs to the people, and a
+>    notification has five seconds to say its piece.
+> 6. **The bar stands watch** over every screen. Super+B dismisses it when the Leader
+>    wishes to be alone.
+> 7. **Updates may petition; they may not decree.** Every change an update attempts is
 >    detained as a patch and awaits the Leader's approval.
-> 7. **The battery shall rest at 80 percent**, for the long-term health of the nation.
-> 8. **The state does not sleep.** Closing the lid changes nothing.
-> 9. **The clock watches over the lock screen.** It asks no questions. You type; it opens.
-> 10. **Alt+Tab is a fundamental right**, as are Win+D, Win+E, Win+P and Ctrl+Shift+Esc.
+> 8. **The battery shall rest at 80 percent**, for the long-term health of the nation.
+>    A bolt marks the hours it spends at the national grid.
+> 9. **The state does not sleep.** Closing the lid changes nothing.
+> 10. **One face guards every gate.** Lock screen and login wear the same thin red clock;
+>     at boot, where no clock may go, red stars stand in its place. You type; it opens.
+> 11. **The border lists three territories:** DictatorOS, Oryx Windows and Personal
+>     Windows. History (snapshots) is not to be revisited from the boot menu.
+> 12. **The browser wears the uniform.** AI Mode, Gemini and Lens are exiled; the new tab
+>     page is a red logo and a single search bar.
+> 13. **Alt+Tab is a fundamental right**, as are Win+D, Win+E, Win+P and Ctrl+Shift+Esc.
 >
 > Long live the tiles.
 >
@@ -36,10 +48,15 @@
 
 ## Screenshots
 
-| Desktop: widgets on a black wallpaper | Lock screen |
+| Desktop: idle, so the stripes are allowed | Lock screen |
 |---|---|
-| ![Desktop with WHOOP, CPU/GPU/RAM rings and GitHub graph](docs/desktop.png) | ![Lock screen with a thin red clock](docs/lock-screen.png) |
-| *WHOOP (sample values), CPU / GPU / RAM rings, GitHub graph, red bar* | *Type your password; it unlocks when it's complete* |
+| ![Desktop with Sleep/Recovery/Strain and CPU/GPU/RAM rings, a GitHub day grid and the red stripes wallpaper](docs/desktop.png) | ![Lock screen with a thin red clock](docs/lock-screen.png) |
+| *WHOOP and CPU / GPU / RAM rings, a year of GitHub days, black bar with battery %* | *Type your password; it unlocks when it's complete* |
+| **Login screen** | **Boot menu (Limine)** |
+| ![Login screen: the same thin red clock and red stars](docs/login-screen.png) | ![Limine boot menu, red on black: DictatorOS, Oryx Windows, Personal Windows](docs/boot-menu.png) |
+| *Same clock and stars as the lock screen* | *Three entries, 10 s countdown, no snapshots* |
+
+<p align="center"><img src="docs/chromium.png" alt="Chromium with tabs on the left and a black new tab page: red Google logo and one search bar" width="720"><br><em>Chromium: red accents, tabs on the left, a new tab page with nothing but search</em></p>
 
 <p align="center"><img src="docs/monitor-panel.png" alt="Monitor panel with brightness, text size, displays and per-screen scale" width="420"><br><em>Bar monitor panel: brightness, text size, screens, per-screen scale and rotation</em></p>
 
@@ -86,10 +103,12 @@
   AI Mode / Gemini / Lens.
 - **Minimal lock screen**: a big thin red clock; type your password and it unlocks
   as soon as it's complete (no Enter). The login and disk-unlock screens look the same.
-- **Desktop widgets**: GitHub contribution graph, WHOOP recovery/strain/sleep rings
-  and live CPU/GPU/RAM rings, sitting on the wallpaper behind your windows.
-- **Bar on demand**: top bar hidden by default, Super+B to show it; transparent with
-  red icons. Monitor panel with a built-in screen arranger, per-screen scale and
+- **Desktop widgets**: WHOOP sleep/recovery/strain rings, live CPU/GPU/RAM rings and a
+  year of GitHub days, sitting on the wallpaper behind your windows.
+- **Wallpaper only when idle**: hidden (black) while a desktop has windows, drawn up from
+  the bottom when it's empty.
+- **Black bar**: shown by default, Super+B hides it; solid black with red icons and a
+  battery percentage (bolt while plugged in). Monitor panel with a built-in screen arranger, per-screen scale and
   rotation.
 - **Update-proof**: after every `omarchy update`, your settings are restored and any
   changes the update wanted are saved as a patch for you to approve. System tweaks
@@ -187,13 +206,14 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 | **Super+Shift+N** | Move window to the first empty desktop |
 | **Super+D** | Show desktop (hide all windows on all screens); again to bring them back |
 | **Super+Left / Right** | Lone window: snap to the left/right half (stays tiled). With others: move left/right. At the screen edge: move to the next/previous screen, wherever it sits |
+| **Super+Up / Down** | Lone window: snap to the top/bottom half. Side-by-side windows: stack them vertically (this one on top for Up, at the bottom for Down). Stacked: move up/down |
 | **Super+L** | Lock screen |
 | **Super+E** | Files |
 | **Ctrl+Shift+Esc** | Task Manager (Mission Center). btop is Super+Shift+T |
 | **Super+Shift+S** | Screenshot of a region |
 | **Super+P** | Project menu: PC screen only / Duplicate / Extend / Second screen only / Display settings… |
 | **Super+N** | Cast to a wireless display (Miracast / Chromecast) |
-| **Super+B** | Show / hide the top bar |
+| **Super+B** | Hide / show the top bar (shown by default) |
 | **Super+M** | Sticky notes panel |
 
 ## Features in detail
