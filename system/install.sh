@@ -1,7 +1,7 @@
 #!/bin/bash
 # System-level tweaks. Run with:  sudo ~/dotfiles/system/install.sh
 #  1. Limine boot menu: 10 s countdown in DictatorOS colours, entries DictatorOS,
-#     Oryx Windows and Personal Windows (DictatorOS is one line, no kernel tree);
+#     Windows 1 and Windows 2 (DictatorOS is one line, no kernel tree);
 #     no Snapshots submenu; Limine first in
 #     the firmware boot order.
 #  2. Boot splash (Plymouth / disk-unlock screen): black, no Omarchy logo.
@@ -26,7 +26,10 @@ if [[ ${1:-} == --from-hook ]]; then
   [[ -f /etc/systemd/logind.conf.d/dotfiles-lid.conf ]] || ok=0
   grep -q '^interface_branding: DictatorOS' /boot/limine.conf 2>/dev/null || ok=0
   grep -q '^/+\?DictatorOS$' /boot/limine.conf 2>/dev/null || ok=0
-  grep -q '^/Oryx Windows$' /boot/limine.conf 2>/dev/null || ok=0
+  for win in "Windows 1|2e9498e0-b9be-4682-8990-82ce3384b6f9" "Windows 2|f1ce4f0a-d1de-4739-9935-179251042b54"; do
+    lsblk -no PARTUUID | grep -qx "${win##*|}" || continue
+    grep -qx "/${win%%|*}" /boot/limine.conf 2>/dev/null || ok=0
+  done
   ! systemctl is-enabled -q limine-snapper-sync.service 2>/dev/null || ok=0
   grep -q 'name.sprite\|entry.y = Window.GetHeight() / 2' /usr/share/plymouth/themes/omarchy-black/omarchy-black.script 2>/dev/null || ok=0
   (( ok )) && { echo "dotfiles: system settings intact"; exit 0; }
@@ -74,11 +77,19 @@ for conf in /boot/limine.conf /boot/limine/limine.conf /boot/EFI/limine/limine.c
   sed -i 's|^/\(+\?\)Omarchy$|/\1DictatorOS|' "$conf"
   # Windows installs: chainload each one's own boot manager from its EFI partition.
   # name|EFI partition PARTUUID (skipped on machines without that partition)
-  for win in "Oryx Windows|2e9498e0-b9be-4682-8990-82ce3384b6f9" \
-             "Personal Windows|f1ce4f0a-d1de-4739-9935-179251042b54"; do
+  for win in "Windows 1|2e9498e0-b9be-4682-8990-82ce3384b6f9" \
+             "Windows 2|f1ce4f0a-d1de-4739-9935-179251042b54"; do
     name=${win%%|*}; guid=${win##*|}
     lsblk -no PARTUUID | grep -qx "$guid" || continue
-    grep -qx "/$name" "$conf" && continue
+    # Already listed (perhaps under an older name): make sure it's called $name.
+    if grep -qF "guid($guid)" "$conf"; then
+      awk -v g="guid($guid)" -v n="/$name" '
+        { line[NR] = $0; if ($0 ~ /^\/[^\/]/) head = NR }
+        index($0, g) && head { line[head] = n }
+        END { for (i = 1; i <= NR; i++) print line[i] }' "$conf" >"$conf.tmp" &&
+        cat "$conf.tmp" >"$conf" && rm -f "$conf.tmp"
+      continue
+    fi
     printf '\n/%s\n    comment: Windows Boot Manager on its own EFI partition (dotfiles)\n    protocol: efi\n    path: guid(%s):/EFI/Microsoft/Boot/bootmgfw.efi\n' \
       "$name" "$guid" >>"$conf"
     echo "Limine: added $name"
