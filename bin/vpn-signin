@@ -1,0 +1,80 @@
+#!/bin/bash
+# Sign in to an OpenVPN Access Server like the OpenVPN Connect app does:
+# server address + username + password. Downloads your profile (with the
+# server's certificates) from the server's REST API, saves it for the
+# OpenVPN bar widget, and stores the username/password in the keyring so
+# the widget connects without asking again.
+set -uo pipefail
+DIR="$HOME/.config/openvpn"
+APP_ID="omarchy-openvpn-plugin"   # keyring service used by the VPN widget
+c() { gum style --foreground 1 "$*"; }
+
+c "Sign in to your VPN"
+host=$(gum input --placeholder "vpn.example.com" --header "Server address (same as in the OpenVPN app)")
+host=${host#http://}; host=${host#https://}; host=${host%%/*}
+[[ -n $host ]] || { echo "A server address is required."; exit 1; }
+user=$(gum input --header "Username")
+pass=$(gum input --password --header "Password")
+[[ -n $user && -n $pass ]] || { echo "Username and password are required."; exit 1; }
+name=$(gum input --value "$host" --header "Name for this VPN")
+[[ -n $name ]] || name=$host
+
+esc() { local v=${1//\\/\\\\}; printf '%s' "${v//\"/\\\"}"; }
+fetch() {  # fetch <url> [insecure]
+  local extra=(); [[ ${2:-} == insecure ]] && extra=(-k)
+  printf 'user = "%s:%s"\n' "$(esc "$user")" "$(esc "$pass")" |
+    curl -sS --fail --max-time 20 -K - "${extra[@]}" "$1" 2>"$err"
+}
+
+err=$(mktemp); trap 'rm -f "$err"' EXIT
+urls=()
+if [[ $host == *:* ]]; then urls=("https://$host")
+else urls=("https://$host" "https://$host:943"); fi
+
+profile=""; insecure=""
+for base in "${urls[@]}"; do
+  for ep in GetUserlogin GetAutologin; do
+    echo "Signing in to $base…"
+    out=$(fetch "$base/rest/$ep" $insecure) && rc=0 || rc=$?
+    if (( rc == 60 || rc == 35 )) && [[ -z $insecure ]] && grep -qiE "certificate|SSL" "$err"; then
+      echo
+      c "The server's web certificate isn't trusted (common for company VPN servers)."
+      if gum confirm "Trust $base anyway, like the OpenVPN app's \"Accept\"?"; then
+        insecure=insecure
+        out=$(fetch "$base/rest/$ep" insecure) && rc=0 || rc=$?
+      else
+        exit 1
+      fi
+    fi
+    if (( rc == 0 )) && [[ $out == *"<ca>"* ]]; then profile=$out; break 2; fi
+    if grep -q "401" "$err"; then
+      echo; c "Sign-in was rejected: check your username and password."; exit 1
+    fi
+  done
+done
+
+if [[ -z $profile ]]; then
+  echo
+  c "Couldn't download a profile from $host."
+  echo "This works with OpenVPN Access Server (what the OpenVPN Connect app signs in to)."
+  echo "Last error: $(tail -1 "$err")"
+  echo "If your VPN uses something else, ask your admin for the .ovpn file and use"
+  echo "\"Add profile from file…\" in the VPN panel instead."
+  exit 1
+fi
+
+slug=$(tr -cs 'A-Za-z0-9._-' '-' <<<"$name" | sed 's/^-*//; s/-*$//')
+mkdir -p "$DIR/$slug"; chmod 700 "$DIR" "$DIR/$slug"
+f="$DIR/$slug/$slug.ovpn"
+printf '%s\n' "$profile" >"$f"; chmod 600 "$f"
+
+# Save the login in the keyring under the widget's key for this profile.
+if grep -q "^auth-user-pass" "$f"; then
+  key=$(python3 -c 'import hashlib,os,sys; print(hashlib.sha256(os.path.realpath(sys.argv[1]).encode()).hexdigest())' "$f")
+  printf '%s' "$user" | secret-tool store --label "OpenVPN username for $slug" service "$APP_ID" config "$key" field username
+  printf '%s' "$pass" | secret-tool store --label "OpenVPN password for $slug" service "$APP_ID" config "$key" field password
+fi
+
+echo
+c "Signed in. Saved \"$name\"."
+echo "Open the VPN icon in the bar (Super+B shows the bar) and click \"$name\" to connect."

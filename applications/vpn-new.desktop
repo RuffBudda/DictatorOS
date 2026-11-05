@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=New VPN profile
+Comment=Create an OpenVPN profile from server details
+Exec=omarchy-launch-floating-terminal-with-presentation /home/abu/dotfiles/bin/vpn-new
+Icon=network-vpn
+Terminal=false
+Type=Application
+Categories=Network;Settings;
+Keywords=vpn;openvpn;profile;

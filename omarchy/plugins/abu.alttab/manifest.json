@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "abu.alttab",
+  "name": "Alt+Tab switcher",
+  "version": "1.0.0",
+  "author": "abu",
+  "description": "Windows-style Alt+Tab window switcher panel",
+  "kinds": ["service"],
+  "keepLoaded": true,
+  "entryPoints": { "service": "Service.qml" }
+}

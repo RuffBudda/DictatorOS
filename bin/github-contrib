@@ -1,0 +1,18 @@
+#!/bin/bash
+# Fetch the signed-in GitHub user's contribution calendar (last year) via the
+# GitHub CLI and cache it for the desktop widget (abu.github-graph).
+# Output: ~/.cache/github-contrib.json  {login, total, weeks:[[count,...7],...]}
+set -euo pipefail
+out="${XDG_CACHE_HOME:-$HOME/.cache}/github-contrib.json"
+mkdir -p "$(dirname "$out")"
+json=$(timeout 30 gh api graphql -f query='
+  query { viewer { login contributionsCollection { contributionCalendar {
+    totalContributions
+    weeks { contributionDays { date contributionCount weekday } }
+  } } } }') || exit 1
+jq '{login: .data.viewer.login,
+     total: .data.viewer.contributionsCollection.contributionCalendar.totalContributions,
+     updated: (now | todate),
+     weeks: [.data.viewer.contributionsCollection.contributionCalendar.weeks[]
+             | [.contributionDays[] | {d: .date, c: .contributionCount, w: .weekday}]]}' <<<"$json" >"$out.tmp"
+mv "$out.tmp" "$out"

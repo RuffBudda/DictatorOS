@@ -1,0 +1,3 @@
+#!/bin/bash
+# After `omarchy update`: re-apply ~/dotfiles and report anything the update reset.
+exec "$HOME/dotfiles/bin/dotfiles-check"

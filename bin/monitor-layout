@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Per-screen display layout, saved to ~/dotfiles/hypr/displays.lua and applied.
+
+  monitor-layout scale  <output> <scale>
+  monitor-layout rotate <output> <0|1|2|3>        (0=normal 1=90° 2=180° 3=270°)
+  monitor-layout move   <output> <x> <y>          (logical px; snapped flush to a neighbour)
+  monitor-layout state                             (JSON for the bar panel)
+
+After a scale/rotate change the other screens are re-packed so they still
+touch, like Windows. Used by the bar's monitor panel (abu.monitor).
+"""
+import json, math, os, re, subprocess, sys
+
+FILE = os.path.expanduser("~/dotfiles/hypr/displays.lua")
+
+def mons():
+    out = subprocess.run(["hyprctl", "monitors", "-j"], capture_output=True, text=True).stdout
+    ms = [m for m in json.loads(out or "[]") if not m.get("disabled")]
+    for m in ms:
+        w, h = (m["height"], m["width"]) if m["transform"] % 2 else (m["width"], m["height"])
+        m["lw"], m["lh"] = round(w / m["scale"]), round(h / m["scale"])
+    return ms
+
+def internal(name):
+    return re.match(r"^(eDP|LVDS|DSI)-", name) is not None
+
+def clean_scale(s, w, h):
+    g = math.gcd(w * 120, h * 120)
+    k = min(int(s * 120 + 0.5), g)
+    while g % k:
+        k += 1
+    return k / 120
+
+def fmt(v):
+    return ("%g" % v)
+
+def write(ms):
+    lines = ["-- Per-screen layout. Written by the bar's monitor panel / Display settings.", ""]
+    for m in ms:
+        lines += ["hl.monitor({",
+                  '    output = "%s",' % m["name"],
+                  '    mode = "%dx%d@%.2f",' % (m["width"], m["height"], m["refreshRate"]),
+                  '    position = "%dx%d",' % (m["x"], m["y"]),
+                  "    scale = %s," % fmt(m["scale"]),
+                  "    transform = %d" % m["transform"],
+                  "})"]
+    open(FILE, "w").write("\n".join(lines) + "\n")
+    subprocess.run(["hyprctl", "reload"], capture_output=True)
+
+def recompute(ms):
+    for m in ms:
+        w, h = (m["height"], m["width"]) if m["transform"] % 2 else (m["width"], m["height"])
+        m["lw"], m["lh"] = round(w / m["scale"]), round(h / m["scale"])
+
+def place_flush(m, a, cx=None, cy=None):
+    """Put m against anchor a on the side its centre (cx,cy) points to."""
+    if cx is None: cx = m["x"] + m["lw"] / 2
+    if cy is None: cy = m["y"] + m["lh"] / 2
+    acx, acy = a["x"] + a["lw"] / 2, a["y"] + a["lh"] / 2
+    dx, dy = (cx - acx) / max(1, (a["lw"] + m["lw"]) / 2), (cy - acy) / max(1, (a["lh"] + m["lh"]) / 2)
+    if abs(dx) >= abs(dy):   # left / right
+        m["x"] = a["x"] + a["lw"] if dx > 0 else a["x"] - m["lw"]
+        y = round(cy - m["lh"] / 2)
+        m["y"] = min(max(y, a["y"] - m["lh"] + 1), a["y"] + a["lh"] - 1)   # keep an overlap
+        for edge in (a["y"], a["y"] + a["lh"] - m["lh"], round(acy - m["lh"] / 2)):   # snap align
+            if abs(m["y"] - edge) < 40: m["y"] = edge; break
+    else:                    # above / below
+        m["y"] = a["y"] + a["lh"] if dy > 0 else a["y"] - m["lh"]
+        x = round(cx - m["lw"] / 2)
+        m["x"] = min(max(x, a["x"] - m["lw"] + 1), a["x"] + a["lw"] - 1)
+        for edge in (a["x"], a["x"] + a["lw"] - m["lw"], round(acx - m["lw"] / 2)):
+            if abs(m["x"] - edge) < 40: m["x"] = edge; break
+
+def normalise(ms):
+    mx, my = min(m["x"] for m in ms), min(m["y"] for m in ms)
+    for m in ms:
+        m["x"] -= mx; m["y"] -= my
+
+def repack(ms, keep):
+    """Keep `keep` fixed; re-attach every other screen to its nearest neighbour."""
+    placed = [keep]
+    for m in sorted([m for m in ms if m is not keep], key=lambda m: abs(m["x"] - keep["x"]) + abs(m["y"] - keep["y"])):
+        cx, cy = m["x"] + m["lw"] / 2, m["y"] + m["lh"] / 2
+        a = min(placed, key=lambda p: abs(p["x"] + p["lw"] / 2 - cx) + abs(p["y"] + p["lh"] / 2 - cy))
+        place_flush(m, a, cx, cy)
+        placed.append(m)
+
+def find(ms, name):
+    for m in ms:
+        if m["name"] == name: return m
+    sys.exit("no such screen: " + name)
+
+def main():
+    if len(sys.argv) < 2: sys.exit(__doc__)
+    cmd, ms = sys.argv[1], mons()
+    if cmd == "state":
+        print(json.dumps([{k: m[k] for k in ("name", "model", "description", "x", "y", "lw", "lh", "scale", "transform", "width", "height", "focused")}
+                          | {"internal": internal(m["name"])} for m in ms]))
+        return
+    m = find(ms, sys.argv[2])
+    anchor = next((x for x in ms if internal(x["name"])), ms[0])
+    if cmd == "scale":
+        m["scale"] = clean_scale(float(sys.argv[3]), m["width"], m["height"])
+        recompute(ms); repack(ms, anchor if anchor is not m else m)
+    elif cmd == "rotate":
+        m["transform"] = int(sys.argv[3]) % 4
+        recompute(ms); repack(ms, anchor if anchor is not m else m)
+    elif cmd == "move":
+        x, y = float(sys.argv[3]), float(sys.argv[4])
+        others = [o for o in ms if o is not m]
+        if others:
+            cx, cy = x + m["lw"] / 2, y + m["lh"] / 2
+            a = min(others, key=lambda p: abs(p["x"] + p["lw"] / 2 - cx) + abs(p["y"] + p["lh"] / 2 - cy))
+            place_flush(m, a, cx, cy)
+    else:
+        sys.exit(__doc__)
+    normalise(ms)
+    write(ms)
+
+main()

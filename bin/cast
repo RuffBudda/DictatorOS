@@ -1,0 +1,66 @@
+#!/bin/bash
+# SUPER+N: cast to a wireless display, in the same menu style as SUPER+P.
+# Talks to gnome-network-displays-daemon over D-Bus (lists Miracast /
+# Chromecast displays, starts/stops the stream). No GTK window needed.
+BUS=org.gnome.NetworkDisplays.Manager
+OBJ=/org/gnome/NetworkDisplays/Manager
+UNIT_FILE="${XDG_RUNTIME_DIR:-/tmp}/cast-stream-unit"
+
+notify() { omarchy-notification-send -g 󰐾 "$@"; }
+
+if ! command -v gnome-network-displays-daemon >/dev/null; then
+  exec omarchy-launch-floating-terminal-with-presentation "$HOME/dotfiles/bin/cast-setup"
+fi
+
+# Start the discovery daemon on first use (it keeps running in the background).
+if ! busctl --user status "$BUS" >/dev/null 2>&1; then
+  systemd-run --user --quiet --collect --unit=cast-daemon gnome-network-displays-daemon \
+    || { setsid gnome-network-displays-daemon >/dev/null 2>&1 & }
+  notify "Searching for displays…" -t 3500
+  for _ in $(seq 30); do busctl --user status "$BUS" >/dev/null 2>&1 && break; sleep 0.1; done
+  sleep 4
+fi
+
+displays=$(busctl --user --json=short get-property "$BUS" "$OBJ" "$BUS" Displays 2>/dev/null |
+  jq -r '.data[] | [.uuid.data, ."display-name".data, .state.data, .protocol.data] | @tsv')
+
+declare -A pick
+options=()
+proto_name() { case $1 in 1) echo "Miracast";; 2) echo "Miracast (network)";; 3) echo "Chromecast";; *) echo "Display";; esac; }
+
+while IFS=$'\t' read -r uuid name state proto; do
+  [[ -z $uuid ]] && continue
+  sub="$(proto_name "$proto")"
+  (( state == 0x1000 || state == 4096 )) && sub="Casting now · $sub"
+  (( state > 0 && state < 4096 )) && sub="Connecting… · $sub"
+  key="$name"$'\t'"$sub"
+  pick["$key"]="$uuid"
+  options+=($'󰐾\t'"$key")
+done <<<"$displays"
+
+if [[ -s $UNIT_FILE ]]; then
+  key=$'Stop casting\tDisconnect the current display'; pick["$key"]="stop"; options+=($'󰅙\t'"$key")
+fi
+if (( ${#options[@]} == 0 )); then
+  key=$'No displays found\tTurn the TV/dongle on, same Wi-Fi; try again'; pick["$key"]="none"; options+=($'󰅛\t'"$key")
+fi
+key=$'Search again\tLook for displays for a few more seconds'; pick["$key"]="rescan"; options+=($'󰑐\t'"$key")
+
+choice=$(omarchy-menu-select "Cast" "${options[@]}") || exit 0
+target="${pick[$choice]}"
+
+case "$target" in
+  stop)
+    busctl --user call "$BUS" "$OBJ" "$BUS" StopStream s "$(cat "$UNIT_FILE")" >/dev/null 2>&1
+    rm -f "$UNIT_FILE"; notify "Stopped casting" ;;
+  rescan) notify "Searching for displays…" -t 3500; sleep 4; exec "$0" ;;
+  none|"") exit 0 ;;
+  *)
+    name="${choice%%$'\t'*}"
+    unit=$(busctl --user --json=short call "$BUS" "$OBJ" "$BUS" StartStream s "$target" 2>/dev/null | jq -r '.data[0] // empty')
+    if [[ -n $unit ]]; then
+      echo "$unit" >"$UNIT_FILE"; notify "Casting to $name"
+    else
+      notify "Couldn't cast to $name" "Check that it's on and nearby, and that the firewall allows casting."
+    fi ;;
+esac

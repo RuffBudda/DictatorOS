@@ -1,0 +1,3 @@
+#!/bin/bash
+# Keep the wallpaper solid black no matter which theme is applied.
+omarchy-theme-bg-set "$HOME/dotfiles/backgrounds/black.png" >/dev/null 2>&1

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Display settings
+GenericName=Displays
+Comment=Arrange screens, set scale, rotation and resolution
+Exec=/home/abu/dotfiles/bin/display-settings
+Icon=nwg-displays
+Terminal=false
+Type=Application
+Categories=Settings;
+Keywords=monitor;screen;display;scale;resolution;rotate;

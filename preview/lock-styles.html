@@ -1,0 +1,171 @@
+<title>Minimal Lock Screens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200;300;400;600&display=swap">
+<style>
+  /* Layout: a grid of 16:10 "laptop screens", each a live mock of one lock style. Single dark look (it's a lock screen). */
+  :root {
+    --page: #0b0b0c;        /* page around the mocks */
+    --screen: #000000;      /* lock background (pure black, as configured) */
+    --red: #e5383b;         /* theme accent */
+    --red-dim: #5c1a1e;     /* muted red */
+    --ink: #e8d5d6;         /* light text */
+    --ink-dim: #6e5a5b;     /* captions */
+    --rule: #1d1718;
+    --mono: "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--page); color: var(--ink); font-family: var(--mono); }
+  .wrap {
+    max-width: 1240px; margin: 0 auto;
+    padding-block: 28px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 22px;
+  }
+  header { display: grid; gap: 6px; }
+  h1 { margin: 0; font-weight: 300; font-size: 22px; letter-spacing: .02em; text-wrap: balance; }
+  .lede { margin: 0; color: var(--ink-dim); font-size: 13px; line-height: 1.6; max-width: 68ch; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 22px; }
+
+  figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+  .screen {
+    position: relative; width: 100%; aspect-ratio: 16 / 10; max-width: 100%;
+    background: var(--screen); border: 1px solid var(--rule); border-radius: 10px;
+    overflow: hidden; container-type: inline-size; cursor: text; outline: none;
+  }
+  .screen:focus-visible, .screen.active { border-color: var(--red-dim); }
+  .screen input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+  figcaption { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .name { font-size: 13px; font-weight: 600; color: var(--ink); letter-spacing: .04em; }
+  .note { font-size: 12px; color: var(--ink-dim); text-align: right; }
+  .hint { position: absolute; bottom: 3.5cqw; left: 0; right: 0; text-align: center; font-size: 2.1cqw; color: #3a2e2f; letter-spacing: .08em; transition: opacity .3s; }
+  .screen.active .hint, .screen.typed .hint { opacity: 0; }
+  .unlocked .stage { opacity: 0; transform: scale(.98); }
+  .stage { position: absolute; inset: 0; transition: opacity .35s ease, transform .35s ease; }
+  .stars { letter-spacing: .55em; color: var(--red); white-space: nowrap; }
+
+  /* 1 · Field — what you have now */
+  .s-field .box {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 30cqw; height: 5.4cqw; border: .25cqw solid var(--red); border-radius: .9cqw;
+    display: grid; place-items: center; font-size: 2.3cqw;
+  }
+  .s-field .ph { color: var(--ink-dim); font-size: 1.6cqw; letter-spacing: .06em; }
+
+  /* 2 · Hairline — no box, a line that wakes up */
+  .s-line .line {
+    position: absolute; left: 50%; top: 54%; transform: translateX(-50%);
+    width: 22cqw; height: .18cqw; background: var(--red-dim); transition: background .3s, width .3s;
+  }
+  .s-line.typed .line { background: var(--red); width: 26cqw; }
+  .s-line .stars { position: absolute; left: 0; right: 0; top: 46%; text-align: center; font-size: 2.4cqw; }
+
+  /* 3 · Ember — one breathing dot, becomes the stars */
+  .s-ember .dot {
+    position: absolute; left: 50%; top: 50%; width: 1.1cqw; height: 1.1cqw; margin: -.55cqw 0 0 -.55cqw;
+    border-radius: 50%; background: var(--red); box-shadow: 0 0 2.4cqw .3cqw rgba(229,56,59,.35);
+    animation: breathe 3.2s ease-in-out infinite; transition: opacity .2s;
+  }
+  .s-ember.typed .dot { opacity: 0; }
+  .s-ember .stars { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; font-size: 2.6cqw; }
+  @keyframes breathe { 0%,100% { opacity: .35; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.1); } }
+
+  /* 4 · Clock — big faint time, tiny red stars */
+  .s-clock .time {
+    position: absolute; left: 0; right: 0; top: 34%; text-align: center;
+    font-weight: 200; font-size: 13cqw; letter-spacing: -.02em; color: var(--red); font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .s-clock .stars { position: absolute; left: 0; right: 0; top: 66%; text-align: center; font-size: 1.9cqw; min-height: 1em; }
+
+  /* 5 · Edge — nothing on screen; a red line along the bottom fills as you type */
+  .s-edge .track { position: absolute; left: 0; right: 0; bottom: 0; height: .5cqw; background: #120c0d; }
+  .s-edge .fill { position: absolute; left: 0; bottom: 0; height: .5cqw; width: 0; background: var(--red); transition: width .18s ease; box-shadow: 0 0 1.6cqw rgba(229,56,59,.45); }
+
+  /* 6 · Prompt — a terminal caret, stars appear to its left */
+  .s-caret .row { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); display: flex; justify-content: center; align-items: center; gap: .6cqw; font-size: 2.6cqw; }
+  .s-caret .chev { color: var(--red-dim); }
+  .s-caret .cur { width: 1.3cqw; height: 2.8cqw; background: var(--red); animation: blink 1.05s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .ok { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.8cqw; color: var(--ink-dim); letter-spacing: .3em; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .unlocked .ok { opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .s-ember .dot, .s-caret .cur { animation: none; }
+    .stage, .s-edge .fill, .s-line .line { transition: none; }
+  }
+  footer { color: var(--ink-dim); font-size: 12px; line-height: 1.6; max-width: 70ch; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Minimal lock screens</h1>
+    <p class="lede">Six takes on your black + red lock screen. Click a screen and type: each shows the ✱ stars and "unlocks" after 8 characters, like your real auto-unlock. Pick one by name.</p>
+  </header>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>All of these keep what you have now: no name, no logo, pure black, red accent, password works on the laptop screen only, and auto-unlock without Enter.</footer>
+</div>
+
+<script>
+  const LEN = 8; // demo password length (your real one is remembered privately)
+  const styles = [
+    { id: "field", name: "1 · Field",   note: "what you have now",
+      html: `<div class="box"><span class="ph">Enter Password</span></div>` },
+    { id: "line",  name: "2 · Hairline", note: "no box, a red line wakes up",
+      html: `<div class="stars"></div><div class="line"></div>` },
+    { id: "ember", name: "3 · Ember",    note: "one breathing dot at rest",
+      html: `<div class="dot"></div><div class="stars"></div>` },
+    { id: "clock", name: "4 · Clock",    note: "red time, tiny stars",
+      html: `<div class="time"></div><div class="stars"></div>` },
+    { id: "edge",  name: "5 · Edge",     note: "blank screen, bottom line fills",
+      html: `<div class="track"></div><div class="fill"></div>` },
+    { id: "caret", name: "6 · Prompt",   note: "terminal caret",
+      html: `<div class="row"><span class="chev">›</span><span class="stars"></span><span class="cur"></span></div>` },
+  ];
+
+  const grid = document.getElementById("grid");
+  styles.forEach(s => {
+    const fig = document.createElement("figure");
+    fig.innerHTML = `
+      <div class="screen s-${s.id}" tabindex="0" role="textbox" aria-label="${s.name} lock screen mock, click and type">
+        <input id="pw-${s.id}" type="password" autocomplete="off" aria-hidden="true">
+        <div class="stage">${s.html}</div>
+        <div class="ok">UNLOCKED</div>
+        <div class="hint">click and type</div>
+      </div>
+      <figcaption><span class="name">${s.name}</span><span class="note">${s.note}</span></figcaption>`;
+    grid.appendChild(fig);
+
+    const scr = fig.querySelector(".screen"), inp = fig.querySelector("input");
+    const stars = fig.querySelector(".stars"), fill = fig.querySelector(".fill");
+    const box = fig.querySelector(".box");
+    const render = () => {
+      const n = inp.value.length;
+      scr.classList.toggle("typed", n > 0);
+      if (stars) stars.textContent = "✱".repeat(n);
+      if (box) box.innerHTML = n ? `<span class="stars">${"✱".repeat(n)}</span>` : `<span class="ph">Enter Password</span>`;
+      if (fill) fill.style.width = Math.min(100, n / LEN * 100) + "%";
+      if (n >= LEN) {
+        scr.classList.add("unlocked");
+        setTimeout(() => { inp.value = ""; scr.classList.remove("unlocked"); render(); }, 1300);
+      }
+    };
+    scr.addEventListener("click", () => inp.focus());
+    scr.addEventListener("keydown", e => { if (e.target === scr) inp.focus(); });
+    inp.addEventListener("focus", () => scr.classList.add("active"));
+    inp.addEventListener("blur", () => scr.classList.remove("active"));
+    inp.addEventListener("input", render);
+    inp.addEventListener("keydown", e => { if (e.key === "Escape") { inp.value = ""; render(); } });
+  });
+
+  const tick = () => {
+    const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    document.querySelectorAll(".s-clock .time").forEach(el => el.textContent = t);
+  };
+  tick(); setInterval(tick, 15000);
+</script>

@@ -1,0 +1,10 @@
+#!/bin/bash
+# Focus a window by address: un-minimize it if needed, switch to it, raise it.
+addr=$1; [[ -n $addr ]] || exit 1
+W="address:$addr"
+if hyprctl clients -j | jq -e --arg a "$addr" '.[] | select(.address == $a and .workspace.name == "special:minimized")' >/dev/null; then
+  ws=$(hyprctl activeworkspace -j | jq -r '.id')
+  hyprctl dispatch "hl.dsp.window.move({ window = \"$W\", workspace = \"$ws\", follow = false })" >/dev/null
+fi
+hyprctl dispatch "hl.dsp.focus({ window = \"$W\" })" >/dev/null
+hyprctl dispatch "hl.dsp.window.bring_to_top()" >/dev/null

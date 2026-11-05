@@ -1,0 +1,44 @@
+#!/bin/bash
+# Screen-share / cast picker in the same style as SUPER+P (Omarchy menu).
+# Called by xdg-desktop-portal-hyprland (see ~/dotfiles/hypr/xdph.conf) when
+# an app asks to share or cast the screen. Prints the choice in XDPH's format:
+#   [SELECTION]/screen:<output> | window:<id> | region:<output>@x,y,w,h
+
+declare -A pick
+
+mons=$(hyprctl monitors -j)
+while IFS=$'\t' read -r name model w h; do
+  if [[ $name =~ ^(eDP|LVDS|DSI)- ]]; then label="Laptop screen"; else label="$model"; fi
+  key="$label"$'\t'"$name · ${w}×${h}"
+  pick["$key"]="screen:$name"
+  options+=($'󰍹\t'"$key")
+done < <(jq -r '.[] | [.name, (.model // .description), .width, .height] | @tsv' <<<"$mons")
+
+# Windows: XDPH passes "<id>[HC>]<class>[HT>]<title>[HE>]<address>[HA>]..."
+list="${XDPH_WINDOW_SHARING_LIST:-}"
+while [[ $list == *'[HA>]'* ]]; do
+  entry="${list%%\[HA>\]*}"; list="${list#*\[HA>\]}"
+  id="${entry%%\[HC>\]*}";    rest="${entry#*\[HC>\]}"
+  class="${rest%%\[HT>\]*}";  rest="${rest#*\[HT>\]}"
+  title="${rest%%\[HE>\]*}"
+  [[ -z $id ]] && continue
+  key="${title:-$class}"$'\t'"Window · $class · #$id"
+  pick["$key"]="window:$id"
+  options+=($'\t'"$key")
+done
+
+key=$'Select a region\tDraw a box on any screen'
+pick["$key"]="region"
+options+=($'󰩭\t'"$key")
+
+choice=$(omarchy-menu-select "Share" "${options[@]}") || exit 1
+target="${pick[$choice]}"
+[[ -z $target ]] && exit 1
+
+if [[ $target == region ]]; then
+  read -r out gx gy rw rh < <(slurp -f '%o %x %y %w %h') || exit 1
+  read -r mx my < <(jq -r --arg o "$out" '.[] | select(.name == $o) | "\(.x) \(.y)"' <<<"$mons")
+  target="region:$out@$((gx - mx)),$((gy - my)),$rw,$rh"
+fi
+
+echo "[SELECTION]/$target"

@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""One-time WHOOP connect for the desktop widget.
+
+1. Create an app at https://developer-dashboard.whoop.com
+   - Redirect URI:  http://localhost:8765/callback
+   - Scopes: read:recovery read:cycles read:sleep offline
+2. Run:  ~/dotfiles/bin/whoop-auth
+   It asks for the app's Client ID and Secret (saved privately in
+   ~/.config/whoop/client.json, mode 600), opens WHOOP in your browser to
+   approve, and saves the tokens in ~/.config/whoop/tokens.json (mode 600).
+"""
+import http.server, json, os, secrets, subprocess, sys, time, urllib.error, urllib.parse, urllib.request, getpass
+
+CONF = os.path.expanduser("~/.config/whoop")
+CLIENT = os.path.join(CONF, "client.json")
+TOKENS = os.path.join(CONF, "tokens.json")
+REDIRECT = "http://localhost:8765/callback"
+AUTH = "https://api.prod.whoop.com/oauth/oauth2/auth"
+TOKEN = "https://api.prod.whoop.com/oauth/oauth2/token"
+USER_AGENT = "omarchy-whoop-widget/1.0"  # Cloudflare blocks the default Python-urllib agent (error 1010)
+SCOPES = "read:recovery read:cycles read:sleep offline"
+
+def save(path, data):
+    os.makedirs(CONF, mode=0o700, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(data, f)
+
+def client():
+    if os.path.exists(CLIENT):
+        return json.load(open(CLIENT))
+    print("Create an app at https://developer-dashboard.whoop.com")
+    print("  Redirect URI: " + REDIRECT)
+    print("  Scopes: " + SCOPES + "\n")
+    c = {"id": input("Client ID: ").strip(), "secret": getpass.getpass("Client Secret (hidden): ").strip()}
+    save(CLIENT, c)
+    return c
+
+def main():
+    c = client()
+    state = secrets.token_urlsafe(16)
+    url = AUTH + "?" + urllib.parse.urlencode({"response_type": "code", "client_id": c["id"],
+        "redirect_uri": REDIRECT, "scope": SCOPES, "state": state})
+    got = {}
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            got.update({k: v[0] for k, v in q.items()})
+            self.send_response(200); self.send_header("Content-Type", "text/html"); self.end_headers()
+            self.wfile.write(b"<body style='background:#000;color:#e5383b;font-family:monospace'>"
+                             b"<h2>WHOOP connected. You can close this tab.</h2></body>")
+        def log_message(self, *a): pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 8765), H)
+    print("Opening WHOOP in your browser to approve…")
+    subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    srv.timeout = 300
+    srv.handle_request()
+    if got.get("state") != state or "code" not in got:
+        sys.exit("WHOOP didn't approve (or the reply didn't match). Try again.")
+    body = urllib.parse.urlencode({"grant_type": "authorization_code", "code": got["code"],
+        "client_id": c["id"], "client_secret": c["secret"], "redirect_uri": REDIRECT}).encode()
+    req = urllib.request.Request(TOKEN, data=body, headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": USER_AGENT})
+    try:
+        tok = json.load(urllib.request.urlopen(req, timeout=30))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors="replace")[:300]
+        if e.code in (400, 401):
+            sys.exit(f"WHOOP rejected the app login ({e.code}): {detail}\n"
+                     f"Check the Client ID/Secret, or delete {CLIENT} and run this again to re-enter them.")
+        sys.exit(f"WHOOP sign-in failed ({e.code}): {detail}")
+    tok["expires_at"] = time.time() + int(tok.get("expires_in", 3600)) - 60
+    save(TOKENS, tok)
+    print("Connected. Fetching your data…")
+    subprocess.run([os.path.expanduser("~/dotfiles/bin/whoop-fetch")])
+
+main()

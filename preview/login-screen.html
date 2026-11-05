@@ -1,0 +1,118 @@
+<title>Login Screen Mock-up</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap">
+<style>
+  /* Layout: one 16:10 laptop "screen" (2560x1600 panel) centered on the page, with a small edit strip below. */
+  :root {
+    --page: #0b0c10;          /* page around the mock screen */
+    --screen: #000000;        /* lock screen background: pure black, as configured */
+    --ink: #c0caf5;           /* Tokyo Night bright foreground */
+    --ink-dim: #565f89;       /* Tokyo Night dark foreground */
+    --accent: #7aa2f7;        /* Tokyo Night accent */
+    --field: #0e0e14;         /* darker background for the input */
+    --rule: #24283b;
+    --mono: "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--page); color: var(--ink); font-family: var(--mono); }
+  .wrap {
+    max-width: 1100px; margin: 0 auto;
+    padding-block: 28px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 20px;
+  }
+  .caption { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+
+  /* The mock laptop screen */
+  .screen {
+    position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 10;
+    background: var(--screen); border: 1px solid var(--rule); border-radius: 10px;
+    overflow: hidden; container-type: inline-size;
+  }
+  .clock {
+    position: absolute; top: 9cqw; left: 0; right: 0; text-align: center;
+    font-weight: 300; font-size: 7.2cqw; letter-spacing: -.02em; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .date { position: absolute; top: 18.6cqw; left: 0; right: 0; text-align: center; font-size: 1.35cqw; color: var(--ink-dim); letter-spacing: .06em; }
+
+  .stack {
+    position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%);
+    width: 30cqw; display: grid; justify-items: center; gap: 1.1cqw;
+  }
+  .avatar {
+    width: 6.2cqw; height: 6.2cqw; border-radius: 50%;
+    border: .16cqw solid var(--rule); display: grid; place-items: center;
+    font-size: 2.2cqw; font-weight: 500; color: var(--accent); background: var(--field);
+  }
+  .name { font-size: 2.1cqw; font-weight: 500; color: var(--ink); text-align: center; text-wrap: balance; margin-bottom: 1.2cqw; }
+  .company {
+    font-size: 1.05cqw; letter-spacing: .28em; text-transform: uppercase; color: var(--accent);
+    text-align: center; margin-top: .9cqw;
+  }
+  .field {
+    width: 100%; display: flex; align-items: center; gap: 1cqw;
+    height: 3.6cqw; padding: 0 1.2cqw; margin-top: .2cqw;
+    background: var(--field); border: .14cqw solid var(--accent); border-radius: .5cqw;
+  }
+  .lock { width: 1.3cqw; height: 1.3cqw; color: var(--ink-dim); flex: none; }
+  .dots { font-size: 1.5cqw; letter-spacing: .35em; color: var(--ink); }
+  .caret { width: .12cqw; height: 1.6cqw; background: var(--accent); animation: blink 1s steps(1) infinite; }
+  .hint { font-size: .95cqw; color: var(--ink-dim); }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+
+  .corner { position: absolute; bottom: 2.4cqw; font-size: 1cqw; color: var(--ink-dim); display: flex; gap: 1.6cqw; }
+  .corner.left { left: 2.6cqw; } .corner.right { right: 2.6cqw; }
+
+  /* Edit strip */
+  form { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: end; }
+  label { display: grid; gap: 6px; font-size: 12px; color: var(--ink-dim); letter-spacing: .06em; text-transform: uppercase; flex: 1 1 220px; min-width: 0; }
+  input {
+    font: 400 15px var(--mono); color: var(--ink); background: var(--field);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; width: 100%;
+  }
+  input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  .note { font-size: 13px; line-height: 1.6; color: var(--ink-dim); max-width: 65ch; }
+  .note b { color: var(--ink); font-weight: 500; }
+</style>
+
+<div class="wrap">
+  <div class="caption">Lock screen preview · Super+L · 2560×1600</div>
+
+  <div class="screen" role="img" aria-label="Lock screen mock-up with name above the password field">
+
+    <div class="stack">
+      <div class="name" id="nameOut">Your Name</div>
+      <div class="field">
+        <svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2" fill="none"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none"/></svg>
+        <span class="dots">••••••</span><span class="caret"></span>
+      </div>
+      <div class="hint">Enter password to unlock</div>
+    </div>
+
+  </div>
+
+  <form id="edit" autocomplete="off">
+    <label for="nameIn">Name
+      <input id="nameIn" value="Your Name" maxlength="40">
+    </label>
+  </form>
+
+  <p class="note">Applied. Black background, no logo, no clock: just your <b>name</b> above the password field. To change the name later, edit <b>~/dotfiles/omarchy/plugins/abu.lock/LockView.qml</b>.</p>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  function render() {
+    const name = $('nameIn').value.trim() || 'Your Name';
+    $('nameOut').textContent = name;
+  }
+  $('edit').addEventListener('input', render);
+  $('edit').addEventListener('submit', e => e.preventDefault());
+  render();
+</script>

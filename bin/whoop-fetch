@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Fetch latest WHOOP recovery, strain and sleep for the desktop widget.
+Writes ~/.cache/whoop.json. Refreshes the access token as needed.
+Exits quietly (code 2) if WHOOP isn't connected yet (run whoop-auth)."""
+import json, os, sys, time, urllib.parse, urllib.request
+from datetime import datetime, timezone
+
+CONF = os.path.expanduser("~/.config/whoop")
+CLIENT, TOKENS = os.path.join(CONF, "client.json"), os.path.join(CONF, "tokens.json")
+OUT = os.path.expanduser("~/.cache/whoop.json")
+API = "https://api.prod.whoop.com/developer"
+TOKEN = "https://api.prod.whoop.com/oauth/oauth2/token"
+USER_AGENT = "omarchy-whoop-widget/1.0"  # Cloudflare blocks the default Python-urllib agent (error 1010)
+
+if not (os.path.exists(CLIENT) and os.path.exists(TOKENS)):
+    sys.exit(2)
+c, t = json.load(open(CLIENT)), json.load(open(TOKENS))
+
+def save_tokens(tok):
+    fd = os.open(TOKENS, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f: json.dump(tok, f)
+
+if time.time() >= t.get("expires_at", 0):
+    body = urllib.parse.urlencode({"grant_type": "refresh_token", "refresh_token": t["refresh_token"],
+        "client_id": c["id"], "client_secret": c["secret"], "scope": "offline"}).encode()
+    req = urllib.request.Request(TOKEN, data=body, headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": USER_AGENT})
+    new = json.load(urllib.request.urlopen(req, timeout=30))
+    new.setdefault("refresh_token", t["refresh_token"])
+    new["expires_at"] = time.time() + int(new.get("expires_in", 3600)) - 60
+    save_tokens(new); t = new
+
+def get(path):
+    req = urllib.request.Request(API + path, headers={"Authorization": "Bearer " + t["access_token"], "User-Agent": USER_AGENT})
+    recs = json.load(urllib.request.urlopen(req, timeout=30)).get("records", [])
+    r = recs[0] if recs else {}
+    return r.get("score") if r.get("score_state") == "SCORED" else None
+
+rec, cyc, slp = get("/v2/recovery?limit=1"), get("/v2/cycle?limit=1"), get("/v2/activity/sleep?limit=1")
+data = {
+    "recovery": rec and rec.get("recovery_score"),
+    "strain": cyc and cyc.get("strain"),
+    "sleep": slp and slp.get("sleep_performance_percentage"),
+    "updated": datetime.now(timezone.utc).isoformat(),
+}
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
+with open(OUT + ".tmp", "w") as f: json.dump(data, f)
+os.replace(OUT + ".tmp", OUT)

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "abu.stickynotes",
+  "name": "Sticky Notes",
+  "version": "2.1.0",
+  "author": "RuffBudda",
+  "license": "MIT",
+  "description": "Yellow sticky notes in a bento-style bar panel: pin, resize and delete notes; Ctrl+N new note, Esc closes. Saved to ~/.local/share/abu-stickynotes/notes.json.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Sticky Notes",
+    "description": "A panel of yellow sticky notes you can type into, laid out as a bento board.",
+    "category": "Productivity",
+    "allowMultiple": false,
+    "defaultSection": "left"
+  }
+}

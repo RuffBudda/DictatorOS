@@ -1,0 +1,23 @@
+#!/bin/bash
+# CPU / GPU / RAM usage (%) as JSON for the desktop widget.
+# GPU = the busier of the AMD iGPU (free to read) and the NVIDIA dGPU — the
+# NVIDIA card is only queried while it's already awake, never woken up.
+read -r _ a b c d e f g h _ < /proc/stat; idle1=$((d+e)); tot1=$((a+b+c+d+e+f+g+h))
+sleep 0.4
+read -r _ a b c d e f g h _ < /proc/stat; idle2=$((d+e)); tot2=$((a+b+c+d+e+f+g+h))
+dt=$((tot2-tot1)); cpu=0; (( dt > 0 )) && cpu=$(( (100*(dt-(idle2-idle1)))/dt ))
+
+total=$(awk '/^MemTotal:/{print $2}' /proc/meminfo); avail=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+ram=$(( (100*(total-avail))/total ))
+
+gpu=0
+for dev in /sys/class/drm/card*/device; do
+  v=$(cat "$dev/vendor" 2>/dev/null) || continue
+  if [[ $v == 0x1002 && -r $dev/gpu_busy_percent ]]; then
+    b=$(cat "$dev/gpu_busy_percent"); (( b > gpu )) && gpu=$b
+  elif [[ $v == 0x10de && $(cat "$dev/power/runtime_status" 2>/dev/null) == active ]] && command -v nvidia-smi >/dev/null; then
+    n=$(timeout 2 nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -dc 0-9)
+    [[ -n $n ]] && (( n > gpu )) && gpu=$n
+  fi
+done
+printf '{"cpu":%d,"gpu":%d,"ram":%d}\n' "$cpu" "$gpu" "$ram"

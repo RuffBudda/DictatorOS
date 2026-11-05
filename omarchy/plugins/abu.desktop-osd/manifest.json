@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "abu.desktop-osd",
+  "name": "Desktop indicator",
+  "version": "1.0.0",
+  "author": "abu",
+  "description": "Top-left badge showing the current desktop when you switch",
+  "kinds": ["service"],
+  "keepLoaded": true,
+  "entryPoints": { "service": "Service.qml" }
+}

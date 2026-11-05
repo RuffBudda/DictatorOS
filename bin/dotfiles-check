@@ -1,0 +1,61 @@
+#!/bin/bash
+# Run after every `omarchy update` (hook: omarchy/hooks/post-update.d/dotfiles-check.hook).
+# Re-applies the user-level dotfiles and reports anything an update reset.
+# Never runs sudo itself: system fixes are offered via a notification.
+# Run by hand any time:  ~/dotfiles/bin/dotfiles-check
+DOT="$HOME/dotfiles"
+problems=()
+notify() { omarchy-notification-send -u critical -g 󰑓 "$@"; }
+
+# 1. Re-link user config (cheap, idempotent).
+"$DOT/install.sh" >/dev/null 2>&1 || problems+=("~/dotfiles/install.sh failed")
+
+# 2. Did the update edit your settings (through the symlinks)? Keep yours:
+#    save the update's edits as a patch to review, then restore the
+#    committed version. Apply a suggestion later with: git -C ~/dotfiles apply <patch>
+changed=$(git -C "$DOT" diff --name-only 2>/dev/null)
+if [[ -n $changed ]]; then
+  ver=$(pacman -Q omarchy 2>/dev/null | awk '{print $2}')
+  mkdir -p "$DOT/updates"
+  patch="$DOT/updates/omarchy-${ver:-update}-$(date +%Y%m%d-%H%M)-suggested.patch"
+  git -C "$DOT" diff >"$patch"
+  (cd "$DOT" && git checkout -- $changed)
+  hyprctl reload >/dev/null 2>&1
+  notify "Omarchy update suggested changes — your settings were kept" \
+    "Saved for review: ~/dotfiles/updates/$(basename "$patch"). Click to view." \
+    --exec omarchy-launch-floating-terminal-with-presentation "less -R $patch"
+fi
+
+# 3. Hyprland config still loads cleanly?
+errs=$(hyprctl configerrors 2>/dev/null | grep -v '^$' | head -3)
+[[ -n $errs ]] && problems+=("Hyprland config errors: $errs")
+
+# 4. System-level tweaks (boot splash, login screen, YouTube block).
+sys_reset=0
+[[ $(plymouth-set-default-theme 2>/dev/null) == omarchy-black ]] || sys_reset=1
+[[ -f /etc/sddm.conf.d/zz-dotfiles.conf ]] || sys_reset=1
+[[ -f /etc/chromium/policies/managed/dotfiles.json ]] || sys_reset=1
+[[ -f /etc/udev/rules.d/90-dotfiles-battery.rules ]] || sys_reset=1
+[[ -f /etc/systemd/logind.conf.d/dotfiles-lid.conf ]] || sys_reset=1
+if (( sys_reset )); then
+  notify "System tweaks were reset by the update" "Boot splash / login / YouTube block / battery / lid. Click to re-apply (asks for your password)." \
+    --exec omarchy-launch-floating-terminal-with-presentation "sudo $DOT/system/install.sh"
+fi
+
+# 5. Patched Network Displays replaced by the AUR original (crashes on close)?
+v=$(pacman -Q gnome-network-displays 2>/dev/null | awk '{print $2}')
+if [[ -n $v && $v != *-1.1 ]]; then
+  notify "Network Displays was updated" "The close-crash fix may be gone. Click to rebuild the patched version." \
+    --exec omarchy-launch-floating-terminal-with-presentation "cd $DOT/packages/gnome-network-displays && makepkg -sfi --nocheck"
+fi
+
+# 6. Custom shell widgets (bar, lock, alt-tab…) still load after a shell update?
+sleep 3
+failed=$(journalctl --user --since "-3min" 2>/dev/null |
+  grep -oE "plugin load failed for abu\.[a-z.-]+|bar option abu\.[a-z.-]+ failed" | sort -u | head -3)
+[[ -n $failed ]] && problems+=("Shell widget failed to load: $failed")
+
+if (( ${#problems[@]} )); then
+  notify "Dotfiles check found problems" "$(printf '%s\n' "${problems[@]}")"
+fi
+exit 0

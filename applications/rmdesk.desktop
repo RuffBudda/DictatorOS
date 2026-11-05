@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=rmdesk
+Comment=reMarkable 2: files, screen share and ink on notebook pages
+Exec=/home/abu/dotfiles/bin/rmdesk
+Icon=rmdesk
+Terminal=false
+Type=Application
+Categories=Utility;Office;
+Keywords=remarkable;tablet;rm2;notebook;screen;share;

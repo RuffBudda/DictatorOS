@@ -1,0 +1,5 @@
+#!/bin/bash
+# Windows-style Display settings: arrange screens (drag), scale, rotation,
+# resolution and refresh rate per screen. Saves to ~/dotfiles/hypr/displays.lua
+# (loaded by hypr/monitors.lua) and applies immediately.
+exec nwg-displays -m "$HOME/dotfiles/hypr/displays.conf" "$@"

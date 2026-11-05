@@ -1,0 +1,84 @@
+#!/bin/bash
+# Create an OpenVPN profile from details (no .ovpn file needed).
+# Writes ~/.config/openvpn/<name>/<name>.ovpn, which the OpenVPN Profiles
+# bar widget (rmarchei.openvpn) lists. Your username/password is NOT stored
+# here: the widget asks for it on first connect and keeps it in the keyring.
+set -euo pipefail
+DIR="$HOME/.config/openvpn"
+c() { gum style --foreground 1 "$*"; }
+
+c "New VPN profile"
+mode=$(gum choose --header "How do you connect?" \
+  "Server address + username + password (like the OpenVPN app)" \
+  "Enter the details manually (I have the certificates)")
+if [[ $mode == Server* ]]; then
+  exec "$HOME/dotfiles/bin/vpn-signin"
+fi
+echo "Ask your VPN admin/provider for these details. Leave optional fields empty."
+echo
+
+name=$(gum input --placeholder "Work VPN" --header "Profile name")
+[[ -n $name ]] || { echo "A name is required."; exit 1; }
+slug=$(tr -cs 'A-Za-z0-9._-' '-' <<<"$name" | sed 's/^-*//; s/-*$//')
+server=$(gum input --placeholder "vpn.example.com" --header "Server address")
+[[ -n $server ]] || { echo "A server is required."; exit 1; }
+port=$(gum input --value 1194 --header "Port")
+proto=$(gum choose --header "Protocol" udp tcp)
+auth=$(gum choose --header "How do you sign in?" \
+  "Username + password" \
+  "Certificate" \
+  "Certificate + password")
+
+echo
+c "CA certificate (required)"
+echo "Paste the CA certificate (-----BEGIN CERTIFICATE----- … -----END CERTIFICATE-----),"
+echo "then press Ctrl+D. Or type a path to a .crt/.pem file."
+ca=$(gum write --height 12 --width 80 --placeholder "Paste certificate or a file path")
+[[ -f ${ca/#\~/$HOME} ]] && ca=$(cat "${ca/#\~/$HOME}")
+[[ $ca == *"BEGIN CERTIFICATE"* ]] || { echo "That doesn't look like a certificate."; exit 1; }
+
+cert=""; key=""
+if [[ $auth == Certificate* ]]; then
+  c "Your client certificate"
+  cert=$(gum write --height 10 --width 80 --placeholder "Paste client certificate or a file path")
+  [[ -f ${cert/#\~/$HOME} ]] && cert=$(cat "${cert/#\~/$HOME}")
+  c "Your private key"
+  key=$(gum write --height 10 --width 80 --placeholder "Paste private key or a file path")
+  [[ -f ${key/#\~/$HOME} ]] && key=$(cat "${key/#\~/$HOME}")
+fi
+
+tls=""; tlsmode=""
+if gum confirm "Does your VPN use a tls-auth / tls-crypt key (ta.key)?" --default=false; then
+  tlsmode=$(gum choose --header "Which one?" tls-crypt tls-auth)
+  tls=$(gum write --height 10 --width 80 --placeholder "Paste the static key or a file path")
+  [[ -f ${tls/#\~/$HOME} ]] && tls=$(cat "${tls/#\~/$HOME}")
+fi
+
+mkdir -p "$DIR/$slug"; chmod 700 "$DIR" "$DIR/$slug"
+f="$DIR/$slug/$slug.ovpn"
+{
+  echo "# Created by ~/dotfiles/bin/vpn-new"
+  echo "client"
+  echo "dev tun"
+  echo "proto $proto"
+  echo "remote $server $port"
+  echo "resolv-retry infinite"
+  echo "nobind"
+  echo "persist-key"
+  echo "persist-tun"
+  echo "remote-cert-tls server"
+  echo "verb 3"
+  [[ $auth != "Certificate" ]] && echo "auth-user-pass"
+  echo "<ca>"; echo "$ca"; echo "</ca>"
+  [[ -n $cert ]] && { echo "<cert>"; echo "$cert"; echo "</cert>"; }
+  [[ -n $key ]] && { echo "<key>"; echo "$key"; echo "</key>"; }
+  if [[ -n $tls ]]; then
+    echo "<$tlsmode>"; echo "$tls"; echo "</$tlsmode>"
+    [[ $tlsmode == tls-auth ]] && echo "key-direction 1"
+  fi
+} >"$f"
+chmod 600 "$f"
+echo
+c "Saved $f"
+echo "Open the VPN icon in the bar (Super+B shows the bar) and pick \"$name\"."
+echo "It will ask for your username/password the first time."

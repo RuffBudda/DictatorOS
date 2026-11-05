@@ -1,0 +1,8 @@
+#!/bin/bash
+# One-time setup for SUPER+K casting. Safe to re-run.
+set -e
+echo "Installing GNOME Network Displays (screen casting)…"
+omarchy-pkg-aur-add gnome-network-displays dnsmasq
+echo "Done. Opening the cast window…"
+setsid uwsm-app -- gnome-network-displays >/dev/null 2>&1 &
+sleep 1

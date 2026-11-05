@@ -1,0 +1,48 @@
+#!/bin/bash
+# SUPER+P: Windows-style "Project" menu.
+# Writes a Hyprland monitor override to $XDG_RUNTIME_DIR (cleared on reboot,
+# so a bad choice never survives a restart) and reloads Hyprland.
+
+MODE_FILE="${XDG_RUNTIME_DIR:-/run/user/$UID}/display-mode.lua"
+
+all=$(hyprctl monitors all -j)
+internal=$(jq -r '[.[] | select(.name | test("^(eDP|LVDS|DSI)-"))][0].name // empty' <<<"$all")
+mapfile -t externals < <(jq -r '.[] | select(.name | test("^(eDP|LVDS|DSI)-") | not).name' <<<"$all")
+
+choice=$(omarchy-menu-select "Project" \
+  $'󰌢\tPC screen only' \
+  $'󰍺\tDuplicate' \
+  $'󰍹\tExtend' \
+  $'󰶐\tSecond screen only' \
+  $'󰍹\tDisplay settings…\tArrange, scale and rotate screens') || exit 0
+
+if [[ $choice == Display\ settings* ]]; then
+  exec "$HOME/dotfiles/bin/display-settings"
+fi
+
+if [[ $choice != "PC screen only" && $choice != "Extend" ]] && (( ${#externals[@]} == 0 )); then
+  omarchy-notification-send -g 󰍹 "No second screen connected"
+  exit 1
+fi
+
+# Don't fight Omarchy's own mirror/disable toggles.
+omarchy-hyprland-toggle internal-monitor-mirror off >/dev/null 2>&1
+omarchy-hyprland-toggle internal-monitor-disable off >/dev/null 2>&1
+
+: >"$MODE_FILE"
+case "$choice" in
+  "PC screen only")
+    for e in "${externals[@]}"; do
+      printf 'hl.monitor({ output = "%s", disabled = true })\n' "$e" >>"$MODE_FILE"
+    done ;;
+  "Duplicate")
+    for e in "${externals[@]}"; do
+      printf 'hl.monitor({ output = "%s", mode = "preferred", position = "auto", scale = "auto", mirror = "%s" })\n' "$e" "$internal" >>"$MODE_FILE"
+    done ;;
+  "Second screen only")
+    [[ -n $internal ]] && printf 'hl.monitor({ output = "%s", disabled = true })\n' "$internal" >>"$MODE_FILE" ;;
+  "Extend") ;;
+esac
+
+hyprctl reload >/dev/null
+omarchy-notification-send -g 󰍹 "Display: $choice"

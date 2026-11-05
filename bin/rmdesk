@@ -1,0 +1,10 @@
+#!/bin/bash
+# rmdesk: desktop app for the reMarkable 2 (files, screen share, ink on pages).
+# Source: ~/Work/rmdesk; venv made by ~/Work/rmdesk/scripts/setup-venv.sh.
+VENV="$HOME/.local/share/rmdesk/venv"
+if [[ ! -x $VENV/bin/python ]]; then
+  notify-send "rmdesk" "Not set up yet: run ~/Work/rmdesk/scripts/setup-venv.sh" 2>/dev/null
+  echo "rmdesk venv missing: run ~/Work/rmdesk/scripts/setup-venv.sh" >&2
+  exit 1
+fi
+exec "$VENV/bin/python" -m rmdesk "$@"

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "abu.github-graph",
+  "name": "GitHub contribution graph",
+  "version": "1.0.0",
+  "author": "abu",
+  "description": "Desktop widget: your GitHub contribution graph on the wallpaper",
+  "kinds": ["service"],
+  "keepLoaded": true,
+  "entryPoints": { "service": "Service.qml" }
+}
