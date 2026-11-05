@@ -4,9 +4,10 @@
 
 ![Omarchy 4.5](https://img.shields.io/badge/Omarchy-4.5-e5383b?style=flat-square&labelColor=0a0a0a) ![Hyprland 0.56 Lua](https://img.shields.io/badge/Hyprland-0.56%20(Lua)-e5383b?style=flat-square&labelColor=0a0a0a) ![Arch Linux](https://img.shields.io/badge/Arch-Linux-e5383b?style=flat-square&labelColor=0a0a0a&logo=archlinux&logoColor=e5383b) ![License: MIT](https://img.shields.io/badge/License-MIT-e5383b?style=flat-square&labelColor=0a0a0a) ![Floating windows: banned](https://img.shields.io/badge/floating%20windows-banned-e5383b?style=flat-square&labelColor=0a0a0a) ![Focus stealing: illegal](https://img.shields.io/badge/focus%20stealing-illegal-e5383b?style=flat-square&labelColor=0a0a0a) ![Colours: red and black](https://img.shields.io/badge/colours-red%20%26%20black-e5383b?style=flat-square&labelColor=0a0a0a)
 
-> **An opinionated [Omarchy](https://omarchy.org) setup.** Windows-style shortcuts, tiling only,
-> black and red, desktops across monitors, a minimal lock screen, desktop widgets, and
-> dotfiles that Omarchy updates cannot quietly overrule.
+> **By decree: an [Omarchy](https://omarchy.org) setup that takes no suggestions.** Windows
+> tile or face the consequences. The flag is red and black. One desktop spans every screen,
+> the lock screen asks only for your password, the widgets report directly to the Leader, and
+> no Omarchy update may change a single dotfile without signed approval.
 
 ## The Manifesto
 
@@ -42,8 +43,8 @@
 > 9. **The state does not sleep.** Closing the lid changes nothing.
 > 10. **One face guards every gate.** Lock screen and login wear the same thin red clock;
 >     at boot, where no clock may go, red stars stand in its place. You type; it opens.
-> 11. **The border lists three territories:** DictatorOS, Oryx Windows and Personal
->     Windows. History (snapshots) is not to be revisited from the boot menu.
+> 11. **The border lists only recognised territories:** DictatorOS and any Windows that
+>     has sworn allegiance. History (snapshots) is not to be revisited from the boot menu.
 > 12. **The browser wears the uniform.** AI Mode, Gemini and Lens are exiled; the new tab
 >     page is a red logo and a single search bar.
 > 13. **Alt+Tab is a fundamental right**, as are Super+Space, Win+D, Win+E, Win+P and
@@ -67,8 +68,8 @@
 | ![Desktop with Sleep/Recovery/Strain and CPU/GPU/RAM rings, a GitHub day grid and the red stripes wallpaper](docs/desktop.png) | ![Lock screen with a thin red clock](docs/lock-screen.png) |
 | *Sleep / recovery / strain and CPU / GPU / RAM rings, a year of GitHub days, black bar with battery %* | *Type your password; it unlocks when it's complete* |
 | **Login screen** | **Boot menu (Limine)** |
-| ![Login screen: the same thin red clock and red stars](docs/login-screen.png) | ![Limine boot menu, red on black: DictatorOS, Oryx Windows, Personal Windows](docs/boot-menu.png) |
-| *Same clock and stars as the lock screen* | *Three entries, 10 s countdown, no snapshots* |
+| ![Login screen: the same thin red clock and red stars](docs/login-screen.png) | ![Limine boot menu, red on black, with DictatorOS and Windows entries](docs/boot-menu.png) |
+| *Same clock and stars as the lock screen* | *DictatorOS and Windows, 10 s countdown, no snapshots* |
 
 | **Launcher (Super+Space)** | **`fetch`** |
 |---|---|
@@ -118,7 +119,7 @@
   to the top/bottom half).
 - **Black + red**: custom *Red* theme, red-stripes-on-black wallpaper, no logos on boot,
   login or lock screens, rounded corners everywhere. The Limine boot menu is red on black
-  too, with DictatorOS and both Windows installs.
+  too, with DictatorOS and any Windows installs.
 - **Chromium to match**: red-accented toolbar, tabs down the left side, and a black
   new tab page with only a red Google logo and a search box. No bookmarks bar, no
   AI Mode / Gemini / Lens.
@@ -170,9 +171,8 @@ in its profile.
 
 **`system/install.sh`** (root). Each step is idempotent:
 
-1. Limine boot menu, red on black with a 10 s countdown. Entries: **DictatorOS**,
-   **Oryx Windows** (drive 1) and **Personal Windows** (drive 2), each Windows booting its
-   own boot manager; added only if that partition exists. DictatorOS is a single line
+1. Limine boot menu, red on black with a 10 s countdown. Entries: **DictatorOS**, plus an
+   entry for each Windows install, added only if its partition exists. DictatorOS is a single line
    (no kernel tree): `system/limine-flatten`, also installed as a limine-entry-tool post
    hook (`/etc/boot/hooks/post.d/`) so kernel updates keep it flat. No Snapshots submenu
    (`limine-snapper-sync` is disabled; Snapper still takes snapshots). Limine is put first
@@ -268,7 +268,7 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 - **Disk unlock at boot** (Plymouth): black, "enter password" in dim red until you type,
   then red stars centred, no box (no clock: Plymouth scripts can't read the time).
 - **Boot menu** (Limine): 10 s countdown, red on black, "DictatorOS" title. Choose
-  DictatorOS, Oryx Windows or Personal Windows. Snapshots are not listed.
+  DictatorOS or Windows. Snapshots are not listed.
 - **Admin password prompts** use Omarchy's standard dialog.
 
 ### Chromium
