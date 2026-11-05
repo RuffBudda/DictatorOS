@@ -1,7 +1,8 @@
 #!/bin/bash
 # System-level tweaks. Run with:  sudo ~/dotfiles/system/install.sh
 #  1. Limine boot menu: 10 s countdown in DictatorOS colours, entries DictatorOS,
-#     Oryx Windows and Personal Windows; no Snapshots submenu.
+#     Oryx Windows and Personal Windows; no Snapshots submenu; Limine first in
+#     the firmware boot order.
 #  2. Boot splash (Plymouth / disk-unlock screen): black, no Omarchy logo.
 #  3. Login screen (SDDM, only seen after logout): black, no Omarchy logo.
 #  Both match the lock screen: no box, red ✱ stars (SDDM also gets the thin red clock).
@@ -70,8 +71,6 @@ for conf in /boot/limine.conf /boot/limine/limine.conf /boot/EFI/limine/limine.c
   # Menu entry name: Omarchy → DictatorOS (entries are matched by machine-id,
   # and TARGET_OS_NAME below keeps kernel/snapshot updates using the new name).
   sed -i 's|^/\(+\?\)Omarchy$|/\1DictatorOS|' "$conf"
-  # No Snapshots submenu (the entry and everything indented under it).
-  perl -0pi -e 's/^( *)\/\/Snapshots\n(?:\1 +\S.*\n|[ \t]*\n)*//mg' "$conf"
   # Windows installs: chainload each one's own boot manager from its EFI partition.
   # name|EFI partition PARTUUID (skipped on machines without that partition)
   for win in "Oryx Windows|2e9498e0-b9be-4682-8990-82ce3384b6f9" \
@@ -88,11 +87,41 @@ done
 # Stop limine-snapper-sync from adding the Snapshots submenu back. (Snapper
 # still takes snapshots; they just aren't offered in the boot menu.)
 systemctl disable --now limine-snapper-sync.service 2>/dev/null || true
+# Remove snapshot entries already in the menu: the "Snapshots" submenu and the
+# "<n> │ <date>" snapshot entries it also nests under each kernel.
+if command -v limine-entry-tool >/dev/null; then
+  limine-entry-tool --tree 2>/dev/null | python3 -I -c '
+import re, sys
+stack, out = [], []
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    m = re.match(r"^((?:[│ ]  )*)(?:[├└]─ )?(.+)$", line)
+    if not m or not m.group(2).strip(): continue
+    depth = len(m.group(1)) // 3 + (1 if re.search(r"[├└]─ ", line) else 0)
+    name = m.group(2).strip()
+    stack = stack[:depth] + [name]
+    if name == "Snapshots" or re.match(r"^\d+ │ ", name):
+        path = "/".join(stack)
+        if not any(path.startswith(o + "/") for o in out): out.append(path)
+print("\n".join(out))' | while IFS= read -r entry; do
+    [[ -n $entry ]] && limine-entry-tool --remove-entry "$entry" 0 >/dev/null && echo "Limine: removed $entry"
+  done
+fi
 if [[ -f /etc/default/limine ]]; then
   if grep -q '^TARGET_OS_NAME=' /etc/default/limine; then
     sed -i 's/^TARGET_OS_NAME=.*/TARGET_OS_NAME="DictatorOS"/' /etc/default/limine
   else
     echo 'TARGET_OS_NAME="DictatorOS"' >> /etc/default/limine
+  fi
+fi
+
+# Firmware boot order: Limine first (Windows updates like to put themselves first).
+if command -v efibootmgr >/dev/null; then
+  lim=$(efibootmgr | sed -n 's/^Boot\([0-9A-Fa-f]\{4\}\)\* Limine\b.*/\1/p' | head -1)
+  order=$(efibootmgr | sed -n 's/^BootOrder: //p')
+  if [[ -n $lim && -n $order && ${order%%,*} != "$lim" ]]; then
+    efibootmgr -q -o "$lim,$(tr ',' '\n' <<<"$order" | grep -vx "$lim" | paste -sd,)"
+    echo "Firmware boot order: Limine first"
   fi
 fi
 

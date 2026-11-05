@@ -132,7 +132,8 @@ in its profile.
 1. Limine boot menu, red on black with a 10 s countdown. Entries: **DictatorOS**,
    **Oryx Windows** (drive 1) and **Personal Windows** (drive 2), each Windows booting its
    own boot manager; added only if that partition exists. No Snapshots submenu
-   (`limine-snapper-sync` is disabled; Snapper still takes snapshots). To hide the menu:
+   (`limine-snapper-sync` is disabled; Snapper still takes snapshots). Limine is put first
+   in the firmware boot order. To hide the menu:
    `sudo BOOT_MENU=hidden BOOT_TIMEOUT=1 ~/dotfiles/system/install.sh`.
 2. Black Plymouth boot splash with no logo; the disk-unlock screen says "enter password"
    in dim red, then shows red ✱ stars as you type (no box), like the lock screen.
