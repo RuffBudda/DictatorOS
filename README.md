@@ -117,6 +117,7 @@ omarchy theme set red
 - `hypr/` → `~/.config/hypr/` (bindings, desktops, tiling, monitors, input, look and feel, screen-share picker)
 - `omarchy/shell.json`, `omarchy/plugins/abu.*`, `omarchy/themes/red`, `omarchy/hooks/…`, `omarchy/branding/…` → `~/.config/omarchy/`
 - `applications/*.desktop` → `~/.local/share/applications/`
+- `fastfetch/config.jsonc` → `~/.config/fastfetch/`; `bin/fetch` → `~/.local/bin/fetch` and `~/.local/bin/neofetch`
 
 **`system/install.sh`** (root). Each step is idempotent:
 
@@ -224,6 +225,12 @@ Spacing matches window gaps, and they sit below the bar when it's shown.
 - **Screen-share picker** (`bin/share-picker`): a simple menu of screens, windows and
   "Select a region" instead of the thumbnail window.
 
+### `fetch` / `neofetch`
+
+`fastfetch/config.jsonc` + `fastfetch/logo.txt`: system info reads **DictatorOS (Omarchy x.y)** in red,
+with a parody logo (a crown over a grid of tiles). `fetch` and `neofetch` (`bin/fetch`, linked into
+`~/.local/bin`) both run it; neofetch itself is discontinued.
+
 ### Theme
 
 `omarchy/themes/red`: black backgrounds, red accents, red icon set, transparent bar with
@@ -294,6 +301,7 @@ applications/        launcher entries (Display settings, New VPN profile, rmdesk
 backgrounds/         black wallpaper
 bin/                 scripts used by bindings, widgets and hooks
 docs/                README images
+fastfetch/           fastfetch config and the DictatorOS logo
 hypr/                Hyprland config: bindings, desktops, tiling, monitors, displays, input, look and feel
 icons/               app icons
 omarchy/

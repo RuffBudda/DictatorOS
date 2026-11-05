@@ -1,0 +1,5 @@
+#!/bin/bash
+# `fetch` / `neofetch`: show the DictatorOS system info (fastfetch).
+# neofetch itself is discontinued; both names run fastfetch with the
+# DictatorOS config (~/dotfiles/fastfetch/config.jsonc).
+exec fastfetch "$@"

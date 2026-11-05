@@ -42,6 +42,9 @@ link omarchy/plugins/abu.openvpn             ~/.config/omarchy/plugins/abu.openv
 link omarchy/plugins/abu.desktop-osd         ~/.config/omarchy/plugins/abu.desktop-osd
 link omarchy/plugins/abu.stickynotes         ~/.config/omarchy/plugins/abu.stickynotes
 link omarchy/themes/red                      ~/.config/omarchy/themes/red
+link fastfetch/config.jsonc                    ~/.config/fastfetch/config.jsonc
+link bin/fetch                                ~/.local/bin/fetch
+link bin/fetch                                ~/.local/bin/neofetch
 
 chmod +x "$DOT"/bin/*
 
