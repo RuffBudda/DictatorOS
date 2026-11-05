@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3,
+  "name": "DictatorOS New Tab",
+  "version": "1.0",
+  "description": "Black new tab page with only a search bar.",
+  "chrome_url_overrides": { "newtab": "newtab.html" }
+}

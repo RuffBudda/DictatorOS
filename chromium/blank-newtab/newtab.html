@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>New Tab</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; padding-bottom: 12vh; box-sizing: border-box; }
+  img { width: 272px; max-width: 60vw; user-select: none; -webkit-user-drag: none; }
+  form { width: min(640px, 80vw); }
+  input {
+    width: 100%; box-sizing: border-box; padding: 14px 22px;
+    background: #0a0a0a; color: #f0e0e1; caret-color: #e5383b;
+    border: 1px solid #5c1a1e; border-radius: 24px; outline: none;
+    font: 16px "JetBrains Mono", monospace;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:hover { border-color: #8a2a2e; }
+  input:focus { border-color: #e5383b; box-shadow: 0 0 0 3px rgba(229, 56, 59, .25); }
+  input::placeholder { color: #8a5a5d; }
+  input::selection { background: #3a0d10; }
+</style>
+</head>
+<body>
+  <img src="google.png" alt="Google">
+  <form action="https://www.google.com/search" method="get">
+    <input name="q" placeholder="Search Google" autocomplete="off" autofocus>
+  </form>
+</body>
+</html>
