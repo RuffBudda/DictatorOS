@@ -41,6 +41,7 @@ link omarchy/plugins/abu.github-graph        ~/.config/omarchy/plugins/abu.githu
 link omarchy/plugins/abu.openvpn             ~/.config/omarchy/plugins/abu.openvpn
 link omarchy/plugins/abu.desktop-osd         ~/.config/omarchy/plugins/abu.desktop-osd
 link omarchy/plugins/abu.stickynotes         ~/.config/omarchy/plugins/abu.stickynotes
+link omarchy/plugins/abu.wallpaper-fade      ~/.config/omarchy/plugins/abu.wallpaper-fade
 link omarchy/themes/red                      ~/.config/omarchy/themes/red
 link fastfetch/config.jsonc                    ~/.config/fastfetch/config.jsonc
 link bin/fetch                                ~/.local/bin/fetch

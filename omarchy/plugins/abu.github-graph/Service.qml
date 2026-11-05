@@ -207,56 +207,59 @@ Item {
       id: card
       anchors.centerIn: parent
       spacing: 10
-      readonly property int gap: 3
-      // Cells grow so the 7 weekday rows fill the box (minus caption and padding).
-      readonly property int cell: frame.ringBoxes > 0
-        ? Math.max(8, Math.floor((frame.height - 2 * root.pad - spacing - 16 + gap) / 7 - gap))
-        : 11
-      // As wide as the ring boxes on the left (3 rings): show only the most
-      // recent weeks that fit. Without rings, show the whole year.
+      readonly property int gap: 2
+      // A tidy grid of the most recent days (oldest top-left, today bottom-right),
+      // as wide as one ring box and as tall as both. Columns x rows are chosen to
+      // fill that box with square cells and show close to a year.
       readonly property real targetWidth: sysFrame.visible ? sysFrame.width
         : (whoopFrame.visible ? whoopFrame.width : 0)
-      readonly property int shownWeeks: targetWidth > 0
-        ? Math.max(1, Math.min(root.weeks.length, Math.floor((targetWidth - 2 * root.pad + gap) / (cell + gap))))
-        : root.weeks.length
-      readonly property var shown: root.weeks.slice(root.weeks.length - shownWeeks)
-      readonly property int shownTotal: {
-        var t = 0
-        for (var i = 0; i < shown.length; i++)
-          for (var j = 0; j < shown[i].length; j++) t += shown[i][j].c
-        return t
+      readonly property real gridW: targetWidth > 0 ? targetWidth - 2 * root.pad : 53 * 14
+      readonly property real gridH: targetWidth > 0 ? frame.height - 2 * root.pad - spacing - 16 : 7 * 14
+      readonly property var days: {
+        var out = []
+        for (var i = 0; i < root.weeks.length; i++)
+          for (var j = 0; j < root.weeks[i].length; j++) out.push(root.weeks[i][j].c)
+        return out
       }
+      readonly property var shape: {
+        var n = days.length
+        if (n === 0) return { cols: 1, rows: 1, cell: 10 }
+        var best = { cols: 1, rows: 1, cell: 0 }
+        for (var cols = 7; cols <= 60; cols++) {
+          var c = Math.floor((gridW + gap) / cols - gap)
+          if (c < 3) break
+          var rows = Math.min(Math.ceil(n / cols), Math.floor((gridH + gap) / (c + gap)))
+          if (rows < 1) continue
+          var shown = Math.min(n, cols * rows)
+          // Prefer showing more days, then bigger cells.
+          if (shown > best.cols * best.rows || (shown === best.cols * best.rows && c > best.cell))
+            best = { cols: cols, rows: rows, cell: c }
+        }
+        return best
+      }
+      readonly property int cell: Math.max(3, shape.cell)
+      readonly property var shownDays: days.slice(Math.max(0, days.length - shape.cols * shape.rows))
 
-      Row {
+      Grid {
         Layout.alignment: Qt.AlignRight
+        columns: card.shape.cols
         spacing: card.gap
         Repeater {
-          model: card.shown
-          Column {
+          model: card.shownDays
+          Rectangle {
             required property var modelData
-            spacing: card.gap
-            // Partial first/last weeks: pad so weekdays line up (Sunday on top).
-            Item { width: card.cell; height: modelData.length > 0 ? modelData[0].w * (card.cell + card.gap) - (modelData[0].w > 0 ? 0 : 0) : 0; visible: height > 0 }
-            Repeater {
-              model: modelData
-              Rectangle {
-                required property var modelData
-                width: card.cell; height: card.cell; radius: 2
-                color: root.cellColor(modelData.c)
-              }
-            }
+            width: card.cell; height: card.cell; radius: Math.min(2, card.cell / 4)
+            color: root.cellColor(modelData)
           }
         }
       }
 
       Text {
         Layout.alignment: Qt.AlignRight
-        Layout.maximumWidth: card.shownWeeks * (card.cell + card.gap) - card.gap
-        elide: Text.ElideLeft
+        Layout.maximumWidth: card.gridW
+        elide: Text.ElideRight
         textFormat: Text.PlainText
-        text: card.shownWeeks >= root.weeks.length
-          ? root.login + "  ·  " + root.total + " contributions in the last year"
-          : root.login + "  ·  " + card.shownTotal + " in " + card.shownWeeks + " weeks"
+        text: root.login + "  ·  " + root.total + " this year"
         color: Commons.Color.accent
         font.family: Style.font.family
         font.pixelSize: 12
@@ -305,6 +308,13 @@ Item {
         spacing: 2 * root.boxGap
         Ring {
           size: whoopFrame.ringSize
+          label: "SLEEP"; suffix: "%"
+          hasValue: root.whoop !== null && root.whoop.sleep !== null && root.whoop.sleep !== undefined
+          value: hasValue ? root.whoop.sleep : 0
+          fraction: value / 100
+        }
+        Ring {
+          size: whoopFrame.ringSize
           label: "RECOVERY"; suffix: "%"
           hasValue: root.whoop !== null && root.whoop.recovery !== null && root.whoop.recovery !== undefined
           value: hasValue ? root.whoop.recovery : 0
@@ -316,13 +326,6 @@ Item {
           hasValue: root.whoop !== null && root.whoop.strain !== null && root.whoop.strain !== undefined
           value: hasValue ? root.whoop.strain : 0
           fraction: value / 21
-        }
-        Ring {
-          size: whoopFrame.ringSize
-          label: "SLEEP"; suffix: "%"
-          hasValue: root.whoop !== null && root.whoop.sleep !== null && root.whoop.sleep !== undefined
-          value: hasValue ? root.whoop.sleep : 0
-          fraction: value / 100
         }
       }
     }

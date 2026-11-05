@@ -295,7 +295,7 @@ red icons, red lock screen. The wallpaper is forced to solid black on every them
 
 ### Other
 
-- **Notifications** hide after 10 s, urgent ones included (they stay in the history).
+- **Notifications** hide after 5 s, urgent ones included (they stay in the history).
 - `apps.sh`: app choices (fonts, removals, Claude Desktop, fwupd, web apps, rmdesk;
   see [Install](#install)).
 - `bin/rmdesk` + launcher: a reMarkable 2 desktop app (separate project with its own venv).

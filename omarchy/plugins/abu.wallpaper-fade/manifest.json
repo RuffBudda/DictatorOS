@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "abu.wallpaper-fade",
+  "name": "Wallpaper fade",
+  "version": "1.0.0",
+  "author": "abu",
+  "description": "Hides the wallpaper (black) while a desktop has windows; fades it back in slowly when the desktop is empty or everything is minimized.",
+  "kinds": ["service"],
+  "keepLoaded": true,
+  "entryPoints": { "service": "Service.qml" }
+}
