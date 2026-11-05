@@ -46,7 +46,8 @@
 >     Windows. History (snapshots) is not to be revisited from the boot menu.
 > 12. **The browser wears the uniform.** AI Mode, Gemini and Lens are exiled; the new tab
 >     page is a red logo and a single search bar.
-> 13. **Alt+Tab is a fundamental right**, as are Win+D, Win+E, Win+P and Ctrl+Shift+Esc.
+> 13. **Alt+Tab is a fundamental right**, as are Super+Space, Win+D, Win+E, Win+P and
+>     Ctrl+Shift+Esc.
 > 14. **Opinions are mandatory, and they are ours.** Upstream's opinions may petition like
 >     any other update (see decree 7). They will be read, eventually, and framed, never.
 >     The menu formerly known as the chef's special now lives on Super+Alt+Space.
@@ -96,6 +97,8 @@
 
 ## Highlights
 
+- **Spotlight-style launcher** (Super+Space): a single centred search bar for apps,
+  calculator, clipboard history, emoji and files; everything behind it dims.
 - **Windows-style shortcuts**: Alt+Tab switcher with live thumbnails, Win+P project
   menu, Win+D show desktop, Win+E files, Win+L lock, Ctrl+Shift+Esc Task Manager,
   Win+Shift+S screenshots.
@@ -200,8 +203,8 @@ Then the app choices and, optionally, WHOOP:
   qemu-user-static-binfmt, and `intel-ucode` on AMD machines only.
   Edit `REMOVE_PKGS` at the top to keep any of them.
 - **rmdesk**: clones it to `~/Work/rmdesk` and builds its Python environment.
-- **Vicinae** (AUR `vicinae-bin`): a Raycast-style launcher on Super+Space, started as a
-  user service, with the DictatorOS theme (`vicinae/`) and telemetry off.
+- **Vicinae** (AUR `vicinae-bin`): the Spotlight-style launcher on Super+Space, started as
+  a user service, with the DictatorOS theme (`vicinae/`) and telemetry off.
 
 Keep machines in sync with `git -C ~/dotfiles pull` (and commit + push your own changes).
 
@@ -219,7 +222,7 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 | **Super+D** | Show desktop (hide all windows on all screens); again to bring them back |
 | **Super+Left / Right** | Lone window: snap to the left/right half (stays tiled). With others: move left/right. At the screen edge: move to the next/previous screen, wherever it sits |
 | **Super+Up / Down** | Lone window: snap to the top/bottom half. Side-by-side windows: stack them vertically (this one on top for Up, at the bottom for Down). Stacked: move up/down |
-| **Super+Space** | Launcher (Vicinae, Raycast-style): apps, calculator, clipboard history, emoji, files, web search. The Omarchy menu is on Super+Alt+Space |
+| **Super+Space** | Launcher (Vicinae, Spotlight-style): apps, calculator, clipboard history, emoji, files, web search. The Omarchy menu is on Super+Alt+Space |
 | **Super+L** | Lock screen |
 | **Super+E** | Files |
 | **Ctrl+Shift+Esc** | Task Manager (Mission Center). btop is Super+Shift+T |
@@ -282,6 +285,24 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
   username and password like the OpenVPN Connect app (downloads your profile from
   OpenVPN Access Server), or enter details manually (`bin/vpn-signin`, `bin/vpn-new`).
 - **Sticky notes** (`abu.stickynotes`, Super+M): a bento board of notes in a bar panel.
+
+### Launcher (Super+Space)
+
+[Vicinae](https://vicinae.com), set up to feel like macOS Spotlight
+(`vicinae/settings.json`, theme in `vicinae/themes/dictatoros.toml`):
+
+- **Compact**: just a rounded search bar until you type, then a short results list
+  (apps, calculator, clipboard history, emoji, files, settings, web search).
+- **Centred** horizontally, just above the middle of the screen. Vicinae draws the bar at
+  the top of an invisible centred panel, so `launcher_window.size.height` sets how high it
+  sits: bigger moves it up, smaller moves it down (320 now).
+- **Everything behind it dims** while it's open (Hyprland `dim_around` layer rule in
+  `hypr/looknfeel.lua`, strength 0.55).
+- **Looks**: black panel, red border and accents, soft 36 px drop shadow, no clock or
+  favorites. The footer can't be hidden in Vicinae, so it's blended into the panel.
+- **Escape** closes it, and it always opens on a fresh search. **Telemetry is off**.
+- The Omarchy menu moved to **Super+Alt+Space**. If Vicinae isn't installed, Super+Space
+  falls back to the Omarchy menu.
 
 ### Desktop widgets
 
