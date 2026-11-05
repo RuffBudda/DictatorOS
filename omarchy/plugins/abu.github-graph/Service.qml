@@ -27,6 +27,8 @@ Item {
   readonly property int edgeGap: 12
   readonly property int boxGap: 14
   readonly property int pad: 12
+  // Height of one ring box (WHOOP, or CPU/GPU/RAM).
+  readonly property int ringBoxHeight: 145
   // One red for every widget border (same colour and strength).
   readonly property color borderColor: Qt.rgba(Commons.Color.accent.r, Commons.Color.accent.g, Commons.Color.accent.b, 0.6)
 
@@ -191,8 +193,11 @@ Item {
 
     Rectangle {
       id: frame
-      width: card.implicitWidth + 2 * root.pad
-      height: card.implicitHeight + 2 * root.pad
+      // As wide as one ring box and as tall as all of them stacked.
+      readonly property int ringBoxes: (whoopFrame.visible ? 1 : 0) + (sysFrame.visible ? 1 : 0)
+      width: card.targetWidth > 0 ? card.targetWidth : card.implicitWidth + 2 * root.pad
+      height: ringBoxes > 0 ? ringBoxes * root.ringBoxHeight + (ringBoxes - 1) * root.boxGap
+                            : card.implicitHeight + 2 * root.pad
       radius: Style.cornerRadius
       color: Qt.rgba(0, 0, 0, 0.35)
       border.width: 0   // no outline
@@ -202,8 +207,11 @@ Item {
       id: card
       anchors.centerIn: parent
       spacing: 10
-      readonly property int cell: 11
       readonly property int gap: 3
+      // Cells grow so the 7 weekday rows fill the box (minus caption and padding).
+      readonly property int cell: frame.ringBoxes > 0
+        ? Math.max(8, Math.floor((frame.height - 2 * root.pad - spacing - 16 + gap) / 7 - gap))
+        : 11
       // As wide as the ring boxes on the left (3 rings): show only the most
       // recent weeks that fit. Without rings, show the whole year.
       readonly property real targetWidth: sysFrame.visible ? sysFrame.width
@@ -284,8 +292,8 @@ Item {
       visible: root.whoopReady
       width: ringsRow.implicitWidth + 2 * root.pad
       // Same height as the GitHub box; rings sized to fit (ring + gap + label).
-      height: frame.height
-      readonly property real ringSize: Math.max(40, Math.floor((frame.height - 2 * root.pad - 16) / 1.1))
+      height: root.ringBoxHeight
+      readonly property real ringSize: Math.max(40, Math.floor((root.ringBoxHeight - 2 * root.pad - 16) / 1.1))
       radius: Style.cornerRadius
       color: Qt.rgba(0, 0, 0, 0.35)
       border.width: 0   // no outline
@@ -325,7 +333,7 @@ Item {
       id: sysFrame
       visible: root.sys !== null
       width: sysRow.implicitWidth + 2 * root.pad
-      height: frame.height
+      height: root.ringBoxHeight
       readonly property real ringSize: whoopFrame.ringSize
       radius: Style.cornerRadius
       color: Qt.rgba(0, 0, 0, 0.35)
