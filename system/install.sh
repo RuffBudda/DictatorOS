@@ -4,7 +4,7 @@
 #     key right after power-on still shows it, so snapshots stay reachable).
 #  2. Boot splash (Plymouth / disk-unlock screen): black, no Omarchy logo.
 #  3. Login screen (SDDM, only seen after logout): black, no Omarchy logo.
-#  Password boxes on both get rounded corners and a red border.
+#  Both match the lock screen: no box, red ✱ stars (SDDM also gets the thin red clock).
 #  4. Chromium: block YouTube notifications.  5. Battery: stop charging at ~80%.
 #  6. No automatic sleep (lid close ignored).
 #  7. A pacman hook re-applies all of this after relevant updates (root-owned copy).
@@ -81,7 +81,15 @@ name.sprite.SetPosition(Window.GetWidth() / 2 - name.image.GetWidth() / 2, entry
 name.sprite.SetOpacity(0);
 PLY
 fi
-rounded_box "$DST/entry.png" 286 48 '#e5383b'
+# Lock-screen look: no box, red ✱ stars centred on screen (no clock: Plymouth
+# scripts cannot read the time).
+magick -size 286x48 xc:none "$DST/entry.png"
+magick -background none -fill '#e5383b' -font DejaVu-Sans -pointsize 40 label:$'✱' \
+  -trim +repage -resize 22x22 -gravity center -extent 22x22 "$DST/bullet.png"
+perl -0pi -e 's/bullet\.image\.Scale\(7, 7\)/bullet.image/;
+  s/fun position_bullet\(index\) \{.*?\n\}/fun position_bullet(index) {\n  step = bullet.image.GetWidth() + 12;\n  bullet.sprites[index].SetPosition(Window.GetWidth() \/ 2 - (global.bullet_count * step - 12) \/ 2 + index * step, entry.y + entry.image.GetHeight() \/ 2 - bullet.image.GetHeight() \/ 2, 10002);\n}/s;
+  s/(  for \(index = 0; index < bullets_to_show; index\+\+\) \{)/  global.bullet_count = bullets_to_show;\n$1/;
+  s/(      position_bullet\(index\);\n    \}\n)/    }\n    position_bullet(index);\n/' "$DST/omarchy-black.script"
 plymouth-set-default-theme omarchy-black
 echo "Rebuilding initramfs…"
 if command -v limine-mkinitcpio >/dev/null; then limine-mkinitcpio; else mkinitcpio -P; fi
@@ -91,10 +99,120 @@ S_SRC=/usr/share/sddm/themes/omarchy
 S_DST=/usr/share/sddm/themes/omarchy-black
 if [[ -d $S_SRC ]]; then
   rm -rf "$S_DST"; cp -r "$S_SRC" "$S_DST"
-  magick -size 1x1 xc:none "$S_DST/logo.png"
-  rounded_box "$S_DST/entry.png" 286 48 '#e5383b'
-  rounded_box "$S_DST/entry-failed.png" 286 48 '#ff4d4f'
-  sed -i '0,/color: "#[0-9a-fA-F]*"/s//color: "#000000"/' "$S_DST/Main.qml"
+  # Same look as the lock screen: black, big thin red clock, red ✱ stars under
+  # it, no box. Enter logs in; a wrong password shows a short red message.
+  cat >"$S_DST/Main.qml" <<'QML'
+import QtQuick 2.0
+import SddmComponents 2.0
+
+Rectangle {
+  id: root
+  width: 640
+  height: 480
+  color: "#000000"
+
+  property string currentUser: userModel.lastUser
+  property bool loginFailed: false
+  property bool checking: false
+  property string clockText: Qt.formatTime(new Date(), "HH:mm")
+  property int sessionIndex: {
+    for (var i = 0; i < sessionModel.rowCount(); i++) {
+      var name = (sessionModel.data(sessionModel.index(i, 0), Qt.DisplayRole) || "").toString()
+      if (name.indexOf("uwsm") !== -1)
+        return i
+    }
+    return sessionModel.lastIndex
+  }
+
+  Timer {
+    interval: 1000; running: true; repeat: true; triggeredOnStart: true
+    onTriggered: root.clockText = Qt.formatTime(new Date(), "HH:mm")
+  }
+
+  Connections {
+    target: sddm
+    function onLoginFailed() {
+      root.checking = false
+      root.loginFailed = true
+      password.text = ""
+      password.forceActiveFocus()
+    }
+    function onLoginSucceeded() { root.loginFailed = false }
+  }
+
+  Text {
+    id: clock
+    text: root.clockText
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.bottom: field.top
+    anchors.bottomMargin: 24
+    color: "#e5383b"
+    font.family: "JetBrains Mono"
+    font.pixelSize: Math.round(root.width * 0.12)
+    font.weight: Font.ExtraLight
+    font.letterSpacing: -Math.round(root.width * 0.002)
+  }
+
+  Item {
+    id: field
+    width: 381
+    height: 67
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
+    anchors.verticalCenterOffset: Math.round((clock.height + clock.anchors.bottomMargin) / 2)
+
+    TextInput {
+      id: password
+      anchors.fill: parent
+      anchors.leftMargin: 18
+      anchors.rightMargin: 18
+      verticalAlignment: TextInput.AlignVCenter
+      horizontalAlignment: TextInput.AlignHCenter
+      echoMode: TextInput.Password
+      passwordCharacter: "✱"
+      passwordMaskDelay: 0
+      color: "#e5383b"
+      selectionColor: "#3a0d10"
+      selectedTextColor: "#e8d5d6"
+      font.family: "JetBrains Mono"
+      font.pixelSize: 29
+      font.letterSpacing: text.length > 0 ? 13 : 0
+      cursorDelegate: Item {}
+      clip: true
+      focus: true
+      readOnly: root.checking
+      onTextChanged: if (text.length > 0) root.loginFailed = false
+
+      Keys.onPressed: {
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+          if (password.text.length > 0) {
+            root.checking = true
+            sddm.login(root.currentUser, password.text, root.sessionIndex)
+          }
+          event.accepted = true
+        } else if (event.key === Qt.Key_Escape) {
+          password.text = ""
+          event.accepted = true
+        }
+      }
+    }
+
+    Text {
+      anchors.fill: parent
+      visible: password.text.length === 0 && (root.checking || root.loginFailed)
+      text: root.checking ? "Checking…" : "Wrong password"
+      color: root.checking ? "#e8d5d6" : "#ff4d4f"
+      font.family: "JetBrains Mono"
+      font.pixelSize: 22
+      font.italic: root.loginFailed
+      horizontalAlignment: Text.AlignHCenter
+      verticalAlignment: Text.AlignVCenter
+    }
+  }
+
+  Component.onCompleted: password.forceActiveFocus()
+}
+QML
   printf '[Theme]\nCurrent=omarchy-black\n' > /etc/sddm.conf.d/zz-dotfiles.conf
   echo "SDDM theme: omarchy-black"
 fi

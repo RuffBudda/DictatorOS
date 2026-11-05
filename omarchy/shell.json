@@ -87,11 +87,15 @@
     },
     {
       "id": "abu.github-graph"
+    },
+    {
+      "id": "abu.polkit"
     }
   ],
   "disabledPlugins": [
     "omarchy.notifications",
     "omarchy.lock",
+    "omarchy.polkit",
     "omarchy.weather",
     "almorus.workspace-apps",
     "rmarchei.openvpn"
