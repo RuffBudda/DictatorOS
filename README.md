@@ -1,12 +1,47 @@
 # DictatorOS
 
-An opinionated [Omarchy](https://omarchy.org) setup that makes the desktop behave
-like Windows where it counts (Windows shortcuts, Alt+Tab, Win+P, Win+D, wireless
-casting, Task Manager) while keeping Omarchy's tiling, speed and keyboard-first
-workflow. Everything is black and red, every change is a dotfile, and Omarchy
-updates can never silently change your settings.
+![Omarchy 4.5](https://img.shields.io/badge/Omarchy-4.5-e5383b?style=flat-square&labelColor=0a0a0a) ![Hyprland 0.56 Lua](https://img.shields.io/badge/Hyprland-0.56%20(Lua)-e5383b?style=flat-square&labelColor=0a0a0a) ![Arch Linux](https://img.shields.io/badge/Arch-Linux-e5383b?style=flat-square&labelColor=0a0a0a&logo=archlinux&logoColor=e5383b) ![License: MIT](https://img.shields.io/badge/License-MIT-e5383b?style=flat-square&labelColor=0a0a0a) ![Floating windows: banned](https://img.shields.io/badge/floating%20windows-banned-e5383b?style=flat-square&labelColor=0a0a0a) ![Focus stealing: illegal](https://img.shields.io/badge/focus%20stealing-illegal-e5383b?style=flat-square&labelColor=0a0a0a) ![Colours: red and black](https://img.shields.io/badge/colours-red%20%26%20black-e5383b?style=flat-square&labelColor=0a0a0a)
 
-![Lock screen: a thin red clock on black](docs/lock-screen.png)
+> **An opinionated [Omarchy](https://omarchy.org) setup.** Windows-style shortcuts, tiling only,
+> black and red, desktops across monitors, a minimal lock screen, desktop widgets, and
+> dotfiles that Omarchy updates cannot quietly overrule.
+
+## The Manifesto
+
+> *Citizens of the desktop,*
+>
+> For too long you have lived under the tyranny of choice: windows drifting wherever
+> they pleased, colours of every stripe, apps seizing your focus without warning. That era
+> is over. By order of the Supreme Leader of this laptop, the following decrees take
+> effect immediately.
+>
+> 1. **Windows shall tile.** Floating is treason. Installer terminals, task monitors and
+>    games alike shall stand in line.
+> 2. **There is one desktop.** Screens that try to show different workspaces will be
+>    re-educated, and a screen that leaves will have its windows returned to the motherland.
+> 3. **The colours of the state are red and black.** All other colours are confiscated.
+>    The wallpaper is black. It will remain black.
+> 4. **No application may seize your attention.** Focus belongs to the people.
+> 5. **The bar appears only when summoned** (Super+B). The Leader dislikes clutter.
+> 6. **Updates may petition; they may not decree.** Every change an update attempts is
+>    detained as a patch and awaits the Leader's approval.
+> 7. **The battery shall rest at 80 percent**, for the long-term health of the nation.
+> 8. **The state does not sleep.** Closing the lid changes nothing.
+> 9. **The clock watches over the lock screen.** It asks no questions. You type; it opens.
+> 10. **Alt+Tab is a fundamental right**, as are Win+D, Win+E, Win+P and Ctrl+Shift+Esc.
+>
+> Long live the tiles.
+>
+> *(Signed in red ink, RuffBudda, Supreme Leader)*
+
+## Screenshots
+
+| Desktop: widgets on a black wallpaper | Lock screen |
+|---|---|
+| ![Desktop with WHOOP, CPU/GPU/RAM rings and GitHub graph](docs/desktop.png) | ![Lock screen with a thin red clock](docs/lock-screen.png) |
+| *WHOOP (sample values), CPU / GPU / RAM rings, GitHub graph, red bar* | *Type your password; it unlocks when it's complete* |
+
+<p align="center"><img src="docs/monitor-panel.png" alt="Monitor panel with brightness, text size, displays and per-screen scale" width="420"><br><em>Bar monitor panel: brightness, text size, screens, per-screen scale and rotation</em></p>
 
 > Built on Omarchy 4.5 (Hyprland 0.56, Lua config) on a Lenovo Legion 5 15AHP11
 > (AMD + NVIDIA). Most of it works on any Omarchy 4.5 machine; the hardware bits
@@ -16,6 +51,8 @@ updates can never silently change your settings.
 
 ## Contents
 
+- [The Manifesto](#the-manifesto)
+- [Screenshots](#screenshots)
 - [Highlights](#highlights)
 - [Requirements](#requirements)
 - [Install](#install)
