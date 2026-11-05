@@ -104,7 +104,9 @@ for line in sys.stdin:
         path = "/".join(stack)
         if not any(path.startswith(o + "/") for o in out): out.append(path)
 print("\n".join(out))' | while IFS= read -r entry; do
-    [[ -n $entry ]] && limine-entry-tool --remove-entry "$entry" 0 >/dev/null && echo "Limine: removed $entry"
+    if [[ -n $entry ]] && limine-entry-tool --remove-entry "$entry" 0 >/dev/null; then
+      echo "Limine: removed $entry"
+    fi
   done
 fi
 if [[ -f /etc/default/limine ]]; then
