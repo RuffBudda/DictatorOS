@@ -67,14 +67,11 @@
 |---|---|
 | ![Desktop with Sleep/Recovery/Strain and CPU/GPU/RAM rings, a GitHub day grid and the red stripes wallpaper](docs/desktop.png) | ![Lock screen with a thin red clock](docs/lock-screen.png) |
 | *Sleep / recovery / strain and CPU / GPU / RAM rings, a year of GitHub days, black bar with battery %* | *Type your password; it unlocks when it's complete* |
-| **Login screen** | **Boot menu (Limine)** |
-| ![Login screen: the same thin red clock and red stars](docs/login-screen.png) | ![Limine boot menu, red on black, with DictatorOS and Windows entries](docs/boot-menu.png) |
-| *Same clock and stars as the lock screen* | *DictatorOS and Windows, 10 s countdown, no snapshots* |
+| **Login screen** | **Launcher (Super+Space)** |
+| ![Login screen: the same thin red clock and red stars](docs/login-screen.png) | ![Vicinae launcher, Spotlight-style, over a dimmed terminal](docs/launcher.png) |
+| *Same clock and stars as the lock screen* | *Spotlight-style search; everything behind it dims* |
 
-| **Launcher (Super+Space)** | **`fetch`** |
-|---|---|
-| ![Vicinae launcher, Spotlight-style, over a dimmed terminal](docs/launcher.png) | ![fetch: the DictatorOS crown with system info](docs/fetch.png) |
-| *Spotlight-style search; everything behind it dims* | *The crown builds itself, then the info appears* |
+<p align="center"><img src="docs/fetch.png" alt="fetch: the DictatorOS crown with system info" width="560"><br><em><code>fetch</code>: the crown builds itself, then the info appears</em></p>
 
 <p align="center"><img src="docs/chromium.png" alt="Chromium with tabs on the left and a black new tab page: red Google logo and one search bar" width="720"><br><em>Chromium: red accents, tabs on the left, a new tab page with nothing but search</em></p>
 
