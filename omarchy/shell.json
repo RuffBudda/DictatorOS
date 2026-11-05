@@ -54,7 +54,8 @@
           "id": "abu.monitor"
         },
         {
-          "id": "rasp.power"
+          "id": "abu.power",
+          "showPercentage": true
         }
       ]
     },
@@ -94,7 +95,9 @@
     "omarchy.lock",
     "omarchy.weather",
     "almorus.workspace-apps",
-    "rmarchei.openvpn"
+    "rmarchei.openvpn",
+    "rasp.power",
+    "omarchy.background"
   ],
   "cloneSourceRestores": [
     "abu.notifications",
