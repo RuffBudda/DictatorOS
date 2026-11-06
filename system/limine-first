@@ -1,0 +1,9 @@
+#!/bin/sh
+# DictatorOS: put Limine first in the firmware boot order (Windows keeps moving its
+# own boot manager to the top). Run at every Linux boot by dotfiles-limine-first.service.
+lim=$(efibootmgr | sed -n 's/^Boot\([0-9A-Fa-f]\{4\}\)\* Limine\b.*/\1/p' | head -1)
+order=$(efibootmgr | sed -n 's/^BootOrder: //p')
+[ -n "$lim" ] && [ -n "$order" ] || exit 0
+[ "${order%%,*}" = "$lim" ] && exit 0
+efibootmgr -q -o "$lim,$(printf '%s\n' "$order" | tr ',' '\n' | grep -vx "$lim" | paste -sd,)"
+echo "Limine moved back to first in the boot order"

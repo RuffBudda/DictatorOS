@@ -206,6 +206,21 @@ Then the app choices and, optionally, WHOOP:
   Edit `REMOVE_PKGS` at the top to keep any of them.
 - **rmdesk**: clones it to `~/Work/rmdesk` and builds its Python environment.
 
+### Dual boot with Windows: keep Limine first
+
+Windows moves its own boot manager to the top of the firmware boot order every time it
+starts, so the next restart skips Limine (re-ordering in the BIOS doesn't stick). Run this
+once in **each** Windows install, in PowerShell **as Administrator**:
+
+```powershell
+irm https://raw.githubusercontent.com/RuffBudda/DictatorOS/main/windows/install-limine-first.ps1 | iex
+```
+
+It adds a startup task that puts Limine back on top whenever Windows boots
+(`windows/limine-first.ps1`). Undo: `schtasks /delete /tn "DictatorOS Limine first" /f`.
+On the Linux side, `system/install.sh` adds `dotfiles-limine-first.service`, which does the
+same check at every Linux boot.
+
 Keep machines in sync with `git -C ~/dotfiles pull` (and commit + push your own changes).
 
 ## Keyboard shortcuts

@@ -139,14 +139,27 @@ for conf in /boot/limine.conf /boot/limine/limine.conf /boot/EFI/limine/limine.c
   [[ -f $conf ]] && "$HOOK" "$conf"
 done
 
-# Firmware boot order: Limine first (Windows updates like to put themselves first).
+# Firmware boot order: Limine first. Windows moves its boot manager to the top
+# every time it starts; windows/install-limine-first.ps1 fixes that from the
+# Windows side, and this service re-checks at every Linux boot as a safety net.
 if command -v efibootmgr >/dev/null; then
-  lim=$(efibootmgr | sed -n 's/^Boot\([0-9A-Fa-f]\{4\}\)\* Limine\b.*/\1/p' | head -1)
-  order=$(efibootmgr | sed -n 's/^BootOrder: //p')
-  if [[ -n $lim && -n $order && ${order%%,*} != "$lim" ]]; then
-    efibootmgr -q -o "$lim,$(tr ',' '\n' <<<"$order" | grep -vx "$lim" | paste -sd,)"
-    echo "Firmware boot order: Limine first"
-  fi
+  src="$(dirname "$(readlink -f "$0")")/limine-first"
+  [[ $src -ef /usr/local/lib/dotfiles/limine-first ]] || install -D -m 755 -o root -g root "$src" /usr/local/lib/dotfiles/limine-first
+  cat >/etc/systemd/system/dotfiles-limine-first.service <<'UNIT'
+[Unit]
+Description=Keep Limine first in the firmware boot order (DictatorOS)
+ConditionPathExists=/sys/firmware/efi
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/dotfiles/limine-first
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  systemctl daemon-reload
+  systemctl enable dotfiles-limine-first.service >/dev/null 2>&1
+  /usr/local/lib/dotfiles/limine-first
 fi
 
 # ── 2. Plymouth ────────────────────────────────────────────
@@ -402,6 +415,7 @@ self=$(readlink -f "$0"); copy=/usr/local/lib/dotfiles/system-install.sh
 if [[ $self != "$copy" ]]; then   # skip when run as the copy (from the hook)
   install -D -m 755 -o root -g root "$self" "$copy"
   install -D -m 755 -o root -g root "$(dirname "$self")/limine-flatten" /usr/local/lib/dotfiles/limine-flatten
+  install -D -m 755 -o root -g root "$(dirname "$self")/limine-first" /usr/local/lib/dotfiles/limine-first
 fi
 mkdir -p /etc/pacman.d/hooks
 cat >/etc/pacman.d/hooks/zz-dotfiles-system.hook <<'HOOK'
