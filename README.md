@@ -248,7 +248,7 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 
 ### Lock, login and boot
 
-- **Lock screen** (`omarchy/plugins/abu.lock`): thin red clock, red ✱ stars as you type,
+- **Lock screen** (`omarchy/plugins/abu.lock`): plain black (no wallpaper), thin red clock, red ✱ stars as you type,
   no box. After one successful unlock it remembers your password **length** (never the
   password; file mode 600) and unlocks as soon as you've typed that many characters.
   A failed automatic attempt turns this off for that lock (for example after a password

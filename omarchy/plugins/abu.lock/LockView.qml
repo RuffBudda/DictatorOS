@@ -24,6 +24,8 @@ Item {
   readonly property bool clockStyle: true
   property string clockText: Qt.formatTime(new Date(), "HH:mm")
   property bool loadBackground: true
+  // dotfiles: no wallpaper on the lock screen, just black behind the clock.
+  readonly property bool showWallpaper: false
   property string passwordText: ""
   property bool syncingPasswordText: false
 
@@ -103,7 +105,7 @@ Item {
     Image {
       id: wallpaper
       anchors.fill: parent
-      source: root.loadBackground ? root.fileUrl(root.backgroundPath) : ""
+      source: root.loadBackground && root.showWallpaper ? root.fileUrl(root.backgroundPath) : ""
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       cache: false
@@ -115,7 +117,7 @@ Item {
       anchors.fill: wallpaper
       source: wallpaper
       autoPaddingEnabled: false
-      blurEnabled: root.loadBackground && wallpaper.status === Image.Ready
+      blurEnabled: root.loadBackground && root.showWallpaper && wallpaper.status === Image.Ready
       blur: 1.0
       blurMax: 128
       blurMultiplier: 1.25
