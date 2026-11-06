@@ -65,9 +65,8 @@
 |---|---|
 | ![Desktop with Sleep/Recovery/Strain and CPU/GPU/RAM rings, a GitHub day grid and the red stripes wallpaper](docs/desktop.png) | ![Lock screen with a thin red clock](docs/lock-screen.png) |
 | *Sleep / recovery / strain and CPU / GPU / RAM rings, a year of GitHub days, black bar with battery %* | *Type your password; it unlocks when it's complete* |
-| **Login screen** | **Launcher (Super+Space)** |
-| ![Login screen: the same thin red clock and red stars](docs/login-screen.png) | ![Vicinae launcher, Spotlight-style, over a dimmed terminal](docs/launcher.png) |
-| *Same clock and stars as the lock screen* | *Spotlight-style search; everything behind it dims* |
+
+<p align="center"><img src="docs/login-screen.png" alt="Login screen: the same thin red clock and red stars" width="560"><br><em>Login screen: same clock and stars as the lock screen</em></p>
 
 <p align="center"><img src="docs/fetch.png" alt="fetch: the DictatorOS crown with system info" width="560"><br><em><code>fetch</code>: the crown builds itself, then the info appears</em></p>
 
