@@ -183,6 +183,21 @@ hl.on("monitor.added", function()
     hl.exec_cmd("sleep 0.5; hyprctl reload")  -- re-send scales to moved windows
   end, { timeout = 400, type = "oneshot" })
 end)
+-- Closing the lid with an external screen attached *disables* the laptop panel
+-- rather than removing it, which does not fire monitor.removed. Its windows
+-- were left on desktops (11, 12…) that no screen shows, so they seemed to
+-- vanish. Merge them on any layout change too (debounced; harmless when
+-- nothing is orphaned, since only workspaces past the last screen's range move).
+local merge_timer
+hl.on("monitor.layout_changed", function()
+  if merge_timer then merge_timer:set_enabled(false) end
+  merge_timer = hl.timer(function()
+    merge_timer:set_enabled(false)
+    D.bind_rules()
+    D.merge_orphans()
+  end, { timeout = 500, type = "oneshot" })
+end)
+
 hl.on("monitor.removed", function()
   D.bind_rules()
   local t
