@@ -386,9 +386,11 @@ echo "Chromium: Claude extension, minimal toolbar, AI features off"
 
 # ── 5. Battery: Lenovo Conservation mode (stops charging at ~80%) ─────
 # BAT1 offers charge_types "Fast Standard Long_Life"; Long_Life is Lenovo's
-# Conservation mode. Set it now and on every boot / battery re-detect.
+# Conservation mode. Set it now and on every boot / battery re-detect. Only on
+# "add": writing charge_types emits a "change" uevent, so matching "change" here
+# loops forever (upowerd + udev pinned at high CPU).
 cat >/etc/udev/rules.d/90-dotfiles-battery.rules <<'RULES'
-ACTION=="add|change", SUBSYSTEM=="power_supply", KERNEL=="BAT*", ATTR{charge_types}=="*Long_Life*", ATTR{charge_types}="Long_Life"
+ACTION=="add", SUBSYSTEM=="power_supply", KERNEL=="BAT*", ATTR{charge_types}=="*Long_Life*", ATTR{charge_types}="Long_Life"
 RULES
 for b in /sys/class/power_supply/BAT*; do
   [[ -w $b/charge_types ]] && grep -q Long_Life "$b/charge_types" && echo Long_Life >"$b/charge_types"
