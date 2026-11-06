@@ -40,21 +40,35 @@ if first_child is None:  # already flat: only make sure the caption is right
         open(CONF, "w", encoding="utf-8").write("\n".join(lines))
     sys.exit(0)
 
-header = [l for l in block[:first_child]
-          if l.strip() and not l.strip().split(":", 1)[0] in BOOT_KEYS]
+def key(l):
+    return l.strip().split(":", 1)[0]
 
-# Main kernel = first sub-entry whose name doesn't end in "fallback".
+def has_path(keys):
+    return any(k.startswith(("path:", "kernel_path:", "image_path:")) for k in keys)
+
+header = [l for l in block[:first_child] if l.strip() and key(l) not in BOOT_KEYS]
+# Boot keys the entry already carries itself (left there by an earlier flatten).
+own_boot = [l.strip() for l in block[:first_child] if key(l) in BOOT_KEYS]
+
+# Main kernel = first direct sub-entry ("//name") that isn't the Snapshots
+# submenu (limine-snapper-sync) or a "*fallback" kernel.
 children = [i for i, l in enumerate(block) if re.match(r"^\s*//[^/]", l)]
-main = next((i for i in children if not block[i].strip().endswith("fallback")), children[0])
-nxt = next((i for i in children if i > main), len(block))
+kernels = [i for i in children if block[i].strip() != "//Snapshots"]
+main = next((i for i in kernels if not block[i].strip().endswith("fallback")), kernels[0] if kernels else None)
 boot = []
-for l in block[main + 1:nxt]:
-    s = l.strip()
-    if s.startswith("//"):  # deeper sub-entries (old snapshots etc.)
-        break
-    if s.split(":", 1)[0] in BOOT_KEYS:
-        boot.append(s)
-if not any(b.startswith(("path:", "kernel_path:", "image_path:")) for b in boot):
+if main is not None:
+    nxt = next((i for i in children if i > main), len(block))
+    for l in block[main + 1:nxt]:
+        s = l.strip()
+        if s.startswith("//"):  # deeper sub-entries (old snapshots etc.)
+            break
+        if key(s) in BOOT_KEYS:
+            boot.append(s)
+# Only snapshots under it (limine-snapper-sync re-added them to an already flat
+# entry): keep the entry's own kernel and drop the snapshots.
+if not has_path(boot):
+    boot = own_boot
+if not has_path(boot):
     sys.exit("limine-flatten: no kernel path found; leaving limine.conf unchanged")
 
 # The first comment is the caption Limine shows under the menu; name it too.

@@ -50,10 +50,6 @@ omarchy-pkg-drop "${REMOVE_PKGS[@]}"
 pkill -x superwhisper 2>/dev/null || true
 rm -rf ~/.config/superwhisper ~/.local/share/superwhisper ~/.cache/superwhisper
 
-# ── Vicinae: Raycast-style launcher on SUPER + SPACE (AUR, prebuilt release) ──
-omarchy-pkg-aur-add vicinae-bin
-systemctl --user enable --now vicinae.service
-
 # ── Google Fonts not packaged in Arch (from github.com/google/fonts) ──
 GOOGLE_FONTS=(raleway playfairdisplay merriweather poppins worksans crimsontext oswald
               ptsans ptserif rubik mulish dmsans karla barlow quicksand josefinsans

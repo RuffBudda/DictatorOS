@@ -45,8 +45,6 @@ link omarchy/plugins/abu.power             ~/.config/omarchy/plugins/abu.power
 link omarchy/plugins/abu.wallpaper-fade      ~/.config/omarchy/plugins/abu.wallpaper-fade
 link omarchy/themes/red                      ~/.config/omarchy/themes/red
 link fastfetch/config.jsonc                    ~/.config/fastfetch/config.jsonc
-link vicinae/settings.json                   ~/.config/vicinae/settings.json
-link vicinae/themes/dictatoros.toml          ~/.local/share/vicinae/themes/dictatoros.toml
 link bin/fetch                                ~/.local/bin/fetch
 link bin/fetch                                ~/.local/bin/neofetch
 
@@ -86,3 +84,4 @@ if command -v hyprctl >/dev/null; then
   hyprctl reload >/dev/null && hyprctl configerrors
 fi
 echo "Done. Run 'omarchy restart shell' if toast changes don't show up."
+

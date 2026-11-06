@@ -65,7 +65,3 @@ hl.config({
     focus_on_activate = false,
   },
 })
-
--- Vicinae launcher (SUPER + SPACE): dim everything behind it, Spotlight-style.
-hl.layer_rule({ match = { namespace = "^vicinae$" }, dim_around = true })
-hl.config({ decoration = { dim_around = 0.55 } })

@@ -96,8 +96,10 @@ for conf in /boot/limine.conf /boot/limine/limine.conf /boot/EFI/limine/limine.c
   done
   echo "Updated $conf"
 done
-# Stop limine-snapper-sync from adding the Snapshots submenu back. (Snapper
-# still takes snapshots; they just aren't offered in the boot menu.)
+# Snapshots stay out of the boot menu. Disabling this service is not enough on
+# its own: snapper-cleanup and the Snapper plugin also run limine-snapper-sync,
+# which re-adds the Snapshots submenu; the limine-flatten post hook (above)
+# strips it again every time. (Snapper still takes snapshots.)
 systemctl disable --now limine-snapper-sync.service 2>/dev/null || true
 # Remove snapshot entries already in the menu: the "Snapshots" submenu and the
 # "<n> │ <date>" snapshot entries it also nests under each kernel.
