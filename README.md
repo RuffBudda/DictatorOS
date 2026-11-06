@@ -353,6 +353,37 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
 `omarchy/themes/red`: black backgrounds, red accents, red icon set, transparent bar with
 red icons, red lock screen. The wallpaper is forced to solid black on every theme change.
 
+Colour codes, from `omarchy/themes/red/colors.toml` (the bar, borders, terminal, menus and
+lock screen are all generated from it):
+
+| | Group | Name | Hex |
+|---|---|---|---|
+| ![#e5383b](https://img.shields.io/badge/%20-%20%20%20%20%20%20-e5383b?style=flat-square) | Accents | `accent` | `#e5383b` |
+| ![#3a0d10](https://img.shields.io/badge/%20-%20%20%20%20%20%20-3a0d10?style=flat-square) | Accents | `selection` | `#3a0d10` |
+| ![#5c1a1e](https://img.shields.io/badge/%20-%20%20%20%20%20%20-5c1a1e?style=flat-square) | Accents | `muted` | `#5c1a1e` |
+| ![#000000](https://img.shields.io/badge/%20-%20%20%20%20%20%20-000000?style=flat-square) | Backgrounds | `background` | `#000000` |
+| ![#050505](https://img.shields.io/badge/%20-%20%20%20%20%20%20-050505?style=flat-square) | Backgrounds | `dark_background` | `#050505` |
+| ![#000000](https://img.shields.io/badge/%20-%20%20%20%20%20%20-000000?style=flat-square) | Backgrounds | `darker_background` | `#000000` |
+| ![#161011](https://img.shields.io/badge/%20-%20%20%20%20%20%20-161011?style=flat-square) | Backgrounds | `lighter_background` | `#161011` |
+| ![#e8d5d6](https://img.shields.io/badge/%20-%20%20%20%20%20%20-e8d5d6?style=flat-square) | Text | `foreground` | `#e8d5d6` |
+| ![#8a5a5d](https://img.shields.io/badge/%20-%20%20%20%20%20%20-8a5a5d?style=flat-square) | Text | `dark_foreground` | `#8a5a5d` |
+| ![#f0e0e1](https://img.shields.io/badge/%20-%20%20%20%20%20%20-f0e0e1?style=flat-square) | Text | `light_foreground` | `#f0e0e1` |
+| ![#fff2f2](https://img.shields.io/badge/%20-%20%20%20%20%20%20-fff2f2?style=flat-square) | Text | `bright_foreground` | `#fff2f2` |
+
+Terminal colours. All reds and red-oranges, even the ones named after other colours
+(`orange` and `brown` have no bright variant):
+
+| Name | Normal | Hex | Bright | Hex |
+|---|---|---|---|---|
+| `red` | ![#e5383b](https://img.shields.io/badge/%20-%20%20%20%20%20%20-e5383b?style=flat-square) | `#e5383b` | ![#ff4d4f](https://img.shields.io/badge/%20-%20%20%20%20%20%20-ff4d4f?style=flat-square) | `#ff4d4f` |
+| `yellow` | ![#ff7b54](https://img.shields.io/badge/%20-%20%20%20%20%20%20-ff7b54?style=flat-square) | `#ff7b54` | ![#ff9a76](https://img.shields.io/badge/%20-%20%20%20%20%20%20-ff9a76?style=flat-square) | `#ff9a76` |
+| `orange` | ![#ff5a36](https://img.shields.io/badge/%20-%20%20%20%20%20%20-ff5a36?style=flat-square) | `#ff5a36` | — | — |
+| `green` | ![#d9534f](https://img.shields.io/badge/%20-%20%20%20%20%20%20-d9534f?style=flat-square) | `#d9534f` | ![#f26a6d](https://img.shields.io/badge/%20-%20%20%20%20%20%20-f26a6d?style=flat-square) | `#f26a6d` |
+| `cyan` | ![#c9184a](https://img.shields.io/badge/%20-%20%20%20%20%20%20-c9184a?style=flat-square) | `#c9184a` | ![#ff4d6d](https://img.shields.io/badge/%20-%20%20%20%20%20%20-ff4d6d?style=flat-square) | `#ff4d6d` |
+| `blue` | ![#e5383b](https://img.shields.io/badge/%20-%20%20%20%20%20%20-e5383b?style=flat-square) | `#e5383b` | ![#ff595e](https://img.shields.io/badge/%20-%20%20%20%20%20%20-ff595e?style=flat-square) | `#ff595e` |
+| `magenta` | ![#ba181b](https://img.shields.io/badge/%20-%20%20%20%20%20%20-ba181b?style=flat-square) | `#ba181b` | ![#e01e37](https://img.shields.io/badge/%20-%20%20%20%20%20%20-e01e37?style=flat-square) | `#e01e37` |
+| `brown` | ![#660708](https://img.shields.io/badge/%20-%20%20%20%20%20%20-660708?style=flat-square) | `#660708` | — | — |
+
 ### Hardware (Lenovo Legion)
 
 - `system/install.sh` step 5: battery Conservation mode via `charge_types = Long_Life`.
