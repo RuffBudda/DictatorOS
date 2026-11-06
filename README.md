@@ -109,7 +109,7 @@
 - **Tiling only**: no floating popups layered over your work (installer terminals,
   btop, Steam… all tile); Super+Left/Right snaps a lone window to half the screen
   without floating it; Super+Up/Down stacks windows vertically (or snaps a lone window
-  to the top/bottom half).
+  to the top/bottom half). Omarchy's Super+T (toggle floating) is unbound.
 - **Black + red**: custom *Red* theme, red-stripes-on-black wallpaper, no logos on boot,
   login or lock screens, rounded corners everywhere. The Limine boot menu is red on black
   too, with DictatorOS and any Windows installs.
@@ -178,7 +178,11 @@ in its profile.
 4. Chromium policies: YouTube notifications blocked, Claude extension installed,
    no bookmarks bar / home / cast buttons or new-tab cards, AI Mode, Gemini and Lens off.
 5. Battery: Lenovo *Conservation mode* (charging stops at about 80 %), re-applied on boot.
+   The udev rule fires on `add` only: writing `charge_types` emits a `change` event, so
+   matching `change` loops (~700 events/s, udev and upowerd pinned, Wi-Fi throughput halved).
 6. No automatic sleep: closing the lid does nothing (battery or AC).
+   6b. Miracast: ufw opens DHCP, DNS and RTSP (TCP 7236) to the Wi-Fi Direct link only
+   (`10.42.0.0/16`), so a TV can get an address and connect back for the stream.
 7. A pacman hook that re-applies all of the above after relevant package updates.
    It runs a root-owned copy of the script, never the user-writable one.
 
@@ -241,7 +245,7 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 | **Super+E** | Files |
 | **Ctrl+Shift+Esc** | Task Manager (Mission Center). btop is Super+Shift+T |
 | **Super+Shift+S** | Screenshot of a region |
-| **Super+P** | Project menu: PC screen only / Duplicate / Extend / Second screen only / Display settings… |
+| **Super+P** | Project menu: PC screen only / Duplicate / Extend / Second screen only / Cast to a wireless display… / Display settings… |
 | **Super+N** | Cast to a wireless display (Miracast / Chromecast) |
 | **Super+B** | Hide / show the top bar (shown by default) |
 | **Super+M** | Sticky notes panel |
@@ -322,7 +326,9 @@ Spacing matches window gaps, and they sit below the bar when it's shown.
 
 - **Super+P** project menu, and **Display settings…** (nwg-displays, writing `hypr/displays.lua`).
 - **Super+N** casting through GNOME Network Displays' background service, in the same
-  menu style. `packages/gnome-network-displays` builds a patched version that doesn't
+  menu style (also **Super+P → Cast to a wireless display…**, like Windows' Win+P).
+  Miracast runs over Wi-Fi Direct (NetworkManager + wpa_supplicant + dnsmasq); the
+  firewall rules it needs are `system/install.sh` step 6b. `packages/gnome-network-displays` builds a patched version that doesn't
   crash on close.
 - **Screen-share picker** (`bin/share-picker`): a simple menu of screens, windows and
   "Select a region" instead of the thumbnail window.

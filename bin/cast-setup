@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-time setup for SUPER+K casting. Safe to re-run.
+# One-time setup for SUPER+N casting. Safe to re-run.
 set -e
 echo "Installing GNOME Network Displays (screen casting)…"
 omarchy-pkg-aur-add gnome-network-displays dnsmasq
