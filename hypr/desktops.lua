@@ -68,6 +68,10 @@ function D.current()
 end
 
 function D.go(desktop)
+  -- First pull back windows stranded on workspaces no screen can show (left
+  -- behind while the screen count changed, e.g. lid closed with an external
+  -- screen). Otherwise the bar marks desktop N busy while SUPER+N is empty.
+  if D.merge_orphans then D.merge_orphans() end
   local active = hl.get_active_monitor()
   local mons = D.monitors()
   -- Focusing each monitor in turn would warp the mouse to its centre, so

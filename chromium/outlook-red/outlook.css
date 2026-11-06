@@ -60,4 +60,18 @@
   --colorNeutralForeground3BrandSelected: #e5383b !important;
   --colorSubtleBackgroundSelected: #3a0d10 !important;
   --colorStrokeFocus2: #e5383b !important;
+  /* Outlook's own header/brand variables (logo text, search box, app colour) */
+  --headerBrandText: #e5383b !important;
+  --headerSearchButtonBackground: #e5383b !important;
+  --headerSearchFilters: #e5383b !important;
+  --msqOutlook: #e5383b !important;
+  --fallback-msqOutlook: #e5383b !important;
+  --colorNeutralStrokeAccessibleSelected: #e5383b !important;
+  /* "Danger" reds (Ignore, Block, Report phishing, Flag icons) */
+  --colorStatusDangerForeground1: #e5383b !important;
+  --colorStatusDangerBorder2: #e5383b !important;
+  --colorStatusDangerBorderActive: #e5383b !important;
+  --colorPaletteCranberryBorderActive: #e5383b !important;
+  --colorPaletteRedForeground1: #e5383b !important;
+  --colorPaletteRedForeground3: #e5383b !important;
 }
