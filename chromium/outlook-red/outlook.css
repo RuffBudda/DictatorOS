@@ -75,3 +75,10 @@
   --colorPaletteRedForeground1: #e5383b !important;
   --colorPaletteRedForeground3: #e5383b !important;
 }
+
+/* Some icons (the selected app in the left rail) are tinted with a fixed
+   #F03C60 written as an SVG attribute rather than a variable; CSS overrides it. */
+[flood-color="#F03C60" i] { flood-color: #e5383b !important; }
+[fill="#F03C60" i] { fill: #e5383b !important; }
+[stroke="#F03C60" i] { stroke: #e5383b !important; }
+[stop-color="#F03C60" i] { stop-color: #e5383b !important; }
