@@ -183,9 +183,9 @@ PLY
 fi
 # Lock-screen look: no box, red ✱ stars centred on screen (no clock: Plymouth
 # scripts cannot read the time).
-magick -size 286x48 xc:none "$DST/entry.png"
+magick -size 286x48 xc:none PNG32:"$DST/entry.png"
 magick -background none -fill '#e5383b' -font DejaVu-Sans -pointsize 40 label:$'✱' \
-  -trim +repage -resize 22x22 -gravity center -extent 22x22 "$DST/bullet.png"
+  -trim +repage -resize 22x22 -gravity center -extent 22x22 PNG32:"$DST/bullet.png"
 perl -0pi -e 's/bullet\.image\.Scale\(7, 7\)/bullet.image/;
   s/fun position_bullet\(index\) \{.*?\n\}/fun position_bullet(index) {\n  step = bullet.image.GetWidth() + 12;\n  bullet.sprites[index].SetPosition(Window.GetWidth() \/ 2 - (global.bullet_count * step - 12) \/ 2 + index * step, entry.y + entry.image.GetHeight() \/ 2 - bullet.image.GetHeight() \/ 2, 10002);\n}/s;
   s/(  for \(index = 0; index < bullets_to_show; index\+\+\) \{)/  global.bullet_count = bullets_to_show;\n$1/;
@@ -193,7 +193,7 @@ perl -0pi -e 's/bullet\.image\.Scale\(7, 7\)/bullet.image/;
 # With no clock there, say what the screen wants: "enter password" in dim red
 # where the stars go, hidden as soon as you start typing.
 magick -background none -fill 'rgba(229,56,59,0.75)' -font JetBrains-Mono-Regular -pointsize 26 \
-  label:'enter password' "$DST/prompt.png"
+  label:'enter password' PNG32:"$DST/prompt.png"
 perl -0pi -e 's/(  global\.bullet_count = bullets_to_show;\n)/$1  pwhint.sprite.SetPosition(Window.GetWidth() \/ 2 - pwhint.image.GetWidth() \/ 2, entry.y + entry.image.GetHeight() \/ 2 - pwhint.image.GetHeight() \/ 2, 10003);\n  if (bullets_to_show == 0) { pwhint.sprite.SetOpacity(1); } else { pwhint.sprite.SetOpacity(0); }\n/;
   s/(fun hide_password_dialog\(\) \{\n)/$1  pwhint.sprite.SetOpacity(0);\n/' "$DST/omarchy-black.script"
 cat >>"$DST/omarchy-black.script" <<'PLY'
