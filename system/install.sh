@@ -9,7 +9,7 @@
 #  Both match the lock screen: no box, red ✱ stars (SDDM also gets the thin red clock).
 #  4. Chromium: block YouTube notifications, Claude extension, minimal toolbar,
 #     AI features off.  5. Battery: stop charging at ~80%.
-#  6. No automatic sleep (lid close ignored).
+#  6. No automatic sleep (lid close ignored).  6b. Miracast firewall rules.
 #  7. A pacman hook re-applies all of this after relevant updates (root-owned copy).
 # Safe to re-run (e.g. after an `omarchy update` that resets anything).
 set -euo pipefail
@@ -24,6 +24,7 @@ if [[ ${1:-} == --from-hook ]]; then
   [[ -f /etc/chromium/policies/managed/minimal.json && -f /etc/chromium/policies/managed/claude.json ]] || ok=0
   [[ -f /etc/udev/rules.d/90-dotfiles-battery.rules ]] || ok=0
   [[ -f /etc/systemd/logind.conf.d/dotfiles-lid.conf ]] || ok=0
+  ! command -v ufw >/dev/null || ufw status | grep -q 'miracast-rtsp' || ok=0
   grep -q '^interface_branding: DictatorOS' /boot/limine.conf 2>/dev/null || ok=0
   grep -q '^/+\?DictatorOS$' /boot/limine.conf 2>/dev/null || ok=0
   for win in "Windows 1|2e9498e0-b9be-4682-8990-82ce3384b6f9" "Windows 2|f1ce4f0a-d1de-4739-9935-179251042b54"; do
@@ -410,6 +411,17 @@ IdleAction=ignore
 CONF
 systemctl kill -s HUP systemd-logind   # reload config without ending the session
 echo "Lid close: ignore (no automatic sleep)"
+
+# ── 6b. Miracast (SUPER+P → Cast): open the Wi-Fi Direct link in ufw ──────
+# gnome-network-displays casts over a Wi-Fi Direct group that NetworkManager
+# addresses from 10.42.0.0/16 (dnsmasq). The TV needs DHCP/DNS from us, then
+# connects back to our RTSP server on TCP 7236. Scoped to that subnet only.
+if command -v ufw >/dev/null; then
+  ufw allow from 10.42.0.0/16 to any port 67 proto udp comment 'miracast-dhcp' >/dev/null
+  ufw allow from 10.42.0.0/16 to any port 53 comment 'miracast-dns' >/dev/null
+  ufw allow from 10.42.0.0/16 to any port 7236 proto tcp comment 'miracast-rtsp' >/dev/null
+  echo "Miracast: firewall open on the Wi-Fi Direct link (10.42.0.0/16)"
+fi
 
 # ── 7. Re-apply all of this automatically after relevant package updates ──
 # The hook runs a root-owned copy (never the user-writable file in ~/dotfiles).

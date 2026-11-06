@@ -14,10 +14,21 @@ choice=$(omarchy-menu-select "Project" \
   $'󰍺\tDuplicate' \
   $'󰍹\tExtend' \
   $'󰶐\tSecond screen only' \
+  $'󰐾\tCast to a wireless display…\tMiracast TV, projector or dongle' \
   $'󰍹\tDisplay settings…\tArrange, scale and rotate screens') || exit 0
 
 if [[ $choice == Display\ settings* ]]; then
   exec "$HOME/dotfiles/bin/display-settings"
+fi
+
+# Miracast over Wi-Fi Direct (NetworkManager + wpa_supplicant). Pick the TV in
+# the window; the portal then asks which screen to share. Firewall rules for
+# the Wi-Fi Direct link live in system/install.sh (6b).
+if [[ $choice == Cast* ]]; then
+  if hyprctl clients -j | jq -e '.[] | select(.class == "org.gnome.NetworkDisplays")' >/dev/null; then
+    exec hyprctl dispatch focuswindow class:org.gnome.NetworkDisplays
+  fi
+  exec setsid -f gnome-network-displays >/dev/null 2>&1
 fi
 
 if [[ $choice != "PC screen only" && $choice != "Extend" ]] && (( ${#externals[@]} == 0 )); then
