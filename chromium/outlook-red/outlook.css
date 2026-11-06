@@ -1,0 +1,63 @@
+/* DictatorOS: Outlook's accent (pink in its current theme) becomes DictatorOS red.
+   Outlook styles everything from these colour variables: the old OWA theme
+   slots (--theme*) and the newer Fluent tokens (--colorBrand*). Setting them
+   on every element wins over the values Outlook sets on its own containers. */
+:root, body, body * {
+  /* OWA theme slots */
+  --themePrimary: #e5383b !important;
+  --themeLighterAlt: #1a0405 !important;
+  --themeLighter: #2a0709 !important;
+  --themeLight: #3a0d10 !important;
+  --themeTertiary: #8a2a2e !important;
+  --themeSecondary: #d9343a !important;
+  --themeDarkAlt: #ff4d4f !important;
+  --themeDark: #ff595e !important;
+  --themeDarker: #ff9a9c !important;
+
+  /* Fluent brand tokens */
+  --colorBrandBackground: #e5383b !important;
+  --colorBrandBackgroundHover: #ff4d4f !important;
+  --colorBrandBackgroundPressed: #ba181b !important;
+  --colorBrandBackgroundSelected: #ba181b !important;
+  --colorBrandBackground2: #3a0d10 !important;
+  --colorBrandBackground2Hover: #4a1014 !important;
+  --colorBrandBackground2Pressed: #2a0709 !important;
+  --colorBrandBackgroundStatic: #e5383b !important;
+  --colorBrandBackgroundInverted: #e5383b !important;
+  --colorBrandBackgroundInvertedHover: #ff4d4f !important;
+  --colorBrandBackgroundInvertedPressed: #ba181b !important;
+  --colorBrandForeground1: #e5383b !important;
+  --colorBrandForeground2: #ff4d4f !important;
+  --colorBrandForeground2Hover: #ff595e !important;
+  --colorBrandForeground2Pressed: #ba181b !important;
+  --colorBrandForegroundLink: #e5383b !important;
+  --colorBrandForegroundLinkHover: #ff4d4f !important;
+  --colorBrandForegroundLinkPressed: #ba181b !important;
+  --colorBrandForegroundLinkSelected: #e5383b !important;
+  --colorBrandForegroundInverted: #e5383b !important;
+  --colorBrandForegroundOnLight: #e5383b !important;
+  --colorBrandForegroundOnLightHover: #ff4d4f !important;
+  --colorBrandForegroundOnLightPressed: #ba181b !important;
+  --colorBrandForegroundOnLightSelected: #e5383b !important;
+  --colorBrandStroke1: #e5383b !important;
+  --colorBrandStroke2: #8a2a2e !important;
+  --colorBrandStroke2Hover: #ba181b !important;
+  --colorBrandStroke2Pressed: #660708 !important;
+  --colorCompoundBrandBackground: #e5383b !important;
+  --colorCompoundBrandBackgroundHover: #ff4d4f !important;
+  --colorCompoundBrandBackgroundPressed: #ba181b !important;
+  --colorCompoundBrandForeground1: #e5383b !important;
+  --colorCompoundBrandForeground1Hover: #ff4d4f !important;
+  --colorCompoundBrandForeground1Pressed: #ba181b !important;
+  --colorCompoundBrandStroke: #e5383b !important;
+  --colorCompoundBrandStrokeHover: #ff4d4f !important;
+  --colorCompoundBrandStrokePressed: #ba181b !important;
+  --colorNeutralForeground2BrandHover: #e5383b !important;
+  --colorNeutralForeground2BrandPressed: #ba181b !important;
+  --colorNeutralForeground2BrandSelected: #e5383b !important;
+  --colorNeutralForeground3BrandHover: #e5383b !important;
+  --colorNeutralForeground3BrandPressed: #ba181b !important;
+  --colorNeutralForeground3BrandSelected: #e5383b !important;
+  --colorSubtleBackgroundSelected: #3a0d10 !important;
+  --colorStrokeFocus2: #e5383b !important;
+}

@@ -60,6 +60,7 @@ if [[ -f $FLAGS ]]; then
   sed -i '/^--enable-features=/{/VerticalTabs/!s/$/,VerticalTabs/}' "$FLAGS"
   grep -q '^--load-extension=' "$FLAGS" || echo "--load-extension=$DOT/chromium/blank-newtab" >>"$FLAGS"
   grep -q "$DOT/chromium/blank-newtab" "$FLAGS" || sed -i "s#^--load-extension=.*#&,$DOT/chromium/blank-newtab#" "$FLAGS"
+  grep -q "$DOT/chromium/outlook-red" "$FLAGS" || sed -i "s#^--load-extension=.*#&,$DOT/chromium/outlook-red#" "$FLAGS"
   echo "Chromium flags: vertical tabs, new tab page"
 fi
 # Turn vertical tabs on in the profile (only while Chromium is closed, as it

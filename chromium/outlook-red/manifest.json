@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "DictatorOS Outlook",
+  "version": "1.0",
+  "description": "Recolours Outlook on the web from its pink accent to DictatorOS red.",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*",
+        "https://outlook.cloud.microsoft/*",
+        "https://outlook.live.com/*"
+      ],
+      "css": ["outlook.css"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}
