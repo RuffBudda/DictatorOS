@@ -34,14 +34,14 @@ active-border-foreground = "#e8d5d6"
 # solid color or a Hyprland-style gradient, e.g. "rgba(...) rgba(...) 45deg".
 normal-color        = "#e8d5d6"
 normal-fill-alpha   = 0.04
-normal-border       = "#e8d5d6"
+normal-border       = "#e5383b"
 normal-border-width = 1
 normal-border-alpha = 0.4
 
 # Hover-cursor: mouse hover and the panel keyboard cursor.
 hover-cursor-color        = "#e8d5d6"
 hover-cursor-fill-alpha   = 0.08
-hover-cursor-border       = "#e8d5d6"
+hover-cursor-border       = "#e5383b"
 hover-cursor-border-width = 1
 hover-cursor-border-alpha = 0.25
 
@@ -50,14 +50,14 @@ hover-cursor-border-alpha = 0.25
 # — themes that want focus to stand out override these four lines.
 focus-color        = "#e8d5d6"
 focus-fill-alpha   = 0.08
-focus-border       = "#e8d5d6"
+focus-border       = "#e5383b"
 focus-border-width = 1
 focus-border-alpha = 0.25
 
 # Selected: persistent chosen/current state.
 selected-color        = "#e8d5d6"
 selected-fill-alpha   = 0.18
-selected-border       = "#e8d5d6"
+selected-border       = "#e5383b"
 selected-border-width = 0
 selected-border-alpha = 1.0
 
@@ -138,7 +138,7 @@ border-alpha     = 1.0
 background       = "#0a0a0a"
 background-alpha = 0.97
 text             = "#e8d5d6"
-border           = "hyprland.active-border-foreground"
+border           = "hyprland.active-border"
 border-alpha     = 1.0
 
 [notifications]
@@ -160,14 +160,14 @@ countdown        = "#e5383b"
 background                = "#0a0a0a"
 background-alpha          = 0.95
 text                      = "#e8d5d6"
-border                    = "hyprland.active-border-foreground"
+border                    = "hyprland.active-border"
 border-alpha              = 1.0
 scrim                     = "#0a0a0a"
 scrim-alpha               = 0.5
 selected-background       = "#e8d5d6"
 selected-background-alpha = 0.08
 selected-text             = "#e5383b"
-selected-border           = "hyprland.active-border-foreground"
+selected-border           = "hyprland.active-border"
 selected-border-alpha     = 0.25
 
 [menu]
@@ -177,14 +177,14 @@ selected-border-alpha     = 0.25
 background                = "#0a0a0a"
 background-alpha          = 1.0
 text                      = "#e8d5d6"
-border                    = "hyprland.active-border-foreground"
+border                    = "hyprland.active-border"
 border-alpha              = 1.0
 scrim                     = "#0a0a0a"
 scrim-alpha               = 0.5
 selected-background       = "#e8d5d6"
 selected-background-alpha = 0.08
 selected-text             = "#e5383b"
-selected-border           = "hyprland.active-border-foreground"
+selected-border           = "hyprland.active-border"
 selected-border-alpha     = 0.25
 
 [polkit]
@@ -222,5 +222,5 @@ scrim-alpha             = 0.5
 text                    = "#e8d5d6"
 selected-border         = "#e5383b"
 selected-border-alpha   = 1.0
-unselected-border       = "#e8d5d6"
+unselected-border       = "#e5383b"
 unselected-border-alpha = 0.28
