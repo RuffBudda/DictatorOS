@@ -221,6 +221,10 @@ o.bind("SUPER + SHIFT + S", "Screenshot region", "omarchy-capture-screenshot reg
 hl.unbind("SUPER + P")
 o.bind("SUPER + P", "Display mode", bin .. "display-mode")
 
+-- ── SUPER + T: disabled ─────────────────────────────────────────────────
+-- Was: Toggle window floating/tiling.
+hl.unbind("SUPER + T")
+
 -- ── ALT + TAB (Windows-style switcher panel) ────────────────────────────
 -- Was: cycle windows on the current workspace only.
 -- Now: panel of the windows on the current workspace, most recent
