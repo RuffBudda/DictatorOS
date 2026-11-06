@@ -1,9 +1,15 @@
 {
   "manifest_version": 3,
   "name": "DictatorOS New Tab",
-  "version": "1.1",
-  "description": "Black new tab page with only a search bar.",
-  "chrome_url_overrides": { "newtab": "newtab.html" },
-  "permissions": ["tabs"],
-  "background": { "service_worker": "background.js" }
+  "version": "1.2",
+  "description": "Black new tab page with the DictatorOS red wave (search from the address bar).",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "permissions": [
+    "tabs"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
 }

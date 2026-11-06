@@ -46,7 +46,7 @@
 > 11. **The border lists only recognised territories:** DictatorOS and any Windows that
 >     has sworn allegiance. History (snapshots) is not to be revisited from the boot menu.
 > 12. **The browser wears the uniform.** AI Mode, Gemini and Lens are exiled; the new tab
->     page is a red logo and a single search bar.
+>     page shows only the red wave; citizens search from the address bar.
 > 13. **Alt+Tab is a fundamental right**, as are Win+D, Win+E, Win+P and Ctrl+Shift+Esc.
 > 14. **Opinions are mandatory, and they are ours.** Upstream's opinions may petition like
 >     any other update (see decree 7). They will be read, eventually, and framed, never.
@@ -71,7 +71,7 @@
 
 <p align="center"><img src="docs/fetch.png" alt="fetch: the DictatorOS crown with system info" width="560"><br><em><code>fetch</code>: the crown builds itself, then the info appears</em></p>
 
-<p align="center"><img src="docs/chromium.png" alt="Chromium with tabs on the left and a black new tab page: red Google logo and one search bar" width="720"><br><em>Chromium: red accents, tabs on the left, a new tab page with nothing but search</em></p>
+<p align="center"><img src="docs/chromium.png" alt="Chromium with tabs on the left and the DictatorOS new tab page" width="720"><br><em>Chromium: red accents and tabs on the left</em></p>
 
 <p align="center"><img src="docs/monitor-panel.png" alt="Monitor panel with brightness, text size, displays and per-screen scale" width="420"><br><em>Bar monitor panel: brightness, text size, screens, per-screen scale and rotation</em></p>
 
@@ -114,7 +114,7 @@
   login or lock screens, rounded corners everywhere. The Limine boot menu is red on black
   too, with DictatorOS and any Windows installs.
 - **Chromium to match**: red-accented toolbar, tabs down the left side, and a black
-  new tab page with only a red Google logo and a search box. No bookmarks bar, no
+  new tab page that is just a red wave (search from the address bar). No bookmarks bar, no
   AI Mode / Gemini / Lens.
 - **Minimal lock screen**: a big thin red clock; type your password and it unlocks
   as soon as it's complete (no Enter). The login and disk-unlock screens look the same.
@@ -267,8 +267,9 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 - **Colours**: `omarchy/themes/red/chromium.theme` gives Chromium the red accent, so the
   toolbar, tab strip and focus outlines are red (no Chromium blue).
 - **Tabs down the left side** (vertical tabs).
-- **New tab page** (`chromium/blank-newtab`, loaded with `--load-extension`): black, red
-  Google logo, a DictatorOS-style search box that searches Google. A small background
+- **New tab page** (`chromium/blank-newtab`, loaded with `--load-extension`): only the
+  DictatorOS red wave (`wallpaper.svg` / `.png`), no logo or search box; search from the
+  address bar. A small background
   script also replaces Chromium's own page in the first tab after start-up.
 - **Policies** (`system/install.sh`): Claude extension, no bookmarks bar, home or cast
   buttons, no new-tab cards, AI Mode / Gemini / Lens off, YouTube notifications blocked.
@@ -395,7 +396,7 @@ Common tweaks:
 applications/        launcher entries (Display settings, New VPN profile, rmdesk)
 backgrounds/         red-stripes wallpaper (SVG source + PNG) and plain black
 bin/                 scripts used by bindings, widgets and hooks
-chromium/            black search-only new tab page (Chromium extension)
+chromium/            red-wave new tab page and the Outlook recolour (Chromium extensions)
 docs/                README images
 fastfetch/           fastfetch config and the DictatorOS crown logo
 hypr/                Hyprland config: bindings, desktops, tiling, monitors, displays, input, look and feel
