@@ -262,6 +262,14 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
   File pickers and save dialogs still float.
 - **No focus stealing**: an app asking for attention (for example a terminal finishing a
   task) doesn't pull you to its workspace (`focus_on_activate = false`).
+- **Windows stay with their launcher** (`hypr/contain.lua`): a window opened by an app on
+  another workspace (say Claude in a terminal on desktop 1 opens an image viewer while
+  you're on desktop 2) opens on the launcher's workspace, without pulling you there. It
+  matches the new window's systemd scope (cgroup) to the windows already in it, so it
+  still works for detached / backgrounded processes. Launcher and keybinding apps, a
+  new window of an already-running app (terminal, Chromium) and ambiguous cases open
+  where you are, as usual. A link opened in an already-running Chromium is just a tab in
+  its existing window, so that isn't moved.
 - **Desktop indicator**: a small red number tile top-right for 1.5 s when you switch
   desktops, only while the bar is hidden.
 

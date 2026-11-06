@@ -21,6 +21,7 @@ link hypr/looknfeel.lua                        ~/.config/hypr/looknfeel.lua
 link hypr/hyprland.lua                         ~/.config/hypr/hyprland.lua
 link hypr/tiling.lua                           ~/.config/hypr/tiling.lua
 link hypr/desktops.lua                         ~/.config/hypr/desktops.lua
+link hypr/contain.lua                          ~/.config/hypr/contain.lua
 link applications/nwg-displays.desktop          ~/.local/share/applications/nwg-displays.desktop
 link applications/vpn-new.desktop               ~/.local/share/applications/vpn-new.desktop
 link applications/rmdesk.desktop                ~/.local/share/applications/rmdesk.desktop
