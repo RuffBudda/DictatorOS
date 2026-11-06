@@ -74,6 +74,16 @@
   --colorPaletteCranberryBorderActive: #e5383b !important;
   --colorPaletteRedForeground1: #e5383b !important;
   --colorPaletteRedForeground3: #e5383b !important;
+  /* Selected / hovered message rows (Outlook's "custom brand" maroons, which
+     lean magenta) -> DictatorOS reds of the same darkness */
+  --colorBrandBackground3Static: #8a1c20 !important;
+  --colorBrandBackground4Static: #5c1a1e !important;
+  --customBrandBackground3Hover: #5c1a1e !important;
+  --customBrandBackground3Pressed: #3a0d10 !important;
+  --customBrandBackground4Hover: #741b1f !important;
+  --customBrandBackground4Pressed: #4a1014 !important;
+  --customBrandBackgroundforSelected3: #4a1014 !important;
+  --customBrandBackgroundforSelected4: #5c1a1e !important;
 }
 
 /* Some icons (the selected app in the left rail) are tinted with a fixed
