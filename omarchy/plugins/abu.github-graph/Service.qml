@@ -1,6 +1,10 @@
-// Desktop widget: GitHub contribution graph on the wallpaper layer (behind
-// windows). Data: ~/dotfiles/bin/github-contrib -> ~/.cache/github-contrib.json
-// (uses the signed-in GitHub CLI account). Refreshes every 30 minutes.
+// Desktop widgets on the wallpaper layer (behind windows): GitHub contribution
+// graph (top-right) and CPU / GPU / RAM rings (top-left).
+// GitHub data: ~/dotfiles/bin/github-contrib -> ~/.cache/github-contrib.json
+// (uses the signed-in GitHub CLI account), refreshed every 30 minutes.
+// The WHOOP rings above the CPU / GPU / RAM box are their own plugin,
+// ruffbudda.whoop (https://github.com/RuffBudda/OmaWhoop); this one only
+// watches its cache file to leave room for it and size the GitHub box.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -64,22 +68,16 @@ Item {
 
   Process { id: fetchProc; command: [root.fetcher] }
 
-  // WHOOP rings (recovery %, strain 0-21, sleep %). Hidden until connected
-  // with ~/dotfiles/bin/whoop-auth. Data: ~/dotfiles/bin/whoop-fetch.
+  // WHOOP box (ruffbudda.whoop plugin): shown when its cache has data. Read
+  // here only for layout; that plugin fetches and draws the rings.
   property var whoop: null
   FileView {
     path: root.home + "/.cache/whoop.json"
     watchChanges: true
+    printErrors: false
     onFileChanged: reload()
     onLoaded: { try { root.whoop = JSON.parse(text()) } catch (e) { root.whoop = null } }
-  }
-  Process { id: whoopProc; command: [root.home + "/dotfiles/bin/whoop-fetch"] }
-  Timer {
-    interval: 15 * 60 * 1000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: if (!whoopProc.running) whoopProc.running = true
+    onLoadFailed: root.whoop = null
   }
   // CPU / GPU / RAM rings under the GitHub graph (~/dotfiles/bin/sysstats).
   property var sys: null
@@ -98,9 +96,13 @@ Item {
     triggeredOnStart: true
     onTriggered: if (!sysProc.running) sysProc.running = true
   }
-  readonly property int ringGap: 2 * boxGap   // gap between rings (same as WHOOP)
+  readonly property int ringGap: 2 * boxGap   // gap between rings (same as the WHOOP plugin)
 
-  readonly property bool whoopReady: whoop !== null && (whoop.recovery !== null || whoop.strain !== null || whoop.sleep !== null)
+  function has(v) { return v !== null && v !== undefined }
+  // Same test the WHOOP plugin uses to show itself.
+  readonly property bool whoopReady: whoop !== null && (has(whoop.recovery) || has(whoop.strain) || has(whoop.sleep))
+  // Ring size shared with the WHOOP plugin (ring + gap + label fit the box).
+  readonly property real ringSize: Math.max(40, Math.floor((ringBoxHeight - 2 * pad - 16) / 1.1))
 
   component Ring: Column {
     id: ring
@@ -194,7 +196,7 @@ Item {
     Rectangle {
       id: frame
       // As wide as one ring box and as tall as all of them stacked.
-      readonly property int ringBoxes: (whoopFrame.visible ? 1 : 0) + (sysFrame.visible ? 1 : 0)
+      readonly property int ringBoxes: (root.whoopReady ? 1 : 0) + (sysFrame.visible ? 1 : 0)
       width: card.targetWidth > 0 ? card.targetWidth : card.implicitWidth + 2 * root.pad
       height: ringBoxes > 0 ? ringBoxes * root.ringBoxHeight + (ringBoxes - 1) * root.boxGap
                             : card.implicitHeight + 2 * root.pad
@@ -211,8 +213,7 @@ Item {
       // A tidy grid of the most recent days (oldest top-left, today bottom-right),
       // as wide as one ring box and as tall as both. Columns x rows are chosen to
       // fill that box with square cells and show close to a year.
-      readonly property real targetWidth: sysFrame.visible ? sysFrame.width
-        : (whoopFrame.visible ? whoopFrame.width : 0)
+      readonly property real targetWidth: sysFrame.visible ? sysFrame.width : 0
       readonly property real gridW: targetWidth > 0 ? targetWidth - 2 * root.pad : 53 * 14
       readonly property real gridH: targetWidth > 0 ? frame.height - 2 * root.pad - spacing - 16 : 7 * 14
       readonly property var days: {
@@ -271,73 +272,31 @@ Item {
     }
   }
 
-  // Top-left: WHOOP rings, and CPU / GPU / RAM rings under them (same sizing).
+  // Top-left: CPU / GPU / RAM rings, under the WHOOP plugin's box when it's
+  // shown (same corner gaps, ring size and box height).
   PanelWindow {
     screen: root.mainScreen
-    visible: (root.whoopReady || root.sys !== null) && root.mainScreen !== null
+    visible: root.sys !== null && root.mainScreen !== null
     anchors { top: true; left: true }
-    margins { top: root.edgeGap; left: root.edgeGap }
-    implicitWidth: leftColumn.width
-    implicitHeight: leftColumn.height
+    margins {
+      top: root.edgeGap + (root.whoopReady ? root.ringBoxHeight + root.boxGap : 0)
+      left: root.edgeGap
+    }
+    implicitWidth: sysFrame.width
+    implicitHeight: sysFrame.height
     color: "transparent"
     exclusionMode: ExclusionMode.Normal   // respect the bar's space, reserve none
     WlrLayershell.layer: WlrLayer.Bottom
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     mask: Region {}   // clicks pass through to the desktop
-    WlrLayershell.namespace: "abu-whoop-rings"
+    WlrLayershell.namespace: "abu-sys-rings"
 
-    Column {
-      id: leftColumn
-      spacing: root.boxGap
-
-    Rectangle {
-      id: whoopFrame
-      visible: root.whoopReady
-      width: ringsRow.implicitWidth + 2 * root.pad
-      // Same height as the GitHub box; rings sized to fit (ring + gap + label).
-      height: root.ringBoxHeight
-      readonly property real ringSize: Math.max(40, Math.floor((root.ringBoxHeight - 2 * root.pad - 16) / 1.1))
-      radius: Style.cornerRadius
-      color: Qt.rgba(0, 0, 0, 0.35)
-      border.width: 0   // no outline
-      border.color: root.borderColor
-
-      Row {
-        id: ringsRow
-        anchors.centerIn: parent
-        spacing: 2 * root.boxGap
-        Ring {
-          size: whoopFrame.ringSize
-          label: "SLEEP"; suffix: "%"
-          hasValue: root.whoop !== null && root.whoop.sleep !== null && root.whoop.sleep !== undefined
-          value: hasValue ? root.whoop.sleep : 0
-          fraction: value / 100
-        }
-        Ring {
-          size: whoopFrame.ringSize
-          label: "RECOVERY"; suffix: "%"
-          hasValue: root.whoop !== null && root.whoop.recovery !== null && root.whoop.recovery !== undefined
-          value: hasValue ? root.whoop.recovery : 0
-          fraction: value / 100
-        }
-        Ring {
-          size: whoopFrame.ringSize
-          label: "STRAIN"
-          hasValue: root.whoop !== null && root.whoop.strain !== null && root.whoop.strain !== undefined
-          value: hasValue ? root.whoop.strain : 0
-          fraction: value / 21
-        }
-      }
-    }
-
-
-    // CPU / GPU / RAM: under WHOOP, same ring size, gap and height.
     Rectangle {
       id: sysFrame
       visible: root.sys !== null
       width: sysRow.implicitWidth + 2 * root.pad
       height: root.ringBoxHeight
-      readonly property real ringSize: whoopFrame.ringSize
+      readonly property real ringSize: root.ringSize
       radius: Style.cornerRadius
       color: Qt.rgba(0, 0, 0, 0.35)
       border.width: 0   // no outline
@@ -365,7 +324,6 @@ Item {
           fraction: value / 100
         }
       }
-    }
     }
   }
 }
