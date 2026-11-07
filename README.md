@@ -136,7 +136,8 @@
   `ttf-jetbrains-mono mission-center nwg-displays openvpn networkmanager-openvpn`
 - Optional:
   - [`gh`](https://cli.github.com) signed in, for the GitHub graph widget.
-  - A WHOOP account and developer app, for the WHOOP rings (see [Desktop widgets](#desktop-widgets)).
+  - A WHOOP account and developer app, for the WHOOP rings plugin
+    ([OmaWhoop](https://github.com/RuffBudda/OmaWhoop), see [Desktop widgets](#desktop-widgets)).
   - `gnome-network-displays` (AUR; a patched build is included) for wireless casting.
 
 ## Install
@@ -185,11 +186,12 @@ in its profile.
 7. A pacman hook that re-applies all of the above after relevant package updates.
    It runs a root-owned copy of the script, never the user-writable one.
 
-Then the app choices and, optionally, WHOOP:
+Then the app choices and, optionally, the WHOOP rings plugin:
 
 ```bash
 ~/dotfiles/apps.sh                    # apps, fonts, removals (asks for sudo; safe to re-run)
-~/dotfiles/bin/whoop-auth             # connect WHOOP once (rings appear)
+omarchy plugin add https://github.com/RuffBudda/OmaWhoop.git --enable --yes
+~/.config/omarchy/plugins/ruffbudda.whoop/scripts/whoop-auth   # connect WHOOP once (rings appear)
 ```
 
 **`apps.sh`** (asks for sudo):
@@ -317,13 +319,16 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 On the wallpaper layer, behind windows: see them on an empty desktop or with Super+D.
 Spacing matches window gaps, and they sit below the bar when it's shown.
 
-- **Top-left: WHOOP** Recovery %, Strain (0–21) and Sleep % rings, refreshed every 15 min.
-  One-time setup:
+- **Top-left: WHOOP** Sleep %, Recovery % and Strain (0–21) rings, refreshed every 15 min.
+  This is a separate plugin, [OmaWhoop](https://github.com/RuffBudda/OmaWhoop) (`ruffbudda.whoop`),
+  installed from its own repo (see [Third-party plugins](#third-party-plugins)). One-time setup:
   1. Create an app at <https://developer-dashboard.whoop.com> with redirect URI
      `http://localhost:8765/callback` and scopes `read:recovery read:cycles read:sleep offline`.
-  2. Run `~/dotfiles/bin/whoop-auth`, paste the Client ID and Secret, approve in the browser.
+  2. Run `~/.config/omarchy/plugins/ruffbudda.whoop/scripts/whoop-auth`, paste the Client ID
+     and Secret, approve in the browser.
 
-  Keys live in `~/.config/whoop/` (mode 600), never in this repo.
+  Keys live in `~/.config/whoop/` (mode 600), never in this repo. Without the plugin, the
+  CPU / GPU / RAM box moves up into the corner.
 - **Top-left, below: CPU / GPU / RAM** rings every 3 s (`bin/sysstats`). GPU shows the busier
   of the AMD iGPU and the NVIDIA card; the NVIDIA card is only read while it's already awake.
 - **Top-right: GitHub** contribution graph in red, every 30 min, from the signed-in `gh`
@@ -480,6 +485,7 @@ Installed from their own repos (not included here):
 ```bash
 omarchy plugin add https://github.com/nuo-yi/omarchy-power-widget.git --enable --yes        # Power + CPU Boost
 omarchy plugin add https://github.com/rmarchei/omarchy-openvpn-plugin.git --enable --yes    # OpenVPN Profiles (abu.openvpn replaces it in the bar)
+omarchy plugin add https://github.com/RuffBudda/OmaWhoop.git --enable --yes                 # WHOOP Rings (desktop widget)
 ```
 
 ## Credits and license
