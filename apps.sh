@@ -6,7 +6,7 @@ set -euo pipefail
 # ── Packages to remove ─────────────────────────────────────
 REMOVE_PKGS=(
   # apps
-  kdenlive obs-studio obsidian pinta xournalpp cliamp aether
+  kdenlive obs-studio pinta xournalpp cliamp aether
   moonlight-qt localsend gliff superwhisper-bin owe disktree-bin evince yt-dlp
   # terminal / developer extras
   tobi-try lazygit ttfx     # (herdr stays: Omarchy starts its server at login)
@@ -21,7 +21,7 @@ REMOVE_PKGS=(
 grep -q AuthenticAMD /proc/cpuinfo && REMOVE_PKGS+=(intel-ucode)
 
 # ── Packages to add ────────────────────────────────────────
-ADD_PKGS=(claude-desktop fwupd)          # claude-desktop comes from the omarchy repo
+ADD_PKGS=(claude-desktop fwupd obsidian)          # claude-desktop comes from the omarchy repo
 
 # rmdesk (reMarkable app) runtime libraries
 RMDESK_PKGS=(pyside6 python-paramiko python-keyring python-opencv python-numpy

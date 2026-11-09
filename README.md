@@ -196,13 +196,13 @@ omarchy plugin add https://github.com/RuffBudda/OmaWhoop.git --enable --yes
 
 **`apps.sh`** (asks for sudo):
 
-- **Adds** Claude Desktop, fwupd, Office-compatible fonts (Carlito for Calibri, Caladea
+- **Adds** Claude Desktop, Obsidian, fwupd, Office-compatible fonts (Carlito for Calibri, Caladea
   for Cambria, Liberation/Croscore for Arial, Times New Roman and Courier New) and about 35
   common font families from the Arch repos, plus ~30 more Google Fonts (Poppins,
   Raleway, Playfair Display, Merriweather, Lora, DM Sans…) into `~/.local/share/fonts/google`.
 - **Web apps**: keeps WhatsApp and Zoom; adds Outlook, Outlook Calendar and Teams;
   removes Basecamp, X, Discord, HEY, the Google web apps and the Office web apps.
-- **Removes** apps this setup doesn't use: Obsidian, Pinta, Kdenlive, OBS, Xournal++,
+- **Removes** apps this setup doesn't use: Pinta, Kdenlive, OBS, Xournal++,
   cliamp, Aether, Moonlight, LocalSend, Gliff, Superwhisper (and its leftovers), owe,
   Disktree, Evince, yt-dlp, tobi-try, lazygit, ttfx, .NET, Ruby, the
   MariaDB/PostgreSQL client libraries, the Chinese/Japanese/Korean input add-ons
