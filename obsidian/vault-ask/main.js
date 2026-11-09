@@ -946,12 +946,32 @@ function refreshTagBlocks(app, text, sourcePath) {
   });
 }
 
+// Obsidian has no folder links, so a folder link is an obsidian:// URL that
+// this plugin handles: it opens the file explorer at that folder.
+const FOLDER_ACTION = "dictatoros-folder";
+function folderLink(app, path, label) {
+  // The vault's ID (not its name) is what Obsidian reliably resolves in obsidian:// URLs.
+  const url = `obsidian://${FOLDER_ACTION}?vault=${encodeURIComponent(app.appId || app.vault.getName())}&path=${encodeURIComponent(path)}`;
+  return `[${cleanLabel(label).replace(/[()]/g, "")}](${url})`;
+}
+async function revealFolder(app, path) {
+  const folder = app.vault.getAbstractFileByPath(path);
+  if (!folder) { new Notice("Folder not found: " + path); return; }
+  let leaf = app.workspace.getLeavesOfType("file-explorer")[0];
+  if (!leaf) return;
+  await app.workspace.revealLeaf(leaf);
+  const view = leaf.view;
+  if (view.revealInFolder) view.revealInFolder(folder);
+  const item = view.fileItems && view.fileItems[path];
+  if (item && item.setCollapsed) item.setCollapsed(false);
+}
+
 // Link picker: a tree like the file explorer (folder › note › heading) plus a
 // tag tree (tag › the notes that use it), with filter chips across the top.
 // Arrows move, → / ← open and close, Tab switches filter, Enter links.
 const PICK_FILTERS = [
-  { id: "all", label: "All", picks: ["note", "canvas", "heading", "tag", "tagnote"] },
-  { id: "notes", label: "Notes", picks: ["note", "canvas"] },
+  { id: "all", label: "All", picks: ["folder", "note", "canvas", "heading", "tag", "tagnote"] },
+  { id: "notes", label: "Notes", picks: ["folder", "note", "canvas"] },
   { id: "headings", label: "Headings", picks: ["heading"] },
   { id: "tags", label: "Tags", picks: ["tag", "tagnote"] },
 ];
@@ -978,9 +998,11 @@ class LinkPicker extends Modal {
     const folderNode = (path) => {
       if (folders.has(path)) return folders.get(path);
       const parent = folderNode(path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
-      const n = { kind: "folder", id: "f:" + path, label: path.split("/").pop(), children: [] };
+      const n = { kind: "folder", id: "f:" + path, label: path.split("/").pop(), path, children: [] };
       parent.children.push(n); folders.set(path, n); return n;
     };
+    // Every folder, including empty ones.
+    for (const f of this.app.vault.getAllLoadedFiles()) if (f.children && f.path && f.path !== "/") folderNode(f.path);
     const linkable = this.app.vault.getFiles().filter((f) => f.extension === "md" || f.extension === "canvas");
     for (const file of linkable.sort((a, b) => a.path.localeCompare(b.path))) {
       const dir = file.parent && file.parent.path !== "/" ? file.parent.path : "";
@@ -1123,6 +1145,7 @@ class LinkPicker extends Modal {
   choose(n) {
     this.close();
     const selected = this.editor.getSelection();
+    if (n.kind === "folder") { this.editor.replaceSelection(folderLink(this.app, n.path, selected || n.label)); return; }
     if (n.kind === "tag" || n.kind === "tagnote") {
       this.editor.replaceSelection(tagBlock(this.app, n.tag, n.scope ? n.scope.path : null, this.sourcePath, this.inTable, selected));
       return;
@@ -1177,6 +1200,16 @@ module.exports = class VaultAskPlugin extends Plugin {
     bar.createSpan({ text: "Ask vault" });
     bar.onClickEvent(() => this.openChat());
     this.addSettingTab(new VaultAskSettings(this.app, this));
+    // Folder links: [Folder](obsidian://dictatoros-folder?...). Handled in-app on
+    // click (reading view) and via the URL handler otherwise.
+    this.registerObsidianProtocolHandler(FOLDER_ACTION, (params) => params.path && revealFolder(this.app, params.path));
+    this.registerDomEvent(document, "click", (e) => {
+      const a = e.target.closest && e.target.closest(`a[href^="obsidian://${FOLDER_ACTION}"]`);
+      if (!a) return;
+      e.preventDefault(); e.stopPropagation();
+      const path = new URL(a.getAttribute("href")).searchParams.get("path");
+      if (path) revealFolder(this.app, path);
+    }, { capture: true });
 
     // Auto-link: turn plain mentions of other notes / H2 headings into links.
     this.addCommand({ id: "auto-link", name: "Auto-link mentions in this note", icon: "link-2",
