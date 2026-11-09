@@ -423,6 +423,209 @@ class ChatView extends ItemView {
   }
 }
 
+// ── Heading graph ────────────────────────────────────────────────────────
+// Like Obsidian's graph, but split by headings: notes, their headings (H2 and
+// below; text above the first one belongs to the note), and tags. Lines join a
+// note to its headings, a heading to whatever its section links to (a note or
+// a specific heading), and a heading to the tags in its section.
+const GRAPH_VIEW = "dictatoros-heading-graph";
+
+function buildHeadingGraph(app) {
+  const nodes = new Map(), edges = new Map();
+  const node = (id, n) => { if (!nodes.has(id)) nodes.set(id, Object.assign({ id, deg: 0 }, n)); return nodes.get(id); };
+  const edge = (a, b, kind) => { if (a === b) return; const k = a < b ? a + "|" + b : b + "|" + a; if (!edges.has(k)) edges.set(k, { a, b, kind }); };
+  const files = app.vault.getMarkdownFiles();
+  const sections = (file) => {
+    const cache = app.metadataCache.getFileCache(file) || {};
+    return { cache, heads: (cache.headings || []).filter((h) => h.level >= 2).sort((a, b) => a.position.start.line - b.position.start.line) };
+  };
+  const ownerId = (file, heads, line) => {
+    let owner = null;
+    for (const h of heads) { if (h.position.start.line <= line) owner = h; else break; }
+    return owner ? file.path + "#" + owner.heading : file.path;
+  };
+  for (const file of files) {
+    node(file.path, { kind: "note", label: file.basename, path: file.path });
+    for (const h of sections(file).heads) {
+      node(file.path + "#" + h.heading, { kind: "heading", label: h.heading, path: file.path, heading: h.heading });
+      edge(file.path, file.path + "#" + h.heading, "contains");
+    }
+  }
+  for (const file of files) {
+    const { cache, heads } = sections(file);
+    for (const l of cache.links || []) {
+      const [linkpath, sub] = l.link.split("#");
+      const dest = linkpath ? app.metadataCache.getFirstLinkpathDest(linkpath, file.path) : file;
+      if (!dest || dest.extension !== "md") continue;
+      const target = sub && nodes.has(dest.path + "#" + sub) ? dest.path + "#" + sub : dest.path;
+      edge(ownerId(file, heads, l.position.start.line), target, "link");
+    }
+    for (const t of cache.tags || []) {
+      const tid = "tag:" + t.tag.toLowerCase();
+      node(tid, { kind: "tag", label: t.tag });
+      edge(ownerId(file, heads, t.position.start.line), tid, "tag");
+    }
+  }
+  const list = [...edges.values()];
+  for (const e of list) { nodes.get(e.a).deg++; nodes.get(e.b).deg++; }
+  return { nodes: [...nodes.values()], edges: list };
+}
+
+class HeadingGraphView extends ItemView {
+  constructor(leaf, plugin) { super(leaf); this.plugin = plugin; }
+  getViewType() { return GRAPH_VIEW; }
+  getDisplayText() { return "Heading graph"; }
+  getIcon() { return "network"; }
+
+  async onOpen() {
+    const root = this.contentEl; root.empty(); root.addClass("vault-ask-graph");
+    this.canvas = root.createEl("canvas");
+    this.legend = root.createDiv({ cls: "vault-ask-graph-legend" });
+    for (const [cls, label] of [["note", "Note"], ["heading", "Heading"], ["tag", "Tag"]]) {
+      const i = this.legend.createDiv({ cls: "vault-ask-graph-key" }); i.createSpan({ cls: "dot " + cls }); i.createSpan({ text: label });
+    }
+    this.ctx = this.canvas.getContext("2d");
+    this.view = { x: 0, y: 0, k: 1 };
+    this.hover = null; this.drag = null;
+    this.registerDomEvent(this.canvas, "wheel", (e) => this.onWheel(e), { passive: false });
+    this.registerDomEvent(this.canvas, "pointerdown", (e) => this.onDown(e));
+    this.registerDomEvent(window, "pointermove", (e) => this.onMove(e));
+    this.registerDomEvent(window, "pointerup", (e) => this.onUp(e));
+    this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(root);
+    // Rebuild when notes change (debounced).
+    this.registerEvent(this.app.metadataCache.on("resolved", () => { clearTimeout(this.rebuildT); this.rebuildT = setTimeout(() => this.build(), 500); }));
+    this.build();
+  }
+
+  async onClose() { if (this.ro) this.ro.disconnect(); cancelAnimationFrame(this.raf); }
+
+  colors() {
+    const cs = getComputedStyle(document.body);
+    const v = (n, d) => (cs.getPropertyValue(n) || "").trim() || d;
+    return { accent: v("--text-accent", "#e5383b"), text: v("--text-normal", "#ddd"), muted: v("--text-muted", "#888"),
+      faint: v("--text-faint", "#555"), line: v("--background-modifier-border", "#444"), bg: v("--background-primary", "#000") };
+  }
+
+  build() {
+    const g = buildHeadingGraph(this.app);
+    const old = new Map((this.nodes || []).map((n) => [n.id, n]));
+    this.nodes = g.nodes.map((n) => { const o = old.get(n.id); return Object.assign(n, o ? { x: o.x, y: o.y, vx: 0, vy: 0 } : { x: (Math.random() - 0.5) * 400, y: (Math.random() - 0.5) * 400, vx: 0, vy: 0 }); });
+    const byId = new Map(this.nodes.map((n) => [n.id, n]));
+    this.edges = g.edges.map((e) => ({ a: byId.get(e.a), b: byId.get(e.b), kind: e.kind }));
+    this.neighbours = new Map(this.nodes.map((n) => [n, new Set()]));
+    for (const e of this.edges) { this.neighbours.get(e.a).add(e.b); this.neighbours.get(e.b).add(e.a); }
+    this.alpha = 1; this.loop();
+  }
+
+  radius(n) { return (n.kind === "note" ? 7 : n.kind === "tag" ? 5 : 4.5) + Math.min(6, Math.sqrt(n.deg)); }
+
+  // Simple force layout: repulsion, springs on edges, gentle pull to centre.
+  step() {
+    const N = this.nodes, a = this.alpha;
+    for (let i = 0; i < N.length; i++) for (let j = i + 1; j < N.length; j++) {
+      const p = N[i], q = N[j]; let dx = q.x - p.x, dy = q.y - p.y; let d2 = dx * dx + dy * dy || 0.01;
+      if (d2 > 250000) continue;
+      const f = (900 * a) / d2, d = Math.sqrt(d2); dx /= d; dy /= d;
+      p.vx -= dx * f; p.vy -= dy * f; q.vx += dx * f; q.vy += dy * f;
+    }
+    for (const e of this.edges) {
+      const len = e.kind === "contains" ? 45 : 90;
+      let dx = e.b.x - e.a.x, dy = e.b.y - e.a.y; const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+      const f = (d - len) * 0.04 * a; dx /= d; dy /= d;
+      e.a.vx += dx * f; e.a.vy += dy * f; e.b.vx -= dx * f; e.b.vy -= dy * f;
+    }
+    for (const n of N) {
+      n.vx -= n.x * 0.002 * a; n.vy -= n.y * 0.002 * a;
+      if (this.drag && this.drag.node === n) { n.vx = n.vy = 0; continue; }
+      n.vx *= 0.6; n.vy *= 0.6; n.x += n.vx; n.y += n.vy;
+    }
+    this.alpha = Math.max(this.drag ? 0.3 : 0, this.alpha * 0.985);
+  }
+
+  loop() {
+    cancelAnimationFrame(this.raf);
+    const tick = () => { if (this.alpha > 0.005) this.step(); this.draw(); if (this.alpha > 0.005 || this.drag) this.raf = requestAnimationFrame(tick); };
+    this.raf = requestAnimationFrame(tick);
+  }
+
+  resize() {
+    const r = this.contentEl.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    this.w = r.width; this.h = r.height;
+    this.canvas.width = r.width * dpr; this.canvas.height = r.height * dpr;
+    this.canvas.style.width = r.width + "px"; this.canvas.style.height = r.height + "px";
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.draw();
+  }
+
+  toScreen(n) { return [this.w / 2 + (n.x + this.view.x) * this.view.k, this.h / 2 + (n.y + this.view.y) * this.view.k]; }
+  toWorld(sx, sy) { return [(sx - this.w / 2) / this.view.k - this.view.x, (sy - this.h / 2) / this.view.k - this.view.y]; }
+  hit(e) {
+    const r = this.canvas.getBoundingClientRect(); const [wx, wy] = this.toWorld(e.clientX - r.left, e.clientY - r.top);
+    let best = null, bd = Infinity;
+    for (const n of this.nodes) { const d = Math.hypot(n.x - wx, n.y - wy); const rr = this.radius(n) + 4 / this.view.k; if (d < rr && d < bd) { best = n; bd = d; } }
+    return best;
+  }
+
+  draw() {
+    if (!this.ctx || !this.nodes) return;
+    const c = this.ctx, col = this.colors(), k = this.view.k, focus = this.hover || (this.drag && this.drag.node);
+    const near = focus ? this.neighbours.get(focus) : null;
+    c.fillStyle = col.bg; c.fillRect(0, 0, this.w, this.h);
+    for (const e of this.edges) {
+      const lit = focus && (e.a === focus || e.b === focus);
+      c.strokeStyle = lit ? col.accent : col.line; c.globalAlpha = focus && !lit ? 0.25 : 1;
+      c.lineWidth = lit ? 1.6 : e.kind === "contains" ? 0.8 : 1.1;
+      c.setLineDash(e.kind === "tag" ? [3, 3] : []);
+      const [x1, y1] = this.toScreen(e.a), [x2, y2] = this.toScreen(e.b);
+      c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
+    }
+    c.setLineDash([]);
+    for (const n of this.nodes) {
+      const [x, y] = this.toScreen(n), r = this.radius(n) * Math.sqrt(k);
+      const dim = focus && n !== focus && !near.has(n);
+      c.globalAlpha = dim ? 0.25 : 1;
+      c.fillStyle = n.kind === "tag" ? col.accent : n.kind === "note" ? col.text : col.muted;
+      c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+      if (n === focus) { c.strokeStyle = col.accent; c.lineWidth = 2; c.stroke(); }
+      if (k > 0.6 || n === focus || (near && near.has(n)) || n.kind === "note") {
+        c.fillStyle = n === focus ? col.accent : n.kind === "note" ? col.text : col.muted;
+        c.font = `${n.kind === "note" ? 12 : 11}px var(--font-interface, sans-serif)`;
+        c.textAlign = "center"; c.fillText(n.label, x, y + r + 12);
+      }
+    }
+    c.globalAlpha = 1;
+  }
+
+  onWheel(e) {
+    e.preventDefault();
+    const r = this.canvas.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const [wx, wy] = this.toWorld(sx, sy);
+    this.view.k = Math.min(4, Math.max(0.2, this.view.k * Math.exp(-e.deltaY * 0.0015)));
+    const [nx, ny] = this.toWorld(sx, sy); this.view.x += nx - wx; this.view.y += ny - wy;
+    this.draw();
+  }
+  onDown(e) {
+    const n = this.hit(e);
+    this.drag = { node: n, sx: e.clientX, sy: e.clientY, vx: this.view.x, vy: this.view.y, moved: false };
+    if (n) { this.alpha = Math.max(this.alpha, 0.3); this.loop(); }
+  }
+  onMove(e) {
+    if (!this.drag) { const h = this.hit(e); if (h !== this.hover) { this.hover = h; this.canvas.style.cursor = h ? "pointer" : "grab"; this.draw(); } return; }
+    const dx = e.clientX - this.drag.sx, dy = e.clientY - this.drag.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 3) this.drag.moved = true;
+    if (this.drag.node) { const r = this.canvas.getBoundingClientRect(); const [wx, wy] = this.toWorld(e.clientX - r.left, e.clientY - r.top); this.drag.node.x = wx; this.drag.node.y = wy; }
+    else { this.view.x = this.drag.vx + dx / this.view.k; this.view.y = this.drag.vy + dy / this.view.k; this.draw(); }
+  }
+  onUp() {
+    const d = this.drag; this.drag = null;
+    if (d && d.node && !d.moved) {
+      const n = d.node;
+      if (n.kind === "tag") this.app.internalPlugins.getPluginById("global-search")?.instance.openGlobalSearch("tag:" + n.label);
+      else this.app.workspace.openLinkText(n.heading ? n.path + "#" + n.heading : n.path, "", false);
+    }
+  }
+}
+
 // "Link selection to…": pick a note, an H2 heading inside a note, or a tag.
 // A note/heading turns the selected text into a link: [[Note#Heading|text]].
 // A tag links to every heading carrying that tag (a tag belongs to the heading
@@ -534,6 +737,9 @@ module.exports = class VaultAskPlugin extends Plugin {
     this.index = data.index || {};
     this.chats = data.chats || [];
     this.registerView(VIEW_TYPE, (leaf) => new ChatView(leaf, this));
+    this.registerView(GRAPH_VIEW, (leaf) => new HeadingGraphView(leaf, this));
+    this.addRibbonIcon("network", "Heading graph", () => this.openGraph());
+    this.addCommand({ id: "open-heading-graph", name: "Open heading graph", callback: () => this.openGraph() });
     this.addRibbonIcon("bot", "Ask the Vault (local AI side chat)", () => this.openChat());
     this.addCommand({ id: "open-chat", name: "Open side chat", callback: () => this.openChat() });
     // A distinct red button in the status bar.
@@ -565,6 +771,12 @@ module.exports = class VaultAskPlugin extends Plugin {
     }));
   }
 
+  async openGraph() {
+    let leaf = this.app.workspace.getLeavesOfType(GRAPH_VIEW)[0];
+    if (!leaf) { leaf = this.app.workspace.getLeaf("tab"); await leaf.setViewState({ type: GRAPH_VIEW, active: true }); }
+    await this.app.workspace.revealLeaf(leaf);
+  }
+
   // Open (or reveal) the side chat and return its view.
   async openChat() {
     let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
@@ -586,3 +798,4 @@ module.exports.VaultAsk = VaultAsk;
 module.exports.chunkText = chunkText;
 module.exports.LinkPicker = LinkPicker;
 module.exports.tagTargets = tagTargets;
+module.exports.buildHeadingGraph = buildHeadingGraph;

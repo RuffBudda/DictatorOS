@@ -81,3 +81,13 @@
 .vault-ask-action .svg-icon { width: 13px; height: 13px; }
 .vault-ask-link-tag { color: var(--text-accent); font-weight: 700; }
 .vault-ask-link-preview { color: var(--text-muted); font-size: var(--font-ui-smaller); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Heading graph */
+.vault-ask-graph { position: relative; padding: 0 !important; overflow: hidden; }
+.vault-ask-graph canvas { display: block; cursor: grab; }
+.vault-ask-graph-legend { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 12px; font-size: var(--font-ui-smaller); color: var(--text-muted); background: var(--background-primary); padding: 4px 10px; border: 1px solid var(--background-modifier-border); border-radius: 999px; }
+.vault-ask-graph-key { display: flex; align-items: center; gap: 5px; }
+.vault-ask-graph-key .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.vault-ask-graph-key .dot.note { background: var(--text-normal); }
+.vault-ask-graph-key .dot.heading { background: var(--text-muted); }
+.vault-ask-graph-key .dot.tag { background: var(--text-accent); }

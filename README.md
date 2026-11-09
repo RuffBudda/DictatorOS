@@ -376,6 +376,13 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   it links every heading that carries it (the tag right under a heading belongs to that
   heading), e.g. `kickoff plan ([[Marketing#GEO Issues|GEO Issues]], [[Operations#SOP|SOP]])`.
 
+- **Heading graph.** The network icon in the left ribbon (or "Open heading graph") opens
+  a graph like Obsidian's, but split by headings: notes, their `##` headings, and tags.
+  Lines join a note to its headings, a heading to whatever its section links to (a whole
+  note or a specific heading), and a heading to the tags in its section. Scroll to zoom,
+  drag to pan or move dots, hover to highlight connections, click to open that note at
+  that heading (or search a tag).
+
 Setup and details:
 
 - Needs Ollama running with `qwen3:8b` (answers) and `nomic-embed-text` (search):
