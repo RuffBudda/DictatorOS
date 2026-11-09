@@ -12,3 +12,6 @@
 .vault-ask-sources { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--background-modifier-border); font-size: var(--font-ui-small); }
 .vault-ask-sources-title { color: var(--text-muted); margin-bottom: 4px; }
 .vault-ask-source { display: inline-block; margin: 0 12px 4px 0; color: var(--text-accent); }
+.vault-ask-statusbar { color: var(--text-accent); font-weight: 600; cursor: pointer; }
+.vault-ask-statusbar:hover { color: var(--text-accent-hover); }
+.vault-ask-statusbar::before { content: "✦ "; }

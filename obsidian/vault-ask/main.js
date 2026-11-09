@@ -194,7 +194,13 @@ module.exports = class VaultAskPlugin extends Plugin {
     const data = (await this.loadData()) || {};
     this.settings = Object.assign({}, DEFAULTS, data.settings || {});
     this.index = data.index || {};
-    this.addRibbonIcon("message-circle-question", "Ask the vault (local AI)", () => new AskModal(this).open());
+    this.addRibbonIcon("bot", "Ask the vault (local AI)", () => new AskModal(this).open());
+    // A labelled button in the status bar too, so it's easy to find.
+    const bar = this.addStatusBarItem();
+    bar.addClass("vault-ask-statusbar", "mod-clickable");
+    bar.setAttribute("aria-label", "Ask the vault (local AI)");
+    bar.createSpan({ text: "Ask vault" });
+    bar.onClickEvent(() => new AskModal(this).open());
     this.addCommand({ id: "ask", name: "Ask the vault", callback: () => new AskModal(this).open() });
     this.addSettingTab(new VaultAskSettings(this.app, this));
   }
