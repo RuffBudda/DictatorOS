@@ -1245,7 +1245,8 @@ class LinkPicker extends Modal {
     };
     // Every folder, including empty ones.
     for (const f of this.app.vault.getAllLoadedFiles()) if (f.children && f.path && f.path !== "/") folderNode(f.path);
-    const linkable = this.app.vault.getFiles().filter((f) => f.extension === "md" || f.extension === "canvas");
+    const logPath = this.app.plugins && this.app.plugins.plugins["dictatoros-vault-ask"] ? this.app.plugins.plugins["dictatoros-vault-ask"].settings.changeLogPath : "Change Log.md";
+    const linkable = this.app.vault.getFiles().filter((f) => (f.extension === "md" || f.extension === "canvas") && f.path !== logPath);
     for (const file of linkable.sort((a, b) => a.path.localeCompare(b.path))) {
       const dir = file.parent && file.parent.path !== "/" ? file.parent.path : "";
       if (file.extension === "canvas") { folderNode(dir).children.push({ kind: "canvas", id: "c:" + file.path, label: file.basename, file, children: [] }); continue; }
@@ -1428,7 +1429,7 @@ class VaultAskSettings extends PluginSettingTab {
     new Setting(containerEl).setName("Change Log note").setDesc("Records every edit (with links to the notes and headings) in one note, newest first.")
       .addToggle((t) => t.setValue(s.changeLog).onChange(async (v) => { s.changeLog = v; await this.plugin.save(); }));
     new Setting(containerEl).setName("Change Log location").setDesc("Path of the log note.")
-      .addText((t) => t.setValue(s.changeLogPath).onChange(async (v) => { s.changeLogPath = (v.trim() || DEFAULTS.changeLogPath).replace(/(?<!\.md)$/, ".md"); await this.plugin.save(); }));
+      .addText((t) => t.setValue(s.changeLogPath).onChange(async (v) => { s.changeLogPath = (v.trim() || DEFAULTS.changeLogPath).replace(/(?<!\.md)$/, ".md"); await this.plugin.save(); this.plugin.updateHiddenLog(); }));
     containerEl.createEl("h3", { text: "Ask the Vault" });
     new Setting(containerEl).setName("Rebuild index").setDesc("Re-embed every note from scratch.")
       .addButton((b) => b.setButtonText("Rebuild").onClick(async () => {
@@ -1608,6 +1609,10 @@ module.exports = class VaultAskPlugin extends Plugin {
     applyPalette(this);
     this.register(clearPalette);
     this.changes = new ChangeLog(this);
+    // Keep the Change Log out of the file explorer (open it with the command or Ctrl+O).
+    this.hideLogStyle = document.head.createEl("style", { attr: { id: "vault-ask-hide-log" } });
+    this.register(() => this.hideLogStyle.remove());
+    this.updateHiddenLog();
     this.addCommand({ id: "cycle-heading-palette", name: "Next heading colour palette", callback: async () => {
       const keys = Object.keys(PALETTES).filter((k) => k !== "custom" || this.settings.customColors);
       this.settings.palette = keys[(keys.indexOf(this.settings.palette) + 1) % keys.length];
@@ -1755,6 +1760,10 @@ module.exports = class VaultAskPlugin extends Plugin {
     new Notice(`Auto-link undone in ${n} note${n === 1 ? "" : "s"}.`);
   }
   onunload() { if (this.changes) this.changes.flush(true); }
+  updateHiddenLog() {
+    const path = (this.settings.changeLogPath || "").replace(/["\\]/g, "\\$&");
+    this.hideLogStyle.textContent = path ? `.nav-file:has(> .nav-file-title[data-path="${path}"]) { display: none; }` : "";
+  }
   async save() { await this.saveData({ settings: this.settings, index: this.index, chats: this.chats }); }
 };
 

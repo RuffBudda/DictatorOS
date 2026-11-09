@@ -380,7 +380,7 @@ headings added, e.g.
 An edit is written once the note has been quiet for about a minute and a half, or when
 you switch to another note, so a typing session becomes one line. The plugin's own
 writes (dates, live tag links) aren't logged, and the log is left out of the heading
-graph and Auto-link. Commands: "Open Change Log", "Write pending edits to the Change
+graph, Auto-link, the link picker and the file explorer. Commands: "Open Change Log", "Write pending edits to the Change
 Log now". Both parts can be turned off, and the log moved, in the plugin settings.
 
 ### Obsidian: Ask the Vault
