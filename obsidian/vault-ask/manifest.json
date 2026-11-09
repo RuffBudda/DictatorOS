@@ -1,7 +1,7 @@
 {
   "id": "dictatoros-vault-ask",
   "name": "Ask the Vault",
-  "version": "4.3.0",
+  "version": "4.3.2",
   "minAppVersion": "1.4.0",
   "description": "Side chat that answers only from this vault (streaming, local AI via Ollama), saved chat history, expand selected text after clarifying questions, and links to notes or H2 headings.",
   "author": "RuffBudda",

@@ -423,7 +423,8 @@ Log now". Both parts can be turned off, and the log moved, in the plugin setting
   right under a heading belongs to that heading), either everywhere (the tag itself) or
   only in one note (the note under the tag, e.g. `#data-collection › only in Marketing`). Your selected text itself becomes the link (underlined, e.g.
   `Marketing Initial Data Collection` → Marketing › GEO Issues; hover it to preview the
-  heading). If more headings carry the tag, they follow as their own links. They are **live**: they sit between
+  heading). If several headings in the same note carry the tag, the text links to that note; if
+  they're spread over several notes, the others follow as small numbered links (² ³). They are **live**: they sit between
   hidden `%%tag:…%%` markers and update by themselves when you tag or untag headings.
   `|` is escaped automatically inside tables.
 - **One graph.** Obsidian's own graph view is switched off (Settings → Ask the Vault →

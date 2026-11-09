@@ -729,7 +729,8 @@ function buildHeadingGraph(app, texts, skipPath, opts) {
     for (const l of cache.links || []) {
       const [linkpath, sub] = l.link.split("#");
       const dest = linkpath ? app.metadataCache.getFirstLinkpathDest(linkpath, file.path) : file;
-      if (!dest || dest.extension !== "md") continue;
+      if (!dest || (dest.extension !== "md" && dest.extension !== "canvas")) continue;
+      if (dest.extension === "canvas") node(dest.path, { kind: "canvas", label: dest.basename, path: dest.path });
       const target = sub && nodes.has(dest.path + "#" + sub) ? dest.path + "#" + sub : dest.path;
       if (!nodes.has(target)) continue;
       edge(ownerId(file, heads, l.position.start.line), target, "link");
@@ -753,6 +754,22 @@ function buildHeadingGraph(app, texts, skipPath, opts) {
       if (nodes.has(owner)) (nodes.get(owner).tags = nodes.get(owner).tags || new Set()).add(t.tag.toLowerCase());
       if (!sharing.has(tid)) sharing.set(tid, new Set());
       sharing.get(tid).add(owner);
+    }
+  }
+  // Canvases: link to the notes placed on them and to [[links]] in their cards.
+  for (const cf of app.vault.getFiles().filter((f) => f.extension === "canvas" && texts && texts.has(f.path))) {
+    let data; try { data = JSON.parse(texts.get(cf.path) || "{}"); } catch (_) { continue; }
+    const cid = node(cf.path, { kind: "canvas", label: cf.basename, path: cf.path }).id;
+    const linkTo = (lp, sub) => {
+      const dest = app.metadataCache.getFirstLinkpathDest(lp, cf.path);
+      if (!dest) return;
+      if (dest.extension === "canvas") node(dest.path, { kind: "canvas", label: dest.basename, path: dest.path });
+      const target = sub && nodes.has(dest.path + headingSub(sub)) ? dest.path + headingSub(sub) : dest.path;
+      if (nodes.has(target)) edge(cid, target, "link");
+    };
+    for (const n of data.nodes || []) {
+      if (n.type === "file" && n.file) linkTo(n.file, n.subpath ? n.subpath.replace(/^#/, "") : "");
+      if (n.type === "text" && n.text) for (const m of n.text.matchAll(/\[\[([^\]|#]+)(?:#([^\]|]+))?/g)) linkTo(m[1].trim(), m[2]);
     }
   }
   // Headings (or notes) that share a tag are linked to each other directly.
@@ -800,6 +817,8 @@ class HeadingGraphView extends ItemView {
     this.registerEvent(this.app.metadataCache.on("resolved", soon));
     this.registerEvent(this.app.vault.on("delete", soon));
     this.registerEvent(this.app.vault.on("rename", soon));
+    this.registerEvent(this.app.vault.on("create", soon));
+    this.registerEvent(this.app.vault.on("modify", (f) => { if (f.extension === "canvas") soon(); }));
     this.registerEvent(this.app.workspace.on("file-open", (f) => { if (f && this.opts().local) { this.localFile = f.path; soon(); } }));
     this.build();
   }
@@ -943,7 +962,7 @@ class HeadingGraphView extends ItemView {
 
   async build() {
     const texts = new Map();
-    for (const f of this.app.vault.getMarkdownFiles()) texts.set(f.path, await this.app.vault.cachedRead(f));
+    for (const f of this.app.vault.getFiles()) if (f.extension === "md" || f.extension === "canvas") texts.set(f.path, await this.app.vault.cachedRead(f));
     const o = this.opts();
     const g = buildHeadingGraph(this.app, texts, this.plugin.settings.changeLogPath, o);
     if (o.local) {
@@ -1138,7 +1157,15 @@ function tagLinksMarkdown(app, tag, scopePath, sourcePath, inTable, label) {
     return inTable ? link.replace(/(?<!\\)\|/g, "\\|") : link;   // a bare | would split a table cell
   });
   if (label && !links.length) return label;          // nothing tagged (yet): keep the plain text
-  return label ? links[0] + (links.length > 1 ? " · " + links.slice(1).join(" · ") : "") : links.join(", ");
+  if (!label) return links.join(", ");
+  if (links.length === 1) return links[0];
+  const esc = (l) => inTable ? l.replace(/(?<!\\)\|/g, "\\|") : l;
+  // Several headings, all in one note: the text links to that note.
+  if (targets.every((t) => t.file === targets[0].file))
+    return esc(app.fileManager.generateMarkdownLink(targets[0].file, sourcePath, "", label));
+  // Across notes: the text links to the first; the rest are small numbered links.
+  const sup = "²³⁴⁵⁶⁷⁸⁹";
+  return links[0] + targets.slice(1).map((t, i) => " " + esc(app.fileManager.generateMarkdownLink(t.file, sourcePath, headingSub(t.heading), sup[i] || String(i + 2)))).join("");
 }
 
 const cleanLabel = (t) => (t || "").replace(/[%|\[\]#^]/g, " ").replace(/\s+/g, " ").trim();
