@@ -23,6 +23,11 @@ const DEFAULTS = {
   pageLog: true,                    // keep created / updated properties on every note
   changeLog: true,                  // record edits in a Change Log note
   changeLogPath: "Change Log.md",
+  replaceCoreGraph: true,           // turn off Obsidian's graph; this one replaces it
+  graph: { headings: true, tags: true, folders: true, shared: true, orphans: true, local: false, depth: 2,
+           groups: [],                                   // [{ query, color }]
+           nodeSize: 1, lineWidth: 1, textFade: 0.6, arrows: false,
+           repel: 900, linkForce: 0.04, linkDistance: 90, center: 0.002, panel: { open: false, sections: { filters: true } } },
 };
 const CHUNK_CHARS = 1200;   // target chunk size
 const EMBED_BATCH = 32;     // chunks per embedding request
@@ -678,7 +683,8 @@ class VaultAutoLinkModal extends Modal {
 // a specific heading), and a heading to the tags in its section.
 const GRAPH_VIEW = "dictatoros-heading-graph";
 
-function buildHeadingGraph(app, texts, skipPath) {
+function buildHeadingGraph(app, texts, skipPath, opts) {
+  opts = Object.assign({ headings: true, tags: true, folders: true, shared: true }, opts || {});
   const nodes = new Map(), edges = new Map();
   const node = (id, n) => { if (!nodes.has(id)) nodes.set(id, Object.assign({ id, deg: 0 }, n)); return nodes.get(id); };
   const edge = (a, b, kind) => { if (a === b) return; const k = a < b ? a + "|" + b : b + "|" + a; if (!edges.has(k)) edges.set(k, { a, b, kind }); };
@@ -690,14 +696,32 @@ function buildHeadingGraph(app, texts, skipPath) {
   };
   const ownerId = (file, heads, line) => {
     let owner = null;
+    if (!opts.headings) return file.path;
     for (const h of heads) { if (h.position.start.line <= line) owner = h; else break; }
     return owner ? file.path + headingSub(owner.heading) : file.path;
   };
   for (const file of files) {
     node(file.path, { kind: "note", label: file.basename, path: file.path });
-    for (const h of sections(file).heads) {
+    if (opts.headings) for (const h of sections(file).heads) {
       node(file.path + headingSub(h.heading), { kind: "heading", label: plainText(h.heading), path: file.path, heading: h.heading });
       edge(file.path, file.path + headingSub(h.heading), "contains");
+    }
+  }
+  // Folder tree: every folder, joined to its parent folder and to the pages
+  // (notes and canvases) inside it.
+  if (opts.folders) {
+    const fid = (path) => "folder:" + path;
+    for (const f of app.vault.getAllLoadedFiles()) {
+      if (!f.children || !f.path || f.path === "/") continue;
+      node(fid(f.path), { kind: "folder", label: f.name || f.path.split("/").pop(), path: f.path });
+    }
+    for (const f of app.vault.getAllLoadedFiles()) {
+      if (!f.path || f.path === "/" || f.path === skipPath) continue;
+      const parent = f.parent && f.parent.path && f.parent.path !== "/" ? fid(f.parent.path) : null;
+      if (!parent) continue;
+      if (f.children) edge(parent, fid(f.path), "folder");
+      else if (f.extension === "md" && nodes.has(f.path)) edge(parent, f.path, "folder");
+      else if (f.extension === "canvas") { node(f.path, { kind: "canvas", label: f.basename, path: f.path }); edge(parent, f.path, "folder"); }
     }
   }
   for (const file of files) {
@@ -712,7 +736,7 @@ function buildHeadingGraph(app, texts, skipPath) {
     }
     // Folder links (obsidian://dictatoros-folder) -> a folder dot
     const text = texts && texts.get(file.path);
-    if (text) {
+    if (text && opts.folders) {
       const lineAt = (i) => text.slice(0, i).split("\n").length - 1;
       for (const m of text.matchAll(FOLDER_LINK_RE)) {
         const fpath = decodeURIComponent(m[1]);
@@ -721,18 +745,19 @@ function buildHeadingGraph(app, texts, skipPath) {
         edge(ownerId(file, heads, lineAt(m.index)), fid, "link");
       }
     }
-    for (const t of cache.tags || []) {
+    for (const t of opts.tags ? cache.tags || [] : []) {
       const tid = "tag:" + t.tag.toLowerCase();
       node(tid, { kind: "tag", label: t.tag });
       const owner = ownerId(file, heads, t.position.start.line);
       edge(owner, tid, "tag");
+      if (nodes.has(owner)) (nodes.get(owner).tags = nodes.get(owner).tags || new Set()).add(t.tag.toLowerCase());
       if (!sharing.has(tid)) sharing.set(tid, new Set());
       sharing.get(tid).add(owner);
     }
   }
   // Headings (or notes) that share a tag are linked to each other directly.
   // Big groups get a chain instead of every pair, to keep the graph readable.
-  for (const owners of sharing.values()) {
+  for (const owners of opts.shared ? sharing.values() : []) {
     const list = [...owners];
     if (list.length <= 12) { for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) edge(list[i], list[j], "shared"); }
     else for (let i = 1; i < list.length; i++) edge(list[i - 1], list[i], "shared");
@@ -743,19 +768,24 @@ function buildHeadingGraph(app, texts, skipPath) {
 }
 
 class HeadingGraphView extends ItemView {
-  constructor(leaf, plugin) { super(leaf); this.plugin = plugin; }
+  constructor(leaf, plugin) { super(leaf); this.plugin = plugin; this.search = ""; }
   getViewType() { return GRAPH_VIEW; }
-  getDisplayText() { return "Heading graph"; }
-  getIcon() { return "network"; }
+  getDisplayText() { return this.opts().local ? "Local graph" : "Graph"; }
+  getIcon() { return "git-fork"; }
+  opts() { return this.plugin.settings.graph; }
 
   async onOpen() {
     const root = this.contentEl; root.empty(); root.addClass("vault-ask-graph");
     this.canvas = root.createEl("canvas");
+    this.buildPanel(root);
     this.legend = root.createDiv({ cls: "vault-ask-graph-legend" });
-    for (const [cls, label] of [["note", "Note"], ["heading", "Heading"], ["tag", "Tag"], ["folder", "Folder"]]) {
-      const i = this.legend.createDiv({ cls: "vault-ask-graph-key" }); i.createSpan({ cls: "dot " + cls }); i.createSpan({ text: label });
-    }
-    const sk = this.legend.createDiv({ cls: "vault-ask-graph-key" }); sk.createSpan({ cls: "line shared" }); sk.createSpan({ text: "Same tag" });
+    const key = (cls, label, opt) => {
+      const i = this.legend.createDiv({ cls: "vault-ask-graph-key" + (opt ? " is-toggle" : "") });
+      i.createSpan({ cls: (cls === "shared" ? "line " : "dot ") + cls }); i.createSpan({ text: label });
+      if (opt) { i.dataset.opt = opt; i.setAttribute("aria-label", "Show / hide " + label.toLowerCase()); i.onclick = () => this.toggle(opt); }
+    };
+    key("note", "Note"); key("canvas", "Canvas"); key("heading", "Headings", "headings"); key("tag", "Tags", "tags"); key("folder", "Folders", "folders"); key("shared", "Same tag", "shared");
+    this.refreshButtons();
     this.ctx = this.canvas.getContext("2d");
     this.view = { x: 0, y: 0, k: 1 };
     this.hover = null; this.drag = null;
@@ -764,13 +794,142 @@ class HeadingGraphView extends ItemView {
     this.registerDomEvent(window, "pointermove", (e) => this.onMove(e));
     this.registerDomEvent(window, "pointerup", (e) => this.onUp(e));
     this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(root);
-    // Rebuild when notes change (debounced).
+    // Rebuild when notes change (debounced), and on note switch in local mode.
     const soon = () => { clearTimeout(this.rebuildT); this.rebuildT = setTimeout(() => this.build(), 400); };
     this.registerEvent(this.app.metadataCache.on("changed", soon));
     this.registerEvent(this.app.metadataCache.on("resolved", soon));
     this.registerEvent(this.app.vault.on("delete", soon));
     this.registerEvent(this.app.vault.on("rename", soon));
+    this.registerEvent(this.app.workspace.on("file-open", (f) => { if (f && this.opts().local) { this.localFile = f.path; soon(); } }));
     this.build();
+  }
+
+  // ── Settings panel (like Obsidian's graph): Filters, Groups, Display, Forces ──
+  buildPanel(root) {
+    this.panelBtn = root.createDiv({ cls: "vault-ask-graph-gear clickable-icon" });
+    setIcon(this.panelBtn, "settings");
+    this.panelBtn.setAttribute("aria-label", "Graph settings");
+    this.panelBtn.onclick = () => { const p = this.opts().panel; p.open = !p.open; this.plugin.save(); this.renderPanel(); };
+    this.panelEl = root.createDiv({ cls: "vault-ask-graph-panel" });
+    this.renderPanel();
+  }
+  renderPanel() {
+    const o = this.opts(), P = this.panelEl, save = () => this.plugin.save();
+    P.empty(); P.toggle(!!o.panel.open); this.panelBtn.toggle(!o.panel.open);
+    if (!o.panel.open) return;
+    const section = (id, title, fill, extra) => {
+      const sec = P.createDiv({ cls: "vault-ask-gp-section" });
+      const head = sec.createDiv({ cls: "vault-ask-gp-head" });
+      const open = !!o.panel.sections[id];
+      setIcon(head.createDiv({ cls: "vault-ask-gp-chevron" }), open ? "chevron-down" : "chevron-right");
+      head.createDiv({ cls: "vault-ask-gp-title", text: title });
+      if (extra) extra(head);
+      head.onclick = (e) => { if (e.target.closest(".vault-ask-gp-icon")) return; o.panel.sections[id] = !open; save(); this.renderPanel(); };
+      if (open) fill(sec.createDiv({ cls: "vault-ask-gp-body" }));
+    };
+    const iconBtn = (parent, icon, label, fn) => { const b = parent.createDiv({ cls: "vault-ask-gp-icon clickable-icon" }); setIcon(b, icon); b.setAttribute("aria-label", label); b.onclick = fn; return b; };
+    const toggleRow = (body, label, key, rebuild = true) => {
+      const r = body.createDiv({ cls: "vault-ask-gp-row" }); r.createSpan({ text: label });
+      const t = r.createDiv({ cls: "checkbox-container" + (o[key] ? " is-enabled" : "") });
+      t.onclick = () => { o[key] = !o[key]; save(); this.refreshButtons(); rebuild ? this.build() : this.draw(); };
+    };
+    const slider = (body, label, key, min, max, step, live) => {
+      const r = body.createDiv({ cls: "vault-ask-gp-slider" }); r.createDiv({ text: label });
+      const i = r.createEl("input", { attr: { type: "range", min, max, step } }); i.value = o[key];
+      i.oninput = () => { o[key] = parseFloat(i.value); live(); }; i.onchange = save;
+    };
+    section("filters", "Filters", (b) => {
+      const q = b.createEl("input", { cls: "vault-ask-gp-input", attr: { type: "search", placeholder: "Search files…" } });
+      q.value = this.search; q.oninput = () => { this.search = q.value.trim().toLowerCase(); this.draw(); };
+      toggleRow(b, "Headings", "headings"); toggleRow(b, "Tags", "tags"); toggleRow(b, "Folders (tree)", "folders");
+      toggleRow(b, "Same-tag lines", "shared"); toggleRow(b, "Orphans", "orphans");
+      toggleRow(b, "Local graph (open note)", "local");
+      if (o.local) slider(b, `Depth: ${o.depth}`, "depth", 1, 4, 1, () => { this.renderPanelSoon(); this.buildSoon(); });
+    }, (head) => {
+      iconBtn(head, "rotate-ccw", "Reset all graph settings", () => {
+        const keep = { panel: o.panel, groups: o.groups };
+        Object.assign(o, JSON.parse(JSON.stringify(DEFAULTS.graph)), keep); this.search = ""; save(); this.refreshButtons(); this.build();
+      });
+      iconBtn(head, "x", "Close", () => { o.panel.open = false; save(); this.renderPanel(); });
+    });
+    section("groups", "Groups", (b) => {
+      b.createDiv({ cls: "vault-ask-gp-hint", text: "tag:#x · path:Folder · file:name · heading:text · or any text" });
+      o.groups.forEach((g, i) => {
+        const r = b.createDiv({ cls: "vault-ask-gp-group" });
+        const q = r.createEl("input", { cls: "vault-ask-gp-input", attr: { type: "text", placeholder: "Enter query…" } });
+        q.value = g.query; q.oninput = () => { g.query = q.value; this.draw(); }; q.onchange = save;
+        const sw = r.createDiv({ cls: "vault-ask-gp-swatch" }); sw.style.background = g.color;
+        sw.setAttribute("aria-label", "Colour");
+        sw.onclick = (e) => { e.stopPropagation(); this.colorPopover(sw, g.color, (c) => { g.color = c; sw.style.background = c; save(); this.draw(); }); };
+        iconBtn(r, "x", "Remove group", () => { o.groups.splice(i, 1); save(); this.renderPanel(); this.draw(); });
+      });
+      const add = b.createEl("button", { cls: "vault-ask-gp-new", text: "New group" });
+      const cols = ["#e5383b", "#ff8c42", "#f4c95d", "#69db7c", "#4dabf7", "#b197fc", "#f28da0", "#22b8cf"];
+      add.onclick = () => { o.groups.push({ query: "", color: cols[o.groups.length % cols.length] }); save(); this.renderPanel(); const ins = P.querySelectorAll(".vault-ask-gp-group input"); if (ins.length) ins[ins.length - 1].focus(); };
+    });
+    section("display", "Display", (b) => {
+      toggleRow(b, "Arrows", "arrows", false);
+      slider(b, "Text fade threshold", "textFade", 0, 2, 0.05, () => this.draw());
+      slider(b, "Node size", "nodeSize", 0.3, 3, 0.1, () => this.draw());
+      slider(b, "Link thickness", "lineWidth", 0.2, 4, 0.1, () => this.draw());
+    });
+    section("forces", "Forces", (b) => {
+      const kick = () => { this.alpha = Math.max(this.alpha, 0.5); this.loop(); };
+      slider(b, "Center force", "center", 0, 0.02, 0.0005, kick);
+      slider(b, "Repel force", "repel", 100, 4000, 50, kick);
+      slider(b, "Link force", "linkForce", 0.005, 0.2, 0.005, kick);
+      slider(b, "Link distance", "linkDistance", 30, 300, 5, kick);
+    });
+  }
+  renderPanelSoon() { clearTimeout(this.rpT); this.rpT = setTimeout(() => this.renderPanel(), 300); }
+  buildSoon() { clearTimeout(this.rebuildT); this.rebuildT = setTimeout(() => this.build(), 300); }
+
+  // A colour popover that always stays inside the graph view (unlike the
+  // system colour dialog, which can open off the edge of the screen).
+  colorPopover(anchor, current, onPick) {
+    if (this.pop) this.pop.remove();
+    const pop = this.contentEl.createDiv({ cls: "vault-ask-gp-pop" }); this.pop = pop;
+    const colors = ["#e5383b", "#ba181b", "#c9184a", "#ff4d6d", "#f28da0", "#ff8c42", "#f4c95d", "#ffe066",
+      "#69db7c", "#38d9a9", "#22b8cf", "#4dabf7", "#91a7ff", "#b197fc", "#e599f7", "#ffffff", "#adb5bd", "#6c757d"];
+    const grid = pop.createDiv({ cls: "vault-ask-gp-pop-grid" });
+    for (const c of colors) { const d = grid.createDiv({ cls: "vault-ask-gp-swatch" + (c.toLowerCase() === (current || "").toLowerCase() ? " is-current" : "") }); d.style.background = c; d.onclick = () => { onPick(c); close(); }; }
+    const hex = pop.createEl("input", { cls: "vault-ask-gp-input", attr: { type: "text", value: current || "", placeholder: "#rrggbb" } });
+    hex.onkeydown = (e) => { if (e.key === "Enter" && /^#?[0-9a-f]{3,8}$/i.test(hex.value.trim())) { onPick("#" + hex.value.trim().replace(/^#/, "")); close(); } if (e.key === "Escape") close(); };
+    // Place under the swatch, clamped inside the view.
+    const host = this.contentEl.getBoundingClientRect(), a = anchor.getBoundingClientRect();
+    const w = 196, h = pop.offsetHeight || 150;
+    let left = a.right - host.left - w, top = a.bottom - host.top + 6;
+    left = Math.max(8, Math.min(left, host.width - w - 8));
+    if (top + h > host.height - 8) top = Math.max(8, a.top - host.top - h - 6);
+    pop.style.left = left + "px"; pop.style.top = top + "px"; pop.style.width = w + "px";
+    const close = () => { pop.remove(); this.pop = null; document.removeEventListener("pointerdown", outside, true); };
+    const outside = (e) => { if (!pop.contains(e.target)) close(); };
+    setTimeout(() => document.addEventListener("pointerdown", outside, true), 0);
+  }
+
+  groupColor(n) {
+    for (const g of this.opts().groups) {
+      const q = (g.query || "").trim().toLowerCase(); if (!q) continue;
+      let hit = false;
+      if (q.startsWith("tag:")) { const t = q.slice(4).replace(/^#?/, "#"); hit = (n.kind === "tag" && n.label.toLowerCase() === t) || (n.tags && n.tags.has(t)); }
+      else if (q.startsWith("path:")) hit = (n.path || "").toLowerCase().startsWith(q.slice(5).trim());
+      else if (q.startsWith("file:")) hit = n.kind === "note" && n.label.toLowerCase().includes(q.slice(5).trim());
+      else if (q.startsWith("heading:")) hit = n.kind === "heading" && n.label.toLowerCase().includes(q.slice(8).trim());
+      else hit = n.label.toLowerCase().includes(q);
+      if (hit) return g.color;
+    }
+    return null;
+  }
+
+  toggle(opt) {
+    const o = this.opts(); o[opt] = !o[opt];
+    this.plugin.save(); this.refreshButtons(); this.build();
+    if (opt === "local") this.leaf.updateHeader && this.leaf.updateHeader();
+  }
+  refreshButtons() {
+    const o = this.opts();
+    if (this.panelEl) this.renderPanel();
+    for (const el of this.legend.querySelectorAll("[data-opt]")) el.toggleClass("is-off", !o[el.dataset.opt]);
   }
 
   async onClose() { if (this.ro) this.ro.disconnect(); cancelAnimationFrame(this.raf); }
@@ -785,7 +944,24 @@ class HeadingGraphView extends ItemView {
   async build() {
     const texts = new Map();
     for (const f of this.app.vault.getMarkdownFiles()) texts.set(f.path, await this.app.vault.cachedRead(f));
-    const g = buildHeadingGraph(this.app, texts, this.plugin && this.plugin.settings.changeLogPath);
+    const o = this.opts();
+    const g = buildHeadingGraph(this.app, texts, this.plugin.settings.changeLogPath, o);
+    if (o.local) {
+      // Keep only what's within N steps of the open note (and its headings).
+      const active = this.app.workspace.getActiveFile();
+      if (active && active.extension === "md") this.localFile = active.path;
+      const start = this.localFile;
+      const adj = new Map();
+      for (const e of g.edges) { (adj.get(e.a) || adj.set(e.a, []).get(e.a)).push(e.b); (adj.get(e.b) || adj.set(e.b, []).get(e.b)).push(e.a); }
+      let frontier = g.nodes.filter((n) => n.path === start && n.kind !== "folder").map((n) => n.id);
+      const keep = new Set(frontier);
+      for (let d = 0; d < o.depth; d++) { const next = []; for (const id of frontier) for (const m of adj.get(id) || []) if (!keep.has(m)) { keep.add(m); next.push(m); } frontier = next; }
+      g.nodes = g.nodes.filter((n) => keep.has(n.id));
+      g.edges = g.edges.filter((e) => keep.has(e.a) && keep.has(e.b));
+      for (const n of g.nodes) { n.deg = 0; n.home = n.path === start && n.kind === "note"; }
+      for (const e of g.edges) { g.nodes.find((n) => n.id === e.a).deg++; g.nodes.find((n) => n.id === e.b).deg++; }
+    }
+    if (!o.orphans) { const linked = new Set(); for (const e of g.edges) { linked.add(e.a); linked.add(e.b); } g.nodes = g.nodes.filter((n) => linked.has(n.id)); }
     const old = new Map((this.nodes || []).map((n) => [n.id, n]));
     this.nodes = g.nodes.map((n) => { const o = old.get(n.id); return Object.assign(n, o ? { x: o.x, y: o.y, vx: 0, vy: 0 } : { x: (Math.random() - 0.5) * 400, y: (Math.random() - 0.5) * 400, vx: 0, vy: 0 }); });
     const byId = new Map(this.nodes.map((n) => [n.id, n]));
@@ -795,7 +971,7 @@ class HeadingGraphView extends ItemView {
     this.alpha = 1; this.loop();
   }
 
-  radius(n) { return (n.kind === "note" ? 7 : n.kind === "tag" ? 5 : 4.5) + Math.min(6, Math.sqrt(n.deg)); }
+  radius(n) { return ((n.kind === "note" ? 7 : n.kind === "tag" ? 5 : 4.5) + Math.min(6, Math.sqrt(n.deg))) * (this.opts().nodeSize || 1); }
 
   // Simple force layout: repulsion, springs on edges, gentle pull to centre.
   step() {
@@ -803,17 +979,17 @@ class HeadingGraphView extends ItemView {
     for (let i = 0; i < N.length; i++) for (let j = i + 1; j < N.length; j++) {
       const p = N[i], q = N[j]; let dx = q.x - p.x, dy = q.y - p.y; let d2 = dx * dx + dy * dy || 0.01;
       if (d2 > 250000) continue;
-      const f = (900 * a) / d2, d = Math.sqrt(d2); dx /= d; dy /= d;
+      const f = (this.opts().repel * a) / d2, d = Math.sqrt(d2); dx /= d; dy /= d;
       p.vx -= dx * f; p.vy -= dy * f; q.vx += dx * f; q.vy += dy * f;
     }
     for (const e of this.edges) {
-      const len = e.kind === "contains" ? 45 : e.kind === "shared" ? 110 : 90;
+      const D = this.opts().linkDistance, len = e.kind === "contains" ? D * 0.5 : e.kind === "folder" ? D * 0.8 : e.kind === "shared" ? D * 1.2 : D;
       let dx = e.b.x - e.a.x, dy = e.b.y - e.a.y; const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const f = (d - len) * 0.04 * a; dx /= d; dy /= d;
+      const f = (d - len) * this.opts().linkForce * a; dx /= d; dy /= d;
       e.a.vx += dx * f; e.a.vy += dy * f; e.b.vx -= dx * f; e.b.vy -= dy * f;
     }
     for (const n of N) {
-      n.vx -= n.x * 0.002 * a; n.vy -= n.y * 0.002 * a;
+      n.vx -= n.x * this.opts().center * a; n.vy -= n.y * this.opts().center * a;
       if (this.drag && this.drag.node === n) { n.vx = n.vy = 0; continue; }
       n.vx *= 0.6; n.vy *= 0.6; n.x += n.vx; n.y += n.vy;
     }
@@ -854,22 +1030,29 @@ class HeadingGraphView extends ItemView {
       const shared = e.kind === "shared";
       c.strokeStyle = lit || shared ? col.accent : col.line;
       c.globalAlpha = focus && !lit ? 0.2 : shared && !lit ? 0.45 : 1;
-      c.lineWidth = lit ? 1.6 : e.kind === "contains" ? 0.8 : 1.1;
-      c.setLineDash(e.kind === "tag" ? [3, 3] : []);
+      c.lineWidth = (lit ? 1.6 : e.kind === "contains" ? 0.8 : 1.1) * (this.opts().lineWidth || 1);
+      c.setLineDash(e.kind === "tag" ? [3, 3] : e.kind === "folder" ? [1, 3] : []);
       const [x1, y1] = this.toScreen(e.a), [x2, y2] = this.toScreen(e.b);
       c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
+      if (this.opts().arrows && e.kind === "link") {
+        const ang = Math.atan2(y2 - y1, x2 - x1), rr = this.radius(e.b) * Math.sqrt(k) + 2, ax = x2 - Math.cos(ang) * rr, ay = y2 - Math.sin(ang) * rr;
+        c.beginPath(); c.moveTo(ax, ay); c.lineTo(ax - 7 * Math.cos(ang - 0.4), ay - 7 * Math.sin(ang - 0.4)); c.lineTo(ax - 7 * Math.cos(ang + 0.4), ay - 7 * Math.sin(ang + 0.4)); c.closePath(); c.fillStyle = c.strokeStyle; c.fill();
+      }
     }
     c.setLineDash([]);
     for (const n of this.nodes) {
       const [x, y] = this.toScreen(n), r = this.radius(n) * Math.sqrt(k);
-      const dim = focus && n !== focus && !near.has(n);
+      const miss = this.search && !n.label.toLowerCase().includes(this.search);
+      const dim = (focus && n !== focus && !near.has(n)) || miss;
       c.globalAlpha = dim ? 0.25 : 1;
-      c.fillStyle = n.kind === "tag" ? col.accent : n.kind === "note" ? col.text : col.muted;
+      const gc = this.groupColor(n);
+      c.fillStyle = gc || (n.kind === "tag" ? col.accent : n.kind === "note" || n.kind === "canvas" ? col.text : col.muted);
       c.beginPath();
-      if (n.kind === "folder") { c.fillStyle = col.bg; c.strokeStyle = col.text; c.lineWidth = 1.5; c.rect(x - r, y - r, r * 2, r * 2); c.fill(); c.stroke(); }
+      if (n.kind === "folder") { c.fillStyle = col.bg; c.strokeStyle = gc || col.text; c.lineWidth = 1.5; c.rect(x - r, y - r, r * 2, r * 2); c.fill(); c.stroke(); }
+      else if (n.kind === "canvas") { c.moveTo(x, y - r); c.lineTo(x + r, y); c.lineTo(x, y + r); c.lineTo(x - r, y); c.closePath(); c.fill(); }
       else { c.arc(x, y, r, 0, Math.PI * 2); c.fill(); }
-      if (n === focus) { c.strokeStyle = col.accent; c.lineWidth = 2; c.stroke(); }
-      if (k > 0.6 || n === focus || (near && near.has(n)) || n.kind === "note") {
+      if (n === focus || n.home || (this.search && !miss)) { c.strokeStyle = col.accent; c.lineWidth = 2; c.stroke(); }
+      if (k > this.opts().textFade || n === focus || (near && near.has(n)) || n.kind === "note") {
         c.fillStyle = n === focus ? col.accent : n.kind === "note" ? col.text : col.muted;
         c.font = `${n.kind === "note" ? 12 : 11}px var(--font-interface, sans-serif)`;
         c.textAlign = "center"; c.fillText(n.label, x, y + r + 12);
@@ -1209,6 +1392,9 @@ class VaultAskSettings extends PluginSettingTab {
       if (s.palette === "custom") row.addColorPicker((c) => c.setValue(s.customColors[i]).onChange(async (v) => { s.customColors[i] = v; applyPalette(this.plugin); await this.plugin.save(); }));
       else row.controlEl.createSpan({ cls: "vault-ask-swatch", attr: { style: `background:${cur[i]}`, "aria-label": "H" + (i + 1) } });
     }
+    containerEl.createEl("h3", { text: "Graph" });
+    new Setting(containerEl).setName("Replace Obsidian's graph view").setDesc("Turns Obsidian's own graph off so there's one graph (notes, headings, tags, folders). Ctrl+G opens it.")
+      .addToggle((t) => t.setValue(s.replaceCoreGraph).onChange(async (v) => { s.replaceCoreGraph = v; await this.plugin.save(); this.plugin.syncCoreGraph(); }));
     containerEl.createEl("h3", { text: "Page log" });
     new Setting(containerEl).setName("Created / updated on every note").setDesc("Keeps `created` and `updated` properties on each note.")
       .addToggle((t) => t.setValue(s.pageLog).onChange(async (v) => { s.pageLog = v; await this.plugin.save(); if (v) this.plugin.changes.backfill(); }));
@@ -1371,12 +1557,16 @@ module.exports = class VaultAskPlugin extends Plugin {
   async onload() {
     const data = (await this.loadData()) || {};
     this.settings = Object.assign({}, DEFAULTS, data.settings || {});
+    this.settings.graph = Object.assign(JSON.parse(JSON.stringify(DEFAULTS.graph)), this.settings.graph || {});
     this.index = data.index || {};
     this.chats = data.chats || [];
     this.registerView(VIEW_TYPE, (leaf) => new ChatView(leaf, this));
     this.registerView(GRAPH_VIEW, (leaf) => new HeadingGraphView(leaf, this));
-    this.addRibbonIcon("network", "Heading graph", () => this.openGraph());
-    this.addCommand({ id: "open-heading-graph", name: "Open heading graph", callback: () => this.openGraph() });
+    this.addRibbonIcon("git-fork", "Open graph view", () => this.openGraph());
+    this.addCommand({ id: "open-heading-graph", name: "Open graph view", hotkeys: [{ modifiers: ["Mod"], key: "g" }], callback: () => this.openGraph() });
+    this.addCommand({ id: "open-local-graph", name: "Open local graph", callback: async () => { this.settings.graph.local = true; await this.save(); await this.openGraph(true); } });
+    // One graph: switch Obsidian's own graph view off (Settings → Ask the Vault to undo).
+    this.app.workspace.onLayoutReady(() => this.syncCoreGraph());
     this.addRibbonIcon("bot", "Ask the Vault (local AI side chat)", () => this.openChat());
     this.addCommand({ id: "open-chat", name: "Open side chat", callback: () => this.openChat() });
     // A distinct red button in the status bar.
@@ -1499,10 +1689,19 @@ module.exports = class VaultAskPlugin extends Plugin {
     }));
   }
 
-  async openGraph() {
+  async openGraph(rebuild) {
     let leaf = this.app.workspace.getLeavesOfType(GRAPH_VIEW)[0];
     if (!leaf) { leaf = this.app.workspace.getLeaf("tab"); await leaf.setViewState({ type: GRAPH_VIEW, active: true }); }
+    else if (rebuild && leaf.view.build) { leaf.view.refreshButtons(); leaf.view.build(); }
     await this.app.workspace.revealLeaf(leaf);
+  }
+  syncCoreGraph() {
+    const ip = this.app.internalPlugins, core = ip && ip.getPluginById ? ip.plugins && ip.plugins.graph : null;
+    if (!core) return;
+    try {
+      if (this.settings.replaceCoreGraph && core.enabled) core.disable(true);
+      else if (!this.settings.replaceCoreGraph && !core.enabled) core.enable(true);
+    } catch (e) { console.warn("Ask the Vault: couldn't toggle the core graph", e); }
   }
 
   // Open (or reveal) the side chat and return its view.

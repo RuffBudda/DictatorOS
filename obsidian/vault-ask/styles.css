@@ -175,3 +175,36 @@ a.external-link[href^="obsidian://dictatoros-folder"]::after { display: none !im
 
 /* Settings: palette preview swatches */
 .vault-ask-swatch { display: inline-block; width: 20px; height: 20px; border-radius: 4px; margin-left: 6px; border: 1px solid var(--background-modifier-border); }
+
+/* Graph toolbar: search + local, legend keys as toggles */
+.vault-ask-graph-top { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; align-items: center; }
+.vault-ask-graph-search { width: 200px; padding: 4px 10px; border-radius: 999px; font-size: var(--font-ui-small); background: var(--background-primary); }
+.vault-ask-graph-btn { height: auto; padding: 4px 12px; border-radius: 999px; font-size: var(--font-ui-small); background: var(--background-primary) !important; box-shadow: none !important; border: 1px solid var(--background-modifier-border) !important; color: var(--text-muted); cursor: pointer; }
+.vault-ask-graph-btn.is-active { border-color: var(--interactive-accent) !important; color: var(--text-accent); }
+.vault-ask-graph-key.is-toggle { cursor: pointer; }
+.vault-ask-graph-key.is-toggle:hover { color: var(--text-normal); }
+.vault-ask-graph-key.is-off { opacity: 0.35; text-decoration: line-through; }
+
+/* Graph settings panel (Filters / Groups / Display / Forces) */
+.vault-ask-graph-gear { position: absolute; right: 12px; top: 12px; }
+.vault-ask-graph-panel { position: absolute; right: 12px; top: 12px; width: 260px; max-height: calc(100% - 24px); overflow-y: auto;
+  background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: 10px; font-size: var(--font-ui-small); }
+.vault-ask-gp-section + .vault-ask-gp-section { border-top: 1px solid var(--background-modifier-border); }
+.vault-ask-gp-head { display: flex; align-items: center; gap: 6px; padding: 10px 12px; cursor: pointer; color: var(--text-normal); }
+.vault-ask-gp-title { flex: 1; font-weight: 500; }
+.vault-ask-gp-chevron, .vault-ask-gp-chevron .svg-icon { width: 14px; height: 14px; color: var(--text-muted); }
+.vault-ask-gp-icon { padding: 2px; }
+.vault-ask-gp-body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.vault-ask-gp-row { display: flex; align-items: center; justify-content: space-between; color: var(--text-muted); }
+.vault-ask-gp-slider { color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; }
+.vault-ask-gp-slider input { width: 100%; }
+.vault-ask-gp-input { width: 100%; padding: 4px 8px; font-size: var(--font-ui-small); }
+.vault-ask-gp-hint { color: var(--text-faint); font-size: var(--font-ui-smaller); }
+.vault-ask-gp-group { display: flex; align-items: center; gap: 6px; }
+.vault-ask-gp-group .vault-ask-gp-input { flex: 1; min-width: 0; }
+.vault-ask-gp-swatch { flex: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid var(--background-modifier-border); }
+.vault-ask-gp-swatch.is-current { border-color: var(--text-normal); }
+.vault-ask-gp-new { width: 100%; }
+.vault-ask-gp-pop { position: absolute; z-index: 20; padding: 10px; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: 10px; box-shadow: var(--shadow-l); display: flex; flex-direction: column; gap: 8px; }
+.vault-ask-gp-pop-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; justify-items: center; }
+.vault-ask-graph-key .dot.canvas { background: var(--text-normal); border-radius: 0; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); width: 9px; height: 9px; }

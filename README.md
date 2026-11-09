@@ -426,15 +426,19 @@ Log now". Both parts can be turned off, and the log moved, in the plugin setting
   heading). If more headings carry the tag, they follow as their own links. They are **live**: they sit between
   hidden `%%tag:…%%` markers and update by themselves when you tag or untag headings.
   `|` is escaped automatically inside tables.
-- **Heading graph.** The network icon in the left ribbon (or "Open heading graph") opens
-  a graph like Obsidian's, but split by headings: notes, their `##` headings, and tags.
-  Lines join a note to its headings, a heading to whatever its section links to (a whole
-  note or a specific heading), and a heading to the tags in its section. Scroll to zoom,
-  drag to pan or move dots, hover to highlight connections, click to open that note at
-  that heading (or search a tag). Headings that share a tag are also joined directly by a
-  red line ("Same tag"); notes are never edited for this. Folder links show as square
-  folder dots (click to open the folder in the file explorer), and headings that contain
-  links show just their text.
+- **One graph.** Obsidian's own graph view is switched off (Settings → Ask the Vault →
+  Graph to bring it back); the ribbon's graph icon and **Ctrl+G** open this one instead.
+  It shows notes, their headings, tags, canvases (◆) and the **folder tree** (□: each
+  folder joined to its subfolders and pages, dotted). A link joins the section it sits
+  in to the note or exact heading it points at; a tag joins the heading it sits under;
+  headings that share a tag get a red "Same tag" line. The ⚙ panel (top right) has what
+  Obsidian's graph has: **Filters** (search, show/hide headings, tags, folders, same-tag
+  lines, orphans; **local graph** around the open note with a depth slider), **Groups**
+  (colour anything matching `tag:#x`, `path:Folder`, `file:name`, `heading:text` or plain
+  text; the colour picker stays inside the window), **Display** (arrows, text fade,
+  node size, link thickness) and **Forces**. Scroll to zoom, drag to pan or move dots,
+  hover to highlight, click to open the note at that heading, the canvas, the folder in
+  the file explorer, or a tag search. The Change Log is left out.
 
 Setup and details:
 
