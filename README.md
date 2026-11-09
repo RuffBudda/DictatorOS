@@ -355,14 +355,24 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
 
 ### Obsidian: Ask the Vault
 
-`obsidian/vault-ask/` is a small Obsidian plugin (no third-party code): a **question-mark
-button in the left sidebar** (or the command "Ask the vault") opens a box where you ask
-about your notes. It answers **only from your vault**, using local models through
-[Ollama](https://ollama.com), and links the notes it used. If the notes don't cover the
-question it says so instead of guessing. Nothing leaves the machine.
+`obsidian/vault-ask/` is a small Obsidian plugin (no third-party code):
+
+- **Side chat with local AI.** The red **✦ Ask vault** button in the status bar (or the bot
+  icon in the left ribbon, or the command "Open side chat") opens a chat in the right
+  sidebar. Answers **stream in as they're written**, come **only from your vault** (local
+  models through [Ollama](https://ollama.com), nothing leaves the machine), and link the
+  notes they used. If the notes don't cover the question it says so instead of guessing.
+  Follow-up questions work; **Stop** halts an answer, **New chat** starts over.
+- **Link selection to a note or an H2.** Select text, then right-click → **Link selection
+  to…** (or Ctrl+Shift+L): pick a note, or a specific `##` heading in any note, and the
+  selection becomes `[[Note#Heading|selected text]]`.
+
+Setup and details:
 
 - Needs Ollama running with `qwen3:8b` (answers) and `nomic-embed-text` (search):
   `sudo pacman -S ollama-cuda && sudo systemctl enable --now ollama && ollama pull qwen3:8b && ollama pull nomic-embed-text`
+  (and `OLLAMA_ORIGINS=app://obsidian.md*` for the streaming chat, set in
+  `/etc/systemd/system/ollama.service.d/obsidian.conf`).
 - `install.sh` links it into every Obsidian vault and enables it.
 - Notes are indexed the first time you ask and only changed notes are re-indexed after
   that. The index is stored in the plugin's `data.json`, which is git-ignored because it
