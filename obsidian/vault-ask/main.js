@@ -423,13 +423,39 @@ class ChatView extends ItemView {
   }
 }
 
-// "Link selection to…": pick a note, or an H2 heading inside a note, and turn
-// the selected text into a link to it: [[Note#Heading|selected text]].
+// "Link selection to…": pick a note, an H2 heading inside a note, or a tag.
+// A note/heading turns the selected text into a link: [[Note#Heading|text]].
+// A tag links to every heading carrying that tag (a tag belongs to the heading
+// whose section it sits in; tags above the first heading or in the note's
+// properties belong to the note itself).
+function tagTargets(app) {
+  const byTag = new Map();
+  const add = (tag, target) => {
+    const key = tag.replace(/^#/, "").toLowerCase();
+    if (!byTag.has(key)) byTag.set(key, { tag: "#" + tag.replace(/^#/, ""), targets: [] });
+    const list = byTag.get(key).targets;
+    if (!list.some((t) => t.file === target.file && t.heading === target.heading)) list.push(target);
+  };
+  for (const file of app.vault.getMarkdownFiles().sort((a, b) => a.path.localeCompare(b.path))) {
+    const cache = app.metadataCache.getFileCache(file) || {};
+    const headings = (cache.headings || []).slice().sort((a, b) => a.position.start.line - b.position.start.line);
+    for (const t of cache.tags || []) {
+      const line = t.position.start.line;
+      let owner = null;
+      for (const h of headings) { if (h.position.start.line < line) owner = h; else break; }
+      add(t.tag, { file, heading: owner ? owner.heading : null });
+    }
+    const fm = cache.frontmatter && (cache.frontmatter.tags || cache.frontmatter.tag);
+    for (const t of (Array.isArray(fm) ? fm : fm ? String(fm).split(/[,\s]+/) : []).filter(Boolean)) add(String(t), { file, heading: null });
+  }
+  return [...byTag.values()].sort((a, b) => a.tag.localeCompare(b.tag));
+}
+
 class LinkPicker extends FuzzySuggestModal {
   constructor(app, editor, sourcePath) {
     super(app); this.editor = editor; this.sourcePath = sourcePath;
-    this.setPlaceholder("Link to a note, or to an H2 heading in a note…");
-    this.setInstructions([{ command: "↑↓", purpose: "choose" }, { command: "↵", purpose: "link the selected text" }, { command: "esc", purpose: "cancel" }]);
+    this.setPlaceholder("Link to a note, an H2 heading, or #tag (links every heading with it)…");
+    this.setInstructions([{ command: "↑↓", purpose: "choose" }, { command: "↵", purpose: "link the selected text" }, { command: "#", purpose: "type to find tags" }, { command: "esc", purpose: "cancel" }]);
   }
   getItems() {
     const items = [];
@@ -438,16 +464,23 @@ class LinkPicker extends FuzzySuggestModal {
       const headings = (this.app.metadataCache.getFileCache(file) || {}).headings || [];
       for (const h of headings) if (h.level === 2) items.push({ file, heading: h.heading });
     }
+    for (const t of tagTargets(this.app)) items.push({ tag: t.tag, targets: t.targets });
     return items;
   }
   getItemText(item) {
+    if (item.tag) return `${item.tag} ${item.targets.map((t) => t.heading || noteName(t.file.path)).join(" ")}`;
     const note = noteName(item.file.path);
     return item.heading ? `${note} › ${item.heading}` : note;
   }
   renderSuggestion(match, el) {
     const item = match.item;
     el.addClass("vault-ask-link-item");
-    if (item.heading) {
+    if (item.tag) {
+      el.createSpan({ text: item.tag, cls: "vault-ask-link-tag" });
+      const n = item.targets.length;
+      el.createSpan({ text: `  ${n} ${item.targets.some((t) => t.heading) ? "heading" : "note"}${n === 1 ? "" : "s"}`, cls: "vault-ask-link-path" });
+      el.createDiv({ text: item.targets.map((t) => t.heading || noteName(t.file.path)).join(" · "), cls: "vault-ask-link-preview" });
+    } else if (item.heading) {
       el.createSpan({ text: "## ", cls: "vault-ask-link-h2" });
       el.createSpan({ text: item.heading });
       el.createSpan({ text: "  " + noteName(item.file.path), cls: "vault-ask-link-path" });
@@ -455,11 +488,17 @@ class LinkPicker extends FuzzySuggestModal {
       el.createSpan({ text: noteName(item.file.path) });
     }
   }
+  linkTo(target, alias) {
+    return this.app.fileManager.generateMarkdownLink(target.file, this.sourcePath, target.heading ? "#" + target.heading : "", alias);
+  }
   onChooseItem(item) {
     const selected = this.editor.getSelection();
-    const sub = item.heading ? "#" + item.heading : "";
-    const link = this.app.fileManager.generateMarkdownLink(item.file, this.sourcePath, sub, selected || undefined);
-    this.editor.replaceSelection(link);
+    if (item.tag) {
+      const links = item.targets.map((t) => this.linkTo(t, t.heading || undefined)).join(", ");
+      this.editor.replaceSelection(selected ? `${selected} (${links})` : links);
+      return;
+    }
+    this.editor.replaceSelection(this.linkTo(item, selected || undefined));
   }
 }
 
@@ -546,3 +585,4 @@ module.exports = class VaultAskPlugin extends Plugin {
 module.exports.VaultAsk = VaultAsk;
 module.exports.chunkText = chunkText;
 module.exports.LinkPicker = LinkPicker;
+module.exports.tagTargets = tagTargets;

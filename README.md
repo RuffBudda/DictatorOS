@@ -372,7 +372,9 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   new draft.
 - **Link selection to a note or an H2.** Select text, then right-click → **Link selection
   to…** (or Ctrl+Shift+L): pick a note, or a specific `##` heading in any note, and the
-  selection becomes `[[Note#Heading|selected text]]`.
+  selection becomes `[[Note#Heading|selected text]]`. Type `#` to pick a **tag** instead:
+  it links every heading that carries it (the tag right under a heading belongs to that
+  heading), e.g. `kickoff plan ([[Marketing#GEO Issues|GEO Issues]], [[Operations#SOP|SOP]])`.
 
 Setup and details:
 
