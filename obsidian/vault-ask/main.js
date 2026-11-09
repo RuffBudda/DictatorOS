@@ -9,7 +9,7 @@
 //   buttons to replace the selection or insert below it.
 // - Chats are saved (data.json) and listed under History.
 // - Link picker: link the selected text to a note or an H2 heading in a note.
-const { Plugin, ItemView, Modal, Notice, MarkdownRenderer, PluginSettingTab, Setting, FuzzySuggestModal, TFile, requestUrl, setIcon } = require("obsidian");
+const { Plugin, ItemView, Modal, Notice, MarkdownRenderer, PluginSettingTab, Setting, FuzzySuggestModal, SuggestModal, prepareFuzzySearch, TFile, requestUrl, setIcon } = require("obsidian");
 
 const VIEW_TYPE = "dictatoros-vault-ask-chat";
 const DEFAULTS = {
@@ -933,69 +933,91 @@ function refreshTagBlocks(app, text, sourcePath) {
   });
 }
 
-class LinkPicker extends FuzzySuggestModal {
+// Picker laid out as a tree: "This row" (notes linked on the current line, with
+// their headings and tags), then every note with its headings nested beneath,
+// then tags. Headings always carry their note ("Departments › Marketing"), so
+// a heading and a note with the same name never look alike.
+class LinkPicker extends SuggestModal {
   constructor(app, editor, sourcePath) {
     super(app); this.editor = editor; this.sourcePath = sourcePath;
-    this.setPlaceholder("Link to a note, heading or #tag…");
-    this.setInstructions([{ command: "↵", purpose: "link the selected text" }, { command: "#", purpose: "tags" }, { command: "esc", purpose: "cancel" }]);
-    // Notes linked on the current line (e.g. the Department column of a table row) come first.
+    this.setPlaceholder("Link to… (type a note or heading, or # for tags)");
+    this.setInstructions([{ command: "↑↓", purpose: "move" }, { command: "↵", purpose: "link the selected text" }, { command: "#", purpose: "tags only" }, { command: "esc", purpose: "cancel" }]);
+    this.limit = 300;
     const line = editor.getLine(editor.getCursor("from").line);
-    this.lineNotes = new Set();
+    this.lineNotes = [];
     for (const m of line.matchAll(/\[\[([^\]|#]+)/g)) {
       const f = app.metadataCache.getFirstLinkpathDest(m[1].trim(), sourcePath);
-      if (f) this.lineNotes.add(f.path);
+      if (f && !this.lineNotes.includes(f)) this.lineNotes.push(f);
     }
     this.inTable = line.trimStart().startsWith("|");
+    this.all = this.build();
   }
-  getItems() {
-    const suggested = [], notes = [], headings = [], tags = [];
-    const files = this.app.vault.getMarkdownFiles().sort((a, b) => a.basename.localeCompare(b.basename));
-    for (const file of files) {
-      const near = this.lineNotes.has(file.path);
-      (near ? suggested : notes).push({ type: "note", file, near });
-      for (const h of (this.app.metadataCache.getFileCache(file) || {}).headings || [])
-        if (h.level === 2) (near ? suggested : headings).push({ type: "heading", file, heading: h.heading, near });
-    }
-    for (const t of tagTargets(this.app)) {
-      tags.push({ type: "tag", tag: t.tag, scope: null, targets: t.targets });
-      // Per-note version only for notes on the current line.
-      for (const path of this.lineNotes) {
-        const mine = t.targets.filter((x) => x.file.path === path);
-        if (mine.length && mine.length < t.targets.length) suggested.unshift({ type: "tag", tag: t.tag, scope: mine[0].file, targets: mine, near: true });
-        else if (mine.length) suggested.unshift({ type: "tag", tag: t.tag, scope: null, targets: t.targets, near: true });
+  build() {
+    const items = [];
+    const h2s = (file) => ((this.app.metadataCache.getFileCache(file) || {}).headings || []).filter((h) => h.level === 2);
+    const tags = tagTargets(this.app);
+    const where = (t) => t.heading ? `${t.file.basename} › ${t.heading}` : t.file.basename;
+    for (const file of this.lineNotes) {
+      items.push({ group: "This row", type: "note", file });
+      for (const h of h2s(file)) items.push({ group: "This row", type: "heading", file, heading: h.heading, nested: true });
+      for (const t of tags) {
+        const mine = t.targets.filter((x) => x.file === file);
+        if (mine.length) items.push({ group: "This row", type: "tag", tag: t.tag, scope: mine.length < t.targets.length ? file : null, targets: mine.length < t.targets.length ? mine : t.targets, nested: true });
       }
     }
-    return [...suggested, ...notes, ...headings, ...tags];
+    for (const file of this.app.vault.getMarkdownFiles().sort((a, b) => a.basename.localeCompare(b.basename))) {
+      if (this.lineNotes.includes(file)) continue;
+      items.push({ group: "Notes", type: "note", file });
+      for (const h of h2s(file)) items.push({ group: "Notes", type: "heading", file, heading: h.heading, nested: true });
+    }
+    for (const t of tags) items.push({ group: "Tags", type: "tag", tag: t.tag, scope: null, targets: t.targets });
+    for (const it of items) {
+      it.text = it.type === "tag" ? `${it.tag} ${it.targets.map(where).join(" ")}`
+        : it.type === "heading" ? `${it.file.basename} ${it.heading}` : `${it.file.basename} ${it.file.path}`;
+      it.where = where;
+    }
+    return items;
   }
-  getItemText(item) {
-    if (item.type === "tag") return `${item.tag} ${item.scope ? item.scope.basename : ""} ${item.targets.map((t) => t.heading || t.file.basename).join(" ")}`;
-    if (item.type === "heading") return `${item.heading} ${item.file.basename} ${noteName(item.file.path)}`;
-    return `${item.file.basename} ${noteName(item.file.path)}`;
+  getSuggestions(query) {
+    let q = query.trim(), items = this.all;
+    if (q.startsWith("#")) { items = items.filter((i) => i.type === "tag"); q = q.slice(1); }
+    let out;
+    if (!q) out = items.map((i) => Object.assign({}, i));
+    else {
+      const fuzzy = prepareFuzzySearch(q);
+      const order = ["This row", "Notes", "Tags"];
+      const tagOnly = query.trim().startsWith("#");
+      out = items.map((i) => ({ i, m: fuzzy(tagOnly ? i.tag : i.text) })).filter((x) => x.m)
+        .sort((a, b) => order.indexOf(a.i.group) - order.indexOf(b.i.group) || b.m.score - a.m.score)
+        .map((x) => Object.assign({}, x.i, { nested: false }));   // flat while searching
+    }
+    out.forEach((it, k) => { it.first = k === 0 || out[k - 1].group !== it.group; });
+    return out;
   }
-  renderSuggestion(match, el) {
-    const item = match.item;
+  renderSuggestion(item, el) {
     el.addClass("vault-ask-pick");
-    const icon = el.createDiv({ cls: "vault-ask-pick-icon vault-ask-pick-" + item.type });
-    setIcon(icon, item.type === "tag" ? "hash" : item.type === "heading" ? "heading" : "file-text");
-    const body = el.createDiv({ cls: "vault-ask-pick-body" });
+    if (item.first) el.addClass("vault-ask-pick-first");
+    if (item.first) el.createDiv({ cls: "vault-ask-pick-group", text: item.group });
+    const row = el.createDiv({ cls: "vault-ask-pick-row" + (item.nested ? " is-nested" : "") });
+    const icon = row.createDiv({ cls: "vault-ask-pick-icon vault-ask-pick-" + item.type });
+    setIcon(icon, item.type === "tag" ? "hash" : item.type === "heading" ? "heading-2" : "file-text");
+    const body = row.createDiv({ cls: "vault-ask-pick-body" });
     const top = body.createDiv({ cls: "vault-ask-pick-title" });
-    const sub = body.createDiv({ cls: "vault-ask-pick-sub" });
-    const folder = (f) => f.parent && f.parent.path !== "/" ? f.parent.path : "";
     if (item.type === "tag") {
       top.createSpan({ text: item.tag, cls: "vault-ask-pick-tag" });
-      if (item.scope) top.createSpan({ text: " · " + item.scope.basename + " only" });
+      if (item.scope) top.createSpan({ text: "  in " + item.scope.basename + " only", cls: "vault-ask-pick-muted" });
       const n = item.targets.length;
-      sub.setText(`Links ${n} ${item.targets.some((t) => t.heading) ? "heading" : "note"}${n === 1 ? "" : "s"}: ${item.targets.map((t) => t.heading || t.file.basename).join(", ")}`);
+      body.createDiv({ cls: "vault-ask-pick-sub", text: `Links ${n === 1 ? "" : "all " + n + " "}${item.targets.some((t) => t.heading) ? "heading" : "note"}${n === 1 ? "" : "s"}: ` + item.targets.map(item.where).join(", ") });
     } else if (item.type === "heading") {
-      top.setText(item.heading);
-      sub.setText("Heading in " + item.file.basename);
+      if (!item.nested) top.createSpan({ text: item.file.basename + " › ", cls: "vault-ask-pick-muted" });
+      top.createSpan({ text: item.heading });
     } else {
-      top.setText(item.file.basename);
-      sub.setText(folder(item.file) ? "Note in " + folder(item.file) : "Note");
+      top.createSpan({ text: item.file.basename, cls: "vault-ask-pick-note" });
+      const folder = item.file.parent && item.file.parent.path !== "/" ? item.file.parent.path : "";
+      if (folder) top.createSpan({ text: "  " + folder, cls: "vault-ask-pick-muted" });
     }
-    if (item.near) top.createSpan({ text: "Suggested", cls: "vault-ask-pick-badge" });
   }
-  onChooseItem(item) {
+  onChooseSuggestion(item) {
     const selected = this.editor.getSelection();
     if (item.type === "tag") {
       const block = tagBlock(this.app, item.tag, item.scope ? item.scope.path : null, this.sourcePath, this.inTable);

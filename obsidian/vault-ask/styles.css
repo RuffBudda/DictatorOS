@@ -105,17 +105,21 @@
 .vault-ask-expand-modal .vault-ask-composer { margin-top: 4px; }
 .vault-ask-write { margin-top: 10px; float: right; }
 
-/* Link picker rows: icon, name, quiet detail line */
-.vault-ask-pick { display: flex; align-items: center; gap: 10px; }
-.vault-ask-pick-icon { flex: none; width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: var(--background-modifier-hover); color: var(--text-muted); }
+/* Link picker: grouped tree */
+.vault-ask-pick { display: block; padding-top: 4px; padding-bottom: 4px; }
+.vault-ask-pick-first:not(:first-child) { margin-top: 10px; }
+.vault-ask-pick-group { font-size: var(--font-ui-smaller); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin: 2px 0 6px; pointer-events: none; }
+.vault-ask-pick-row { display: flex; align-items: center; gap: 10px; }
+.vault-ask-pick-row.is-nested { margin-left: 22px; padding-left: 12px; border-left: 1px solid var(--background-modifier-border); }
+.vault-ask-pick-icon { flex: none; width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .vault-ask-pick-icon .svg-icon { width: 15px; height: 15px; }
 .vault-ask-pick-icon.vault-ask-pick-tag { color: var(--text-accent); }
-.vault-ask-pick-icon.vault-ask-pick-heading { color: var(--text-normal); }
 .vault-ask-pick-body { min-width: 0; flex: 1; }
 .vault-ask-pick-title { color: var(--text-normal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vault-ask-pick-note { font-weight: 600; }
+.vault-ask-pick-muted { color: var(--text-faint); font-size: var(--font-ui-smaller); }
 .vault-ask-pick-sub { color: var(--text-faint); font-size: var(--font-ui-smaller); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vault-ask-pick-tag { color: var(--text-accent); font-weight: 600; }
-.vault-ask-pick-badge { margin-left: 8px; font-size: var(--font-ui-smaller); color: var(--text-accent); border: 1px solid var(--interactive-accent); border-radius: 999px; padding: 0 6px; }
 
 /* Vault-wide auto-link preview */
 .vault-ask-autolink-intro { color: var(--text-muted); margin-bottom: 8px; }

@@ -380,11 +380,11 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   last vault auto-link") puts every note back. "Auto-link mentions in this note" still
   does just the open note (Ctrl+Z undoes it).
 - **Link selection to…** Select text, then right-click → **Link selection to…** (or
-  Ctrl+Shift+L). Each row shows what it is (a note, a heading or a tag icon) with a
-  quiet detail line ("Heading in Marketing", "Links 1 heading: GEO Issues"). The notes
-  linked on the current line, e.g. the Department column of a table row, are listed
-  first and marked **Suggested**, along with their headings and tags. Then come notes,
-  headings, and tags across the vault. A note or heading turns the selection into
+  Ctrl+Shift+L). The list is a tree in sections: **This row** (the notes linked on the
+  current line, e.g. the Department column of a table row, with their headings and
+  tags), **Notes** (each note with its `##` headings nested under it) and **Tags**. Type
+  to search (headings then show as `Note › Heading`), or start with `#` for tags only.
+  A note or heading turns the selection into
   `[[Note#Heading|selected text]]`. A **tag** links every heading that carries it (the tag
   right under a heading belongs to that heading), either across all notes or, from the
   suggestions, only in that row's note. The links go after your text with a `·`, no
