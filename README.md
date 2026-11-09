@@ -186,11 +186,11 @@ in its profile.
 7. A pacman hook that re-applies all of the above after relevant package updates.
    It runs a root-owned copy of the script, never the user-writable one.
 
-Then the app choices and, optionally, the WHOOP rings plugin:
+Then the app choices, and connecting WHOOP once (`install.sh` installs and enables the
+WHOOP rings plugin, and reinstalls it whenever it's missing):
 
 ```bash
 ~/dotfiles/apps.sh                    # apps, fonts, removals (asks for sudo; safe to re-run)
-omarchy plugin add https://github.com/RuffBudda/OmaWhoop.git --enable --yes
 ~/.config/omarchy/plugins/ruffbudda.whoop/scripts/whoop-auth   # connect WHOOP once (rings appear)
 ```
 
@@ -321,7 +321,7 @@ Spacing matches window gaps, and they sit below the bar when it's shown.
 
 - **Top-left: WHOOP** Sleep %, Recovery % and Strain (0–21) rings, refreshed every 15 min.
   This is a separate plugin, [OmaWhoop](https://github.com/RuffBudda/OmaWhoop) (`ruffbudda.whoop`),
-  installed from its own repo (see [Third-party plugins](#third-party-plugins)). One-time setup:
+  installed from its own repo by `install.sh` (and reinstalled if it goes missing). One-time setup:
   1. Create an app at <https://developer-dashboard.whoop.com> with redirect URI
      `http://localhost:8765/callback` and scopes `read:recovery read:cycles read:sleep offline`.
   2. Run `~/.config/omarchy/plugins/ruffbudda.whoop/scripts/whoop-auth`, paste the Client ID

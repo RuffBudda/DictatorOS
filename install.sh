@@ -108,6 +108,19 @@ PY3
   done < <(jq -r '.vaults | values[].path' ~/.config/obsidian/obsidian.json 2>/dev/null)
 fi
 
+# ── WHOOP rings (OmaWhoop shell plugin, from its own repo) ──
+# Reinstalled if missing; the sign-in in ~/.config/whoop survives, so the rings
+# come back on their own. First time only: run its whoop-auth (see README).
+if command -v omarchy >/dev/null; then
+  if [[ ! -d ~/.config/omarchy/plugins/ruffbudda.whoop ]]; then
+    omarchy plugin add https://github.com/RuffBudda/OmaWhoop.git --enable --yes \
+      && echo "WHOOP rings plugin installed" || echo "WHOOP rings plugin: install failed (offline?)"
+  elif ! omarchy plugin list 2>/dev/null | grep -q '^ruffbudda.whoop .*enabled'; then
+    omarchy plugin enable ruffbudda.whoop >/dev/null && echo "WHOOP rings plugin enabled"
+  fi
+  [[ -f ~/.config/whoop/tokens.json ]] || echo "WHOOP: not signed in yet; run ~/.config/omarchy/plugins/ruffbudda.whoop/scripts/whoop-auth"
+fi
+
 # Apply now
 omarchy-theme-bg-set "$DOT/backgrounds/red-stripes.png" || true
 if command -v hyprctl >/dev/null; then
