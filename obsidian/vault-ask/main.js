@@ -65,6 +65,12 @@ function cosine(a, b) {
 }
 
 const noteName = (path) => path.replace(/\.md$/, "");
+// Heading text as it reads, without Markdown: [x](url) / [[a|x]] / [[x]] -> x
+const plainText = (t) => String(t || "")
+  .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+  .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2").replace(/\[\[([^\]]+)\]\]/g, (m, x) => x.split("#").pop())
+  .replace(/[*_`~=]{1,3}([^*_`~=]+)[*_`~=]{1,3}/g, "$1").trim();
+const FOLDER_LINK_RE = /\]\(obsidian:\/\/dictatoros-folder\?[^)]*?path=([^)&\s]+)[^)]*\)/g;
 const notesBlock = (hits) => hits.map((h) => `Note [[${noteName(h.path)}]]:\n${h.text}`).join("\n\n---\n\n");
 const stripThink = (t) => t.replace(/<think>[\s\S]*?(<\/think>|$)/g, "");
 
@@ -663,7 +669,7 @@ class VaultAutoLinkModal extends Modal {
 // a specific heading), and a heading to the tags in its section.
 const GRAPH_VIEW = "dictatoros-heading-graph";
 
-function buildHeadingGraph(app) {
+function buildHeadingGraph(app, texts) {
   const nodes = new Map(), edges = new Map();
   const node = (id, n) => { if (!nodes.has(id)) nodes.set(id, Object.assign({ id, deg: 0 }, n)); return nodes.get(id); };
   const edge = (a, b, kind) => { if (a === b) return; const k = a < b ? a + "|" + b : b + "|" + a; if (!edges.has(k)) edges.set(k, { a, b, kind }); };
@@ -681,7 +687,7 @@ function buildHeadingGraph(app) {
   for (const file of files) {
     node(file.path, { kind: "note", label: file.basename, path: file.path });
     for (const h of sections(file).heads) {
-      node(file.path + "#" + h.heading, { kind: "heading", label: h.heading, path: file.path, heading: h.heading });
+      node(file.path + "#" + h.heading, { kind: "heading", label: plainText(h.heading), path: file.path, heading: h.heading });
       edge(file.path, file.path + "#" + h.heading, "contains");
     }
   }
@@ -693,6 +699,17 @@ function buildHeadingGraph(app) {
       if (!dest || dest.extension !== "md") continue;
       const target = sub && nodes.has(dest.path + "#" + sub) ? dest.path + "#" + sub : dest.path;
       edge(ownerId(file, heads, l.position.start.line), target, "link");
+    }
+    // Folder links (obsidian://dictatoros-folder) -> a folder dot
+    const text = texts && texts.get(file.path);
+    if (text) {
+      const lineAt = (i) => text.slice(0, i).split("\n").length - 1;
+      for (const m of text.matchAll(FOLDER_LINK_RE)) {
+        const fpath = decodeURIComponent(m[1]);
+        const fid = "folder:" + fpath;
+        node(fid, { kind: "folder", label: fpath.split("/").pop(), path: fpath });
+        edge(ownerId(file, heads, lineAt(m.index)), fid, "link");
+      }
     }
     for (const t of cache.tags || []) {
       const tid = "tag:" + t.tag.toLowerCase();
@@ -725,7 +742,7 @@ class HeadingGraphView extends ItemView {
     const root = this.contentEl; root.empty(); root.addClass("vault-ask-graph");
     this.canvas = root.createEl("canvas");
     this.legend = root.createDiv({ cls: "vault-ask-graph-legend" });
-    for (const [cls, label] of [["note", "Note"], ["heading", "Heading"], ["tag", "Tag"]]) {
+    for (const [cls, label] of [["note", "Note"], ["heading", "Heading"], ["tag", "Tag"], ["folder", "Folder"]]) {
       const i = this.legend.createDiv({ cls: "vault-ask-graph-key" }); i.createSpan({ cls: "dot " + cls }); i.createSpan({ text: label });
     }
     const sk = this.legend.createDiv({ cls: "vault-ask-graph-key" }); sk.createSpan({ cls: "line shared" }); sk.createSpan({ text: "Same tag" });
@@ -755,8 +772,10 @@ class HeadingGraphView extends ItemView {
       faint: v("--text-faint", "#555"), line: v("--background-modifier-border", "#444"), bg: v("--background-primary", "#000") };
   }
 
-  build() {
-    const g = buildHeadingGraph(this.app);
+  async build() {
+    const texts = new Map();
+    for (const f of this.app.vault.getMarkdownFiles()) texts.set(f.path, await this.app.vault.cachedRead(f));
+    const g = buildHeadingGraph(this.app, texts);
     const old = new Map((this.nodes || []).map((n) => [n.id, n]));
     this.nodes = g.nodes.map((n) => { const o = old.get(n.id); return Object.assign(n, o ? { x: o.x, y: o.y, vx: 0, vy: 0 } : { x: (Math.random() - 0.5) * 400, y: (Math.random() - 0.5) * 400, vx: 0, vy: 0 }); });
     const byId = new Map(this.nodes.map((n) => [n.id, n]));
@@ -836,7 +855,9 @@ class HeadingGraphView extends ItemView {
       const dim = focus && n !== focus && !near.has(n);
       c.globalAlpha = dim ? 0.25 : 1;
       c.fillStyle = n.kind === "tag" ? col.accent : n.kind === "note" ? col.text : col.muted;
-      c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+      c.beginPath();
+      if (n.kind === "folder") { c.fillStyle = col.bg; c.strokeStyle = col.text; c.lineWidth = 1.5; c.rect(x - r, y - r, r * 2, r * 2); c.fill(); c.stroke(); }
+      else { c.arc(x, y, r, 0, Math.PI * 2); c.fill(); }
       if (n === focus) { c.strokeStyle = col.accent; c.lineWidth = 2; c.stroke(); }
       if (k > 0.6 || n === focus || (near && near.has(n)) || n.kind === "note") {
         c.fillStyle = n === focus ? col.accent : n.kind === "note" ? col.text : col.muted;
@@ -871,7 +892,8 @@ class HeadingGraphView extends ItemView {
     const d = this.drag; this.drag = null;
     if (d && d.node && !d.moved) {
       const n = d.node;
-      if (n.kind === "tag") this.app.internalPlugins.getPluginById("global-search")?.instance.openGlobalSearch("tag:" + n.label);
+      if (n.kind === "folder") revealFolder(this.app, n.path);
+      else if (n.kind === "tag") this.app.internalPlugins.getPluginById("global-search")?.instance.openGlobalSearch("tag:" + n.label);
       else this.app.workspace.openLinkText(n.heading ? n.path + "#" + n.heading : n.path, "", false);
     }
   }
@@ -918,7 +940,7 @@ function tagLinksMarkdown(app, tag, scopePath, sourcePath, inTable, label) {
   const entry = tagTargets(app).find((t) => t.tag.toLowerCase() === tag.toLowerCase());
   const targets = entry ? entry.targets.filter((t) => !scopePath || t.file.path === scopePath) : [];
   const links = targets.map((t, i) => {
-    const alias = label && i === 0 ? label : (t.heading || undefined);
+    const alias = label && i === 0 ? label : (t.heading ? plainText(t.heading) : undefined);
     const link = app.fileManager.generateMarkdownLink(t.file, sourcePath, t.heading ? "#" + t.heading : "", alias);
     return inTable ? link.replace(/(?<!\\)\|/g, "\\|") : link;   // a bare | would split a table cell
   });
@@ -1008,18 +1030,18 @@ class LinkPicker extends Modal {
       const dir = file.parent && file.parent.path !== "/" ? file.parent.path : "";
       if (file.extension === "canvas") { folderNode(dir).children.push({ kind: "canvas", id: "c:" + file.path, label: file.basename, file, children: [] }); continue; }
       folderNode(dir).children.push({ kind: "note", id: "n:" + file.path, label: file.basename, file, row: this.lineNotes.includes(file),
-        children: h2s(file).map((h) => ({ kind: "heading", id: "h:" + file.path + "#" + h.heading, label: h.heading, file, heading: h.heading, children: [] })) });
+        children: h2s(file).map((h) => ({ kind: "heading", id: "h:" + file.path + "#" + h.heading, label: plainText(h.heading), file, heading: h.heading, children: [] })) });
     }
     const sortTree = (n) => { n.children.sort((a, b) => (a.kind === "folder" ? 0 : 1) - (b.kind === "folder" ? 0 : 1) || a.label.localeCompare(b.label)); n.children.forEach(sortTree); };
     sortTree(top);
     // Tag › note (only that note's headings)
-    const where = (t) => t.heading || "whole note";
+    const where = (t) => t.heading ? plainText(t.heading) : "whole note";
     const tags = { kind: "section", id: "s:tags", label: "Tags", children: tagTargets(this.app).map((t) => {
       const byNote = new Map();
       for (const x of t.targets) { if (!byNote.has(x.file)) byNote.set(x.file, []); byNote.get(x.file).push(x); }
       const kids = byNote.size > 1 ? [...byNote].map(([file, list]) => ({ kind: "tagnote", id: "t:" + t.tag + ":" + file.path, label: file.basename, file, tag: t.tag, scope: file, targets: list, row: this.lineNotes.includes(file), detail: list.map(where).join(", "), children: [] })) : [];
       return { kind: "tag", id: "t:" + t.tag, label: t.tag, tag: t.tag, scope: null, targets: t.targets, children: kids,
-        detail: t.targets.map((x) => x.heading ? x.file.basename + " › " + x.heading : x.file.basename).join(", ") };
+        detail: t.targets.map((x) => x.heading ? x.file.basename + " › " + plainText(x.heading) : x.file.basename).join(", ") };
     }) };
     return [{ kind: "section", id: "s:notes", label: "Notes", children: top.children }, tags];
   }
@@ -1210,6 +1232,22 @@ module.exports = class VaultAskPlugin extends Plugin {
       const path = new URL(a.getAttribute("href")).searchParams.get("path");
       if (path) revealFolder(this.app, path);
     }, { capture: true });
+    // Live preview draws links as spans; find the link under the click in the text.
+    this.registerDomEvent(document, "mousedown", (e) => {
+      const span = e.target.closest && e.target.closest(".cm-editor .cm-link, .cm-editor .cm-url");
+      if (!span || e.button !== 0) return;
+      const ed = this.app.workspace.activeEditor && this.app.workspace.activeEditor.editor;
+      const cm = ed && ed.cm; if (!cm || !cm.contentDOM.contains(span)) return;
+      let pos; try { pos = cm.posAtDOM(span); } catch (_) { return; }
+      const line = cm.state.doc.lineAt(pos), at = pos - line.from;
+      for (const m of line.text.matchAll(/\[[^\]]*\]\((obsidian:\/\/dictatoros-folder\?[^)]*)\)/g)) {
+        if (at >= m.index && at <= m.index + m[0].length) {
+          const path = new URL(m[1]).searchParams.get("path");
+          if (path) { e.preventDefault(); e.stopPropagation(); revealFolder(this.app, path); }
+          return;
+        }
+      }
+    }, { capture: true });
 
     // Auto-link: turn plain mentions of other notes / H2 headings into links.
     this.addCommand({ id: "auto-link", name: "Auto-link mentions in this note", icon: "link-2",
@@ -1228,9 +1266,10 @@ module.exports = class VaultAskPlugin extends Plugin {
     const refreshAll = async () => {
       for (const f of this.app.vault.getMarkdownFiles()) {
         const text = await this.app.vault.cachedRead(f);
-        if (!text.includes("%%tag:")) continue;
-        if (refreshTagBlocks(this.app, text, f.path) !== text)
-          await this.app.vault.process(f, (d) => refreshTagBlocks(this.app, d, f.path));
+        if (!text.includes("%%tag:") && !text.includes("dictatoros-folder?")) continue;
+        const vid = encodeURIComponent(this.app.appId || this.app.vault.getName());
+        const fix = (d) => refreshTagBlocks(this.app, d, f.path).replace(/obsidian:\/\/dictatoros-folder\?vault=[^&)]*&/g, `obsidian://dictatoros-folder?vault=${vid}&`);
+        if (fix(text) !== text) await this.app.vault.process(f, fix);
       }
     };
     let tagTimer = null;

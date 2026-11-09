@@ -403,7 +403,9 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   note or a specific heading), and a heading to the tags in its section. Scroll to zoom,
   drag to pan or move dots, hover to highlight connections, click to open that note at
   that heading (or search a tag). Headings that share a tag are also joined directly by a
-  red line ("Same tag"); notes are never edited for this.
+  red line ("Same tag"); notes are never edited for this. Folder links show as square
+  folder dots (click to open the folder in the file explorer), and headings that contain
+  links show just their text.
 
 Setup and details:
 

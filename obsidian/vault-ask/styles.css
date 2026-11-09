@@ -161,3 +161,4 @@
 .vault-ask-picker-hint { color: var(--text-faint); font-size: var(--font-ui-smaller); padding: 8px 14px; border-top: 1px solid var(--background-modifier-border); text-align: center; word-spacing: 2px; }
 .vault-ask-picker-badge.is-quiet { color: var(--text-faint); }
 .vault-ask-picker-row.is-canvas .vault-ask-picker-label { font-weight: 600; }
+.vault-ask-graph-key .dot.folder { background: transparent; border: 1.5px solid var(--text-normal); border-radius: 1px; }
