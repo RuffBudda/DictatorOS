@@ -162,3 +162,13 @@
 .vault-ask-picker-badge.is-quiet { color: var(--text-faint); }
 .vault-ask-picker-row.is-canvas .vault-ask-picker-label { font-weight: 600; }
 .vault-ask-graph-key .dot.folder { background: transparent; border: 1.5px solid var(--text-normal); border-radius: 1px; }
+
+/* Folder links: no "external link" icon (they open inside Obsidian) */
+a.external-link[href^="obsidian://dictatoros-folder"],
+.cm-editor .external-link.dos-folder-link,
+.HyperMD-header .external-link {
+  background-image: none !important; padding-right: 0 !important;
+}
+.cm-editor .external-link.dos-folder-link::after, .HyperMD-header .external-link::after,
+a.external-link[href^="obsidian://dictatoros-folder"]::after { display: none !important; }
+.cm-editor .dos-folder-link svg, .HyperMD-header .external-link svg { display: none !important; }

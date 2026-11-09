@@ -1232,6 +1232,14 @@ module.exports = class VaultAskPlugin extends Plugin {
       const path = new URL(a.getAttribute("href")).searchParams.get("path");
       if (path) revealFolder(this.app, path);
     }, { capture: true });
+    // Mark folder links in the editor so CSS can drop the external-link icon.
+    const markFolderLinks = (root) => {
+      for (const el of root.querySelectorAll(".cm-editor .external-link:not(.dos-folder-link)"))
+        if ((el.textContent || "").includes(FOLDER_ACTION) || (el.getAttribute("href") || "").includes(FOLDER_ACTION)) el.addClass("dos-folder-link");
+    };
+    const mo = new MutationObserver(() => { clearTimeout(this.markT); this.markT = setTimeout(() => markFolderLinks(document.body), 50); });
+    this.app.workspace.onLayoutReady(() => { mo.observe(this.app.workspace.containerEl, { childList: true, subtree: true }); markFolderLinks(document.body); });
+    this.register(() => mo.disconnect());
     // Live preview draws links as spans; find the link under the click in the text.
     this.registerDomEvent(document, "mousedown", (e) => {
       const span = e.target.closest && e.target.closest(".cm-editor .cm-link, .cm-editor .cm-url");
