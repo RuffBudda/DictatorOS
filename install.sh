@@ -128,6 +128,11 @@ if command -v omarchy >/dev/null; then
   [[ -f ~/.config/whoop/tokens.json ]] || echo "WHOOP: not signed in yet; run ~/.config/omarchy/plugins/ruffbudda.whoop/scripts/whoop-auth"
 fi
 
+# ── Bluetooth (Legion 5 15AHP11): the RTL8852BD radio needs a root-level fix ──
+if grep -qs b853 /sys/bus/usb/devices/*/idProduct && [[ ! -f /usr/lib/firmware/rtl_bt/rtl8852bd_eco4.bin ]]; then
+  echo "Bluetooth: not set up. Put Lenovo's Bluetooth driver (.exe) in ~/Downloads, then: sudo ~/dotfiles/system/install.sh"
+fi
+
 # Apply now
 omarchy-theme-bg-set "$DOT/backgrounds/red-stripes.png" || true
 if command -v hyprctl >/dev/null; then

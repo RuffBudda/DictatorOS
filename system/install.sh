@@ -10,6 +10,7 @@
 #  4. Chromium: block YouTube notifications, Claude extension, minimal toolbar,
 #     AI features off.  5. Battery: stop charging at ~80%.
 #  6. No automatic sleep (lid close ignored).  6b. Miracast firewall rules.
+#  6c. Bluetooth fix for the RTL8852BD (needs Lenovo's driver .exe in ~/Downloads).
 #  7. A pacman hook re-applies all of this after relevant updates (root-owned copy).
 # Safe to re-run (e.g. after an `omarchy update` that resets anything).
 set -euo pipefail
@@ -421,6 +422,38 @@ if command -v ufw >/dev/null; then
   ufw allow from 10.42.0.0/16 to any port 53 comment 'miracast-dns' >/dev/null
   ufw allow from 10.42.0.0/16 to any port 7236 proto tcp comment 'miracast-rtsp' >/dev/null
   echo "Miracast: firewall open on the Wi-Fi Direct link (10.42.0.0/16)"
+fi
+
+# ── 6c. Bluetooth: Realtek RTL8852BD fix (Legion 5 15AHP11) ──────────────
+# The radio (USB 0bda:b853) has no firmware in linux-firmware. The fix needs
+# Lenovo's Windows Bluetooth driver (.exe), which isn't redistributable, so it
+# is looked for in ~/Downloads (or BT_DRIVER=/path/to/driver.exe). Skipped on
+# other hardware, when already installed, and when run from the pacman hook
+# (kernel updates are handled by the fix's own hook).
+bt_chip() { grep -qs b853 /sys/bus/usb/devices/*/idProduct && grep -qs 0bda /sys/bus/usb/devices/*/idVendor; }
+if [[ ${1:-} != --from-hook ]] && bt_chip; then
+  BT_DIR="$(dirname "$(readlink -f "$0")")/bluetooth-rtl8852bd"
+  bt_dkms=$(dkms status -m rtl8852bd-bt -k "$(uname -r)" 2>/dev/null || true)
+  if [[ -f /usr/lib/firmware/rtl_bt/rtl8852bd_eco4.bin && $bt_dkms == *installed* ]]; then
+    echo "Bluetooth: RTL8852BD fix installed"
+  elif [[ -x $BT_DIR/install.sh ]]; then
+    drv=${BT_DRIVER:-}
+    if [[ -z $drv ]]; then
+      dl="$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)/Downloads"
+      mapfile -t exes < <(ls -t "$dl"/*.exe 2>/dev/null || true)
+      for f in "${exes[@]}"; do
+        # The installer stores its name as UTF-16 ("Realtek_BT_8852BE…")
+        if LC_ALL=C grep -qaP 'R\x00e\x00a\x00l\x00t\x00e\x00k\x00_\x00B\x00T\x00_\x008\x008\x005\x002\x00B\x00E' "$f"; then drv=$f; break; fi
+      done
+    fi
+    if [[ -n $drv && -f $drv ]]; then
+      echo "Bluetooth: installing the RTL8852BD fix from $drv"
+      "$BT_DIR/install.sh" "$drv" || echo "Bluetooth: fix failed (see above); everything else continues"
+    else
+      echo "Bluetooth: RTL8852BD fix not installed. Download the Bluetooth driver for the 83Q7"
+      echo "  from pcsupport.lenovo.com into ~/Downloads and re-run, or: BT_DRIVER=/path/to.exe sudo -E $0"
+    fi
+  fi
 fi
 
 # ── 7. Re-apply all of this automatically after relevant package updates ──

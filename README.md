@@ -183,6 +183,8 @@ in its profile.
 6. No automatic sleep: closing the lid does nothing (battery or AC).
    6b. Miracast: ufw opens DHCP, DNS and RTSP (TCP 7236) to the Wi-Fi Direct link only
    (`10.42.0.0/16`), so a TV can get an address and connect back for the stream.
+   6c. Bluetooth (Legion 5 15AHP11 only): installs the RTL8852BD fix if Lenovo's Bluetooth
+       driver `.exe` is in `~/Downloads`; otherwise prints where to get it.
 7. A pacman hook that re-applies all of the above after relevant package updates.
    It runs a root-owned copy of the script, never the user-writable one.
 
@@ -497,7 +499,9 @@ Terminal colours. All reds and red-oranges, even the ones named after other colo
   `0bda:b853`, `rom_version 3`) has no firmware patch in linux-firmware, so out of the box
   `bluetoothctl` says "No default controller available". Download the Bluetooth driver for
   the 83Q7 from Lenovo support (an `.exe`, e.g. `71l5037f6macd1k0.exe`), then run
-  `sudo ~/dotfiles/system/bluetooth-rtl8852bd/install.sh ~/Downloads/<driver>.exe`.
+  `sudo ~/dotfiles/system/install.sh`. It finds the driver in `~/Downloads` (or takes
+  `BT_DRIVER=/path/to.exe`), and does nothing on other hardware or when the fix is already in.
+  The fix on its own: `sudo ~/dotfiles/system/bluetooth-rtl8852bd/install.sh <driver>.exe`.
   It repacks the firmware from that driver and builds the kernel's own `btrtl` with an
   added loader for this chip (DKMS). A pacman hook re-installs it after kernel updates.
   `--uninstall` restores the stock driver. Details in
