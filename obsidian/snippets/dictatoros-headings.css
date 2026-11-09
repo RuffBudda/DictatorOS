@@ -58,3 +58,9 @@ body {
 /* Hide "+ Add property" under a note's properties (add them with the
    "Add file property" command or by typing in the YAML instead). */
 .metadata-add-button { display: none !important; }
+
+/* File explorer: no images (pasted screenshots etc.) and no Attachments folder.
+   They still show inside notes; open them from a note or with Ctrl+O. */
+.nav-file:has(> .nav-file-title:is([data-path$=".png" i], [data-path$=".jpg" i], [data-path$=".jpeg" i],
+  [data-path$=".gif" i], [data-path$=".webp" i], [data-path$=".svg" i], [data-path$=".bmp" i], [data-path$=".avif" i])),
+.nav-folder:has(> .nav-folder-title[data-path="Attachments"]) { display: none; }

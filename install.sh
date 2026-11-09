@@ -104,6 +104,13 @@ if "dictatoros-headings" not in s: s.append("dictatoros-headings")
 d["enabledCssSnippets"] = s
 json.dump(d, open(p, "w"), indent=2)
 PY3
+    # Pasted images go to Attachments/ (hidden in the file explorer by the snippet)
+    python3 -I - "$vault/.obsidian/app.json" <<'PY4'
+import json, os, sys
+p = sys.argv[1]; d = json.load(open(p)) if os.path.exists(p) else {}
+d.setdefault("attachmentFolderPath", "Attachments")
+json.dump(d, open(p, "w"), indent=2)
+PY4
     echo "Obsidian: Ask the Vault + heading colours in $vault"
   done < <(jq -r '.vaults | values[].path' ~/.config/obsidian/obsidian.json 2>/dev/null)
 fi

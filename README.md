@@ -361,7 +361,8 @@ links inside a heading keep the heading's colour (shown by their underline). Pic
 colours in **Settings → Ask the Vault → Heading colours**: Ember (default: red, orange,
 gold, rose, lilac, grey), Rainbow, Ocean, Forest, Pastel, Neon, Mono red, or Custom (a
 colour picker per level). The command "Next heading colour palette" cycles them.
-The same snippet hides the **+ Add property** button under a note's properties (the
+Pasted images go into an `Attachments` folder, and the same snippet hides images and
+that folder from the file explorer (they still show inside notes). It also hides the **+ Add property** button under a note's properties (the
 "Add file property" command still works).
 
 ### Obsidian: page log and Change Log
