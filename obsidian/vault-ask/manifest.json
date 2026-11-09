@@ -1,0 +1,9 @@
+{
+  "id": "dictatoros-vault-ask",
+  "name": "Ask the Vault",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Ask questions answered only from this vault, with local AI models through Ollama. Nothing leaves your machine.",
+  "author": "RuffBudda",
+  "isDesktopOnly": true
+}

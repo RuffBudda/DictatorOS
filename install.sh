@@ -80,6 +80,23 @@ PY
   echo "Chromium: vertical tabs on"
 fi
 
+# ── Obsidian: "Ask the Vault" (local AI over your notes, via Ollama) ──
+# Linked into every vault Obsidian knows about, and enabled there.
+if [[ -f ~/.config/obsidian/obsidian.json ]]; then
+  while IFS= read -r vault; do
+    [[ -d $vault/.obsidian ]] || continue
+    mkdir -p "$vault/.obsidian/plugins"
+    ln -sfn "$DOT/obsidian/vault-ask" "$vault/.obsidian/plugins/dictatoros-vault-ask"
+    python3 -I - "$vault/.obsidian/community-plugins.json" <<'PY2'
+import json, os, sys
+p = sys.argv[1]; d = json.load(open(p)) if os.path.exists(p) else []
+if "dictatoros-vault-ask" not in d: d.append("dictatoros-vault-ask")
+json.dump(d, open(p, "w"))
+PY2
+    echo "Obsidian: Ask the Vault in $vault"
+  done < <(jq -r '.vaults | values[].path' ~/.config/obsidian/obsidian.json 2>/dev/null)
+fi
+
 # Apply now
 omarchy-theme-bg-set "$DOT/backgrounds/red-stripes.png" || true
 if command -v hyprctl >/dev/null; then

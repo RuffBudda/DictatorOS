@@ -1,0 +1,14 @@
+/* Ask the Vault: follows the active Obsidian theme (red on black with DictatorOS). */
+.vault-ask-modal { width: min(720px, 90vw); }
+.vault-ask-input {
+  width: 100%; resize: vertical; font-size: var(--font-ui-medium);
+  background: var(--background-primary); color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 10px 12px;
+}
+.vault-ask-input:focus { border-color: var(--interactive-accent); box-shadow: none; }
+.vault-ask-button { margin-top: 10px; }
+.vault-ask-status { margin-top: 12px; color: var(--text-muted); font-size: var(--font-ui-small); }
+.vault-ask-answer { margin-top: 12px; max-height: 50vh; overflow-y: auto; user-select: text; }
+.vault-ask-sources { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--background-modifier-border); font-size: var(--font-ui-small); }
+.vault-ask-sources-title { color: var(--text-muted); margin-bottom: 4px; }
+.vault-ask-source { display: inline-block; margin: 0 12px 4px 0; color: var(--text-accent); }

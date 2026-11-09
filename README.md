@@ -353,6 +353,22 @@ with the DictatorOS logo: a crown made of tiles over the name. `fetch` and `neof
 In a terminal the crown is built first (rows rise from the bottom, then the name types
 out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips that.
 
+### Obsidian: Ask the Vault
+
+`obsidian/vault-ask/` is a small Obsidian plugin (no third-party code): a **question-mark
+button in the left sidebar** (or the command "Ask the vault") opens a box where you ask
+about your notes. It answers **only from your vault**, using local models through
+[Ollama](https://ollama.com), and links the notes it used. If the notes don't cover the
+question it says so instead of guessing. Nothing leaves the machine.
+
+- Needs Ollama running with `qwen3:8b` (answers) and `nomic-embed-text` (search):
+  `sudo pacman -S ollama-cuda && sudo systemctl enable --now ollama && ollama pull qwen3:8b && ollama pull nomic-embed-text`
+- `install.sh` links it into every Obsidian vault and enables it.
+- Notes are indexed the first time you ask and only changed notes are re-indexed after
+  that. The index is stored in the plugin's `data.json`, which is git-ignored because it
+  contains note text.
+- Models and the Ollama address can be changed in Settings → Ask the Vault.
+
 ### Theme
 
 `omarchy/themes/red`: black backgrounds, red accents, red icon set, transparent bar with
@@ -460,6 +476,7 @@ Common tweaks:
 applications/        launcher entries (Display settings, New VPN profile, rmdesk)
 backgrounds/         red-stripes wallpaper (SVG source + PNG) and plain black
 bin/                 scripts used by bindings, widgets and hooks
+obsidian/vault-ask/  "Ask the Vault" Obsidian plugin (local AI over your notes)
 chromium/            red-wave new tab page and the Outlook recolour (Chromium extensions)
 docs/                README images
 fastfetch/           fastfetch config and the DictatorOS crown logo
