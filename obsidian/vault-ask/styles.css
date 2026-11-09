@@ -26,7 +26,11 @@
 .vault-ask-sources { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--background-modifier-border); font-size: var(--font-ui-smaller); }
 .vault-ask-sources-title { color: var(--text-muted); }
 .vault-ask-source { margin-right: 10px; color: var(--text-accent); }
-.vault-ask-form { display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px; border-top: 1px solid var(--background-modifier-border); }
+.vault-ask-form {
+  display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px; border-top: 1px solid var(--background-modifier-border);
+  /* Obsidian's status bar floats over the bottom of the right sidebar: keep the input clear of it */
+  margin-bottom: calc(var(--status-bar-font-size, 12px) * 2 + 18px);
+}
 .vault-ask-input {
   flex: 1; resize: none; max-height: 30vh; font-size: var(--font-ui-medium);
   background: var(--background-primary); color: var(--text-normal);

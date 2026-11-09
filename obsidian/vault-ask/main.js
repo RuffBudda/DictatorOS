@@ -173,7 +173,7 @@ class ChatView extends ItemView {
     });
 
     const form = root.createDiv({ cls: "vault-ask-form" });
-    this.input = form.createEl("textarea", { cls: "vault-ask-input", attr: { rows: "2", placeholder: "Ask about your notes… (Enter to send, Shift+Enter for a new line)" } });
+    this.input = form.createEl("textarea", { cls: "vault-ask-input", attr: { rows: "2", placeholder: "Ask about your notes…", title: "Enter to send · Shift+Enter for a new line" } });
     this.sendBtn = form.createEl("button", { text: "Send", cls: "mod-cta vault-ask-send" });
     this.sendBtn.onclick = () => (this.abort ? this.abort.abort() : this.send());
     this.input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!this.abort) this.send(); } });
