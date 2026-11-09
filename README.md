@@ -493,8 +493,15 @@ Terminal colours. All reds and red-oranges, even the ones named after other colo
 ### Hardware (Lenovo Legion)
 
 - `system/install.sh` step 5: battery Conservation mode via `charge_types = Long_Life`.
-- `system/bluetooth-rtl8852bd.sh`: Bluetooth for the Realtek RTL8852BD (patched `btrtl`
-  via DKMS plus firmware from Lenovo's Windows driver, re-applied after kernel updates).
+- **Bluetooth** (`system/bluetooth-rtl8852bd/`): the Realtek RTL8852BD radio (USB
+  `0bda:b853`, `rom_version 3`) has no firmware patch in linux-firmware, so out of the box
+  `bluetoothctl` says "No default controller available". Download the Bluetooth driver for
+  the 83Q7 from Lenovo support (an `.exe`, e.g. `71l5037f6macd1k0.exe`), then run
+  `sudo ~/dotfiles/system/bluetooth-rtl8852bd/install.sh ~/Downloads/<driver>.exe`.
+  It repacks the firmware from that driver and builds the kernel's own `btrtl` with an
+  added loader for this chip (DKMS). A pacman hook re-installs it after kernel updates.
+  `--uninstall` restores the stock driver. Details in
+  [system/bluetooth-rtl8852bd/README.md](system/bluetooth-rtl8852bd/README.md).
 
 ### Other
 
@@ -575,7 +582,7 @@ omarchy/
   themes/red/        the Red theme
 packages/            patched gnome-network-displays build
 preview/             design mock-ups
-system/              root-level tweaks (install.sh, Bluetooth fix)
+system/              root-level tweaks (install.sh, Limine helpers, bluetooth-rtl8852bd/)
 install.sh           user-level installer
 apps.sh              app choices: fonts, removals, web apps, rmdesk
 ```
@@ -597,5 +604,6 @@ DictatorOS is released under the [MIT License](LICENSE).
 Built on [Omarchy](https://github.com/basecamp/omarchy) by David Heinemeier Hansson (MIT).
 Several plugins are adapted from Omarchy's built-ins and from
 [rmarchei/omarchy-openvpn-plugin](https://github.com/rmarchei/omarchy-openvpn-plugin) (MIT);
-the GNOME Network Displays patch is GPL-3.0-or-later. Details in
+the GNOME Network Displays patch is GPL-3.0-or-later; the Bluetooth fix's `btrtl` is Linux kernel code plus the eco4 loader from
+[mihaits/rtl8852bd-bt-linux](https://github.com/mihaits/rtl8852bd-bt-linux), both GPL-2.0. Details in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
