@@ -435,6 +435,7 @@ function buildHeadingGraph(app) {
   const node = (id, n) => { if (!nodes.has(id)) nodes.set(id, Object.assign({ id, deg: 0 }, n)); return nodes.get(id); };
   const edge = (a, b, kind) => { if (a === b) return; const k = a < b ? a + "|" + b : b + "|" + a; if (!edges.has(k)) edges.set(k, { a, b, kind }); };
   const files = app.vault.getMarkdownFiles();
+  const sharing = new Map();   // tag id -> set of heading/note ids carrying it
   const sections = (file) => {
     const cache = app.metadataCache.getFileCache(file) || {};
     return { cache, heads: (cache.headings || []).filter((h) => h.level >= 2).sort((a, b) => a.position.start.line - b.position.start.line) };
@@ -463,8 +464,18 @@ function buildHeadingGraph(app) {
     for (const t of cache.tags || []) {
       const tid = "tag:" + t.tag.toLowerCase();
       node(tid, { kind: "tag", label: t.tag });
-      edge(ownerId(file, heads, t.position.start.line), tid, "tag");
+      const owner = ownerId(file, heads, t.position.start.line);
+      edge(owner, tid, "tag");
+      if (!sharing.has(tid)) sharing.set(tid, new Set());
+      sharing.get(tid).add(owner);
     }
+  }
+  // Headings (or notes) that share a tag are linked to each other directly.
+  // Big groups get a chain instead of every pair, to keep the graph readable.
+  for (const owners of sharing.values()) {
+    const list = [...owners];
+    if (list.length <= 12) { for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) edge(list[i], list[j], "shared"); }
+    else for (let i = 1; i < list.length; i++) edge(list[i - 1], list[i], "shared");
   }
   const list = [...edges.values()];
   for (const e of list) { nodes.get(e.a).deg++; nodes.get(e.b).deg++; }
@@ -484,6 +495,7 @@ class HeadingGraphView extends ItemView {
     for (const [cls, label] of [["note", "Note"], ["heading", "Heading"], ["tag", "Tag"]]) {
       const i = this.legend.createDiv({ cls: "vault-ask-graph-key" }); i.createSpan({ cls: "dot " + cls }); i.createSpan({ text: label });
     }
+    const sk = this.legend.createDiv({ cls: "vault-ask-graph-key" }); sk.createSpan({ cls: "line shared" }); sk.createSpan({ text: "Same tag" });
     this.ctx = this.canvas.getContext("2d");
     this.view = { x: 0, y: 0, k: 1 };
     this.hover = null; this.drag = null;
@@ -529,7 +541,7 @@ class HeadingGraphView extends ItemView {
       p.vx -= dx * f; p.vy -= dy * f; q.vx += dx * f; q.vy += dy * f;
     }
     for (const e of this.edges) {
-      const len = e.kind === "contains" ? 45 : 90;
+      const len = e.kind === "contains" ? 45 : e.kind === "shared" ? 110 : 90;
       let dx = e.b.x - e.a.x, dy = e.b.y - e.a.y; const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
       const f = (d - len) * 0.04 * a; dx /= d; dy /= d;
       e.a.vx += dx * f; e.a.vy += dy * f; e.b.vx -= dx * f; e.b.vy -= dy * f;
@@ -573,7 +585,9 @@ class HeadingGraphView extends ItemView {
     c.fillStyle = col.bg; c.fillRect(0, 0, this.w, this.h);
     for (const e of this.edges) {
       const lit = focus && (e.a === focus || e.b === focus);
-      c.strokeStyle = lit ? col.accent : col.line; c.globalAlpha = focus && !lit ? 0.25 : 1;
+      const shared = e.kind === "shared";
+      c.strokeStyle = lit || shared ? col.accent : col.line;
+      c.globalAlpha = focus && !lit ? 0.2 : shared && !lit ? 0.45 : 1;
       c.lineWidth = lit ? 1.6 : e.kind === "contains" ? 0.8 : 1.1;
       c.setLineDash(e.kind === "tag" ? [3, 3] : []);
       const [x1, y1] = this.toScreen(e.a), [x2, y2] = this.toScreen(e.b);
