@@ -6,7 +6,7 @@
 // Each question is embedded too; the closest chunks are given to the chat
 // model, with the last few exchanges for follow-ups, and the answer streams
 // into the side panel as it is written, citing the notes it used.
-const { Plugin, ItemView, Notice, MarkdownRenderer, PluginSettingTab, Setting, FuzzySuggestModal, requestUrl } = require("obsidian");
+const { Plugin, ItemView, Notice, MarkdownRenderer, PluginSettingTab, Setting, FuzzySuggestModal, requestUrl, setIcon } = require("obsidian");
 
 const VIEW_TYPE = "dictatoros-vault-ask-chat";
 const DEFAULTS = {
@@ -172,11 +172,16 @@ class ChatView extends ItemView {
       this.app.workspace.openLinkText(a.getAttribute("data-href") || a.textContent, "", false);
     });
 
+    // Composer: one rounded box holding the text area and a round send button.
     const form = root.createDiv({ cls: "vault-ask-form" });
-    this.input = form.createEl("textarea", { cls: "vault-ask-input", attr: { rows: "2", placeholder: "Ask about your notes…", title: "Enter to send · Shift+Enter for a new line" } });
-    this.sendBtn = form.createEl("button", { text: "Send", cls: "mod-cta vault-ask-send" });
+    const box = form.createDiv({ cls: "vault-ask-composer" });
+    this.input = box.createEl("textarea", { cls: "vault-ask-input", attr: { rows: "1", placeholder: "Ask about your notes…", title: "Enter to send · Shift+Enter for a new line" } });
+    this.sendBtn = box.createEl("button", { cls: "vault-ask-send", attr: { "aria-label": "Send" } });
+    setIcon(this.sendBtn, "arrow-up");
     this.sendBtn.onclick = () => (this.abort ? this.abort.abort() : this.send());
-    this.input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!this.abort) this.send(); } });
+    const grow = () => { this.input.style.height = "auto"; this.input.style.height = Math.min(this.input.scrollHeight, 180) + "px"; };
+    this.input.addEventListener("input", grow);
+    this.input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!this.abort) { this.send(); grow(); } } });
     this.reset();
   }
 
@@ -189,7 +194,8 @@ class ChatView extends ItemView {
   }
 
   setBusy(busy) {
-    this.sendBtn.setText(busy ? "Stop" : "Send");
+    setIcon(this.sendBtn, busy ? "square" : "arrow-up");
+    this.sendBtn.setAttribute("aria-label", busy ? "Stop" : "Send");
     this.sendBtn.toggleClass("vault-ask-stop", busy);
   }
 
@@ -198,7 +204,7 @@ class ChatView extends ItemView {
   async send() {
     const question = this.input.value.trim();
     if (!question) return;
-    this.input.value = "";
+    this.input.value = ""; this.input.style.height = "auto";
     const hint = this.log.querySelector(".vault-ask-hint"); if (hint) hint.remove();
     this.log.createDiv({ cls: "vault-ask-msg vault-ask-user", text: question });
     const bubble = this.log.createDiv({ cls: "vault-ask-msg vault-ask-bot" });

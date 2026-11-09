@@ -1,7 +1,7 @@
 {
   "id": "dictatoros-vault-ask",
   "name": "Ask the Vault",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "minAppVersion": "1.4.0",
   "description": "Side chat that answers only from this vault, streaming from local AI models through Ollama. Nothing leaves your machine.",
   "author": "RuffBudda",
