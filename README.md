@@ -389,8 +389,9 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   A note or heading turns the selection into
   `[[Note#Heading|selected text]]`. A **tag** links every heading that carries it (the tag
   right under a heading belongs to that heading), either everywhere (the tag itself) or
-  only in one note (the note under the tag, e.g. `#data-collection › only in Marketing`). The links go after your text with a `·`, no
-  brackets: `Initial Data Collection · GEO Issues`. They are **live**: they sit between
+  only in one note (the note under the tag, e.g. `#data-collection › only in Marketing`). Your selected text itself becomes the link (underlined, e.g.
+  `Marketing Initial Data Collection` → Marketing › GEO Issues; hover it to preview the
+  heading). If more headings carry the tag, they follow as their own links. They are **live**: they sit between
   hidden `%%tag:…%%` markers and update by themselves when you tag or untag headings.
   `|` is escaped automatically inside tables.
 - **Heading graph.** The network icon in the left ribbon (or "Open heading graph") opens

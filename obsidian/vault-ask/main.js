@@ -907,29 +907,40 @@ function tagTargets(app) {
   return [...byTag.values()].sort((a, b) => a.tag.localeCompare(b.tag));
 }
 
-const TAG_BLOCK = /%%tag:(#[^\s%]+)(?: in:([^%]+?))?%%([\s\S]*?)%%\/tag%%/g;
+const TAG_BLOCK = /%%tag:(#[^\s%]+)(?: in:([^%]+?))?(?: as:([^%]+?))?%%([\s\S]*?)%%\/tag%%/g;
 
-// The links for a tag (optionally only inside one note), as Markdown.
-function tagLinksMarkdown(app, tag, scopePath, sourcePath, inTable) {
+// The links for a tag (optionally only inside one note), as Markdown. With a
+// label (the text you selected) that text itself becomes the link to the first
+// tagged heading, and any further headings follow it as their own links.
+function tagLinksMarkdown(app, tag, scopePath, sourcePath, inTable, label) {
   const entry = tagTargets(app).find((t) => t.tag.toLowerCase() === tag.toLowerCase());
   const targets = entry ? entry.targets.filter((t) => !scopePath || t.file.path === scopePath) : [];
-  return targets.map((t) => {
-    const link = app.fileManager.generateMarkdownLink(t.file, sourcePath, t.heading ? "#" + t.heading : "", t.heading || undefined);
+  const links = targets.map((t, i) => {
+    const alias = label && i === 0 ? label : (t.heading || undefined);
+    const link = app.fileManager.generateMarkdownLink(t.file, sourcePath, t.heading ? "#" + t.heading : "", alias);
     return inTable ? link.replace(/(?<!\\)\|/g, "\\|") : link;   // a bare | would split a table cell
-  }).join(", ");
+  });
+  if (label && !links.length) return label;          // nothing tagged (yet): keep the plain text
+  return label ? links[0] + (links.length > 1 ? " · " + links.slice(1).join(" · ") : "") : links.join(", ");
 }
 
-function tagBlock(app, tag, scopePath, sourcePath, inTable) {
-  return `%%tag:${tag}${scopePath ? " in:" + scopePath : ""}%%${tagLinksMarkdown(app, tag, scopePath, sourcePath, inTable)}%%/tag%%`;
+const cleanLabel = (t) => (t || "").replace(/[%|\[\]#^]/g, " ").replace(/\s+/g, " ").trim();
+
+function tagBlock(app, tag, scopePath, sourcePath, inTable, label) {
+  label = cleanLabel(label);
+  return `%%tag:${tag}${scopePath ? " in:" + scopePath : ""}${label ? " as:" + label : ""}%%${tagLinksMarkdown(app, tag, scopePath, sourcePath, inTable, label)}%%/tag%%`;
 }
 
 // Rewrite every live tag-link block in a note's text; returns the new text.
 function refreshTagBlocks(app, text, sourcePath) {
-  text = text.replace(/ ?\((%%tag:[^%]*%%[\s\S]*?%%\/tag%%)\)/g, " · $1");   // older format used brackets
-  return text.replace(TAG_BLOCK, (m, tag, scope, inner, offset) => {
+  text = text.replace(/ ?\((%%tag:[^%]*%%[\s\S]*?%%\/tag%%)\)/g, " · $1");   // oldest format used brackets
+  // "Text · links" (3.6) -> the text itself becomes the link
+  text = text.replace(/(^|\|)([ \t]*)([^|\n%]+?) · %%tag:(#[^\s%]+)((?: in:[^%]+?)?)%%[\s\S]*?%%\/tag%%/gm,
+    (m, bar, sp, label, tag, scope) => `${bar}${sp}%%tag:${tag}${scope} as:${cleanLabel(label)}%%%%/tag%%`);
+  return text.replace(TAG_BLOCK, (m, tag, scope, label, inner, offset) => {
     const lineStart = text.lastIndexOf("\n", offset) + 1;
     const inTable = text.slice(lineStart, offset).trimStart().startsWith("|");
-    return tagBlock(app, tag, scope ? scope.trim() : null, sourcePath, inTable);
+    return tagBlock(app, tag, scope ? scope.trim() : null, sourcePath, inTable, label);
   });
 }
 
@@ -1108,8 +1119,7 @@ class LinkPicker extends Modal {
     this.close();
     const selected = this.editor.getSelection();
     if (n.kind === "tag" || n.kind === "tagnote") {
-      const block = tagBlock(this.app, n.tag, n.scope ? n.scope.path : null, this.sourcePath, this.inTable);
-      this.editor.replaceSelection(selected ? `${selected} · ${block}` : block);
+      this.editor.replaceSelection(tagBlock(this.app, n.tag, n.scope ? n.scope.path : null, this.sourcePath, this.inTable, selected));
       return;
     }
     let link = this.app.fileManager.generateMarkdownLink(n.file, this.sourcePath, n.heading ? "#" + n.heading : "", selected || undefined);
