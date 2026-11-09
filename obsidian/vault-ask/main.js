@@ -477,6 +477,8 @@ function findAutoLinks(text, candidates) {
 
 function autoLinkCandidates(app, sourcePath) {
   const cands = [];
+  for (const file of app.vault.getFiles().filter((f) => f.extension === "canvas"))
+    cands.push({ text: file.basename, file, heading: null });
   for (const file of app.vault.getMarkdownFiles()) {
     if (file.path !== sourcePath) cands.push({ text: file.basename, file, heading: null });
     for (const h of (app.metadataCache.getFileCache(file) || {}).headings || [])
@@ -573,7 +575,7 @@ function autoLinkEditor(plugin, editor, file) {
   if (!found.length) { new Notice("Auto-link: no unlinked mentions of your notes or headings found."); return; }
   const changes = found.map((h) => {
     const t = h.target;
-    const alias = t.heading ? h.matched : (h.matched === t.file.basename ? undefined : h.matched);
+    const alias = t.heading ? h.matched : (h.matched === t.file.basename && t.file.extension === "md" ? undefined : h.matched);
     let link = app.fileManager.generateMarkdownLink(t.file, file.path, t.heading ? "#" + t.heading : "", alias);
     const lineStart = text.lastIndexOf("\n", h.from) + 1;
     if (text.slice(lineStart, h.from).trimStart().startsWith("|")) link = link.replace(/(?<!\\)\|/g, "\\|");
@@ -590,7 +592,7 @@ function autoLinkText(app, text, file) {
   let out = text;
   for (const h of found.slice().sort((a, b) => b.from - a.from)) {
     const t = h.target;
-    const alias = t.heading ? h.matched : (h.matched === t.file.basename ? undefined : h.matched);
+    const alias = t.heading ? h.matched : (h.matched === t.file.basename && t.file.extension === "md" ? undefined : h.matched);
     let link = app.fileManager.generateMarkdownLink(t.file, file.path, t.heading ? "#" + t.heading : "", alias);
     const lineStart = out.lastIndexOf("\n", h.from) + 1;
     if (out.slice(lineStart, h.from).trimStart().startsWith("|")) link = link.replace(/(?<!\\)\|/g, "\\|");
@@ -948,8 +950,8 @@ function refreshTagBlocks(app, text, sourcePath) {
 // tag tree (tag › the notes that use it), with filter chips across the top.
 // Arrows move, → / ← open and close, Tab switches filter, Enter links.
 const PICK_FILTERS = [
-  { id: "all", label: "All", picks: ["note", "heading", "tag", "tagnote"] },
-  { id: "notes", label: "Notes", picks: ["note"] },
+  { id: "all", label: "All", picks: ["note", "canvas", "heading", "tag", "tagnote"] },
+  { id: "notes", label: "Notes", picks: ["note", "canvas"] },
   { id: "headings", label: "Headings", picks: ["heading"] },
   { id: "tags", label: "Tags", picks: ["tag", "tagnote"] },
 ];
@@ -979,8 +981,10 @@ class LinkPicker extends Modal {
       const n = { kind: "folder", id: "f:" + path, label: path.split("/").pop(), children: [] };
       parent.children.push(n); folders.set(path, n); return n;
     };
-    for (const file of this.app.vault.getMarkdownFiles().sort((a, b) => a.path.localeCompare(b.path))) {
+    const linkable = this.app.vault.getFiles().filter((f) => f.extension === "md" || f.extension === "canvas");
+    for (const file of linkable.sort((a, b) => a.path.localeCompare(b.path))) {
       const dir = file.parent && file.parent.path !== "/" ? file.parent.path : "";
+      if (file.extension === "canvas") { folderNode(dir).children.push({ kind: "canvas", id: "c:" + file.path, label: file.basename, file, children: [] }); continue; }
       folderNode(dir).children.push({ kind: "note", id: "n:" + file.path, label: file.basename, file, row: this.lineNotes.includes(file),
         children: h2s(file).map((h) => ({ kind: "heading", id: "h:" + file.path + "#" + h.heading, label: h.heading, file, heading: h.heading, children: [] })) });
     }
@@ -1064,12 +1068,13 @@ class LinkPicker extends Modal {
       const tw = el.createDiv({ cls: "vault-ask-picker-twisty" });
       if (r.hasKids) setIcon(tw, this.query || !this.collapsed.has(n.id) ? "chevron-down" : "chevron-right");
       const ic = el.createDiv({ cls: "vault-ask-picker-icon" });
-      setIcon(ic, { folder: "folder", note: "file-text", heading: "heading-2", tag: "hash", tagnote: "file-text" }[n.kind]);
+      setIcon(ic, { folder: "folder", note: "file-text", canvas: "layout-dashboard", heading: "heading-2", tag: "hash", tagnote: "file-text" }[n.kind]);
       const body = el.createDiv({ cls: "vault-ask-picker-body" });
       const t = body.createDiv({ cls: "vault-ask-picker-label" });
       if (n.kind === "tag") t.createSpan({ text: n.label, cls: "vault-ask-pick-tag" });
       else if (n.kind === "tagnote") { t.createSpan({ text: "only in " }); t.createSpan({ text: n.label, cls: "vault-ask-picker-strong" }); }
       else t.setText(n.label);
+      if (n.kind === "canvas") t.createSpan({ text: "canvas", cls: "vault-ask-picker-badge is-quiet" });
       if (n.row) t.createSpan({ text: "this row", cls: "vault-ask-picker-badge" });
       if (n.kind === "tag") body.createDiv({ cls: "vault-ask-picker-detail", text: (n.children.length ? "everywhere: " : "") + n.detail });
       if (n.kind === "tagnote") body.createDiv({ cls: "vault-ask-picker-detail", text: n.detail });
