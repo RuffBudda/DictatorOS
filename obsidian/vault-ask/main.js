@@ -448,7 +448,7 @@ function findAutoLinks(text, candidates) {
   const overlaps = (a, b) => blocked.some(([x, y]) => a < y && b > x);
   const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const out = [];
-  const seen = new Set();
+  const seen = new Set(), seenText = new Set();
   // Targets the note already links to (by note name, and note#heading) are skipped.
   const linked = new Set();
   const base = (p) => p.split("/").pop().replace(/\.md$/, "").toLowerCase();
@@ -456,18 +456,19 @@ function findAutoLinks(text, candidates) {
     const [name, head] = m[1].split("#");
     if (name) { linked.add(base(name)); if (head) linked.add(base(name) + "#" + head.toLowerCase()); }
   }
-  for (const c of candidates.slice().sort((a, b) => b.text.length - a.text.length)) {
+  for (const c of candidates.slice().sort((a, b) => b.text.length - a.text.length || (a.heading ? 1 : 0) - (b.heading ? 1 : 0))) {
     if (c.text.length < 3) continue;
     const key = c.file.path + "#" + (c.heading || "");
     if (seen.has(key)) continue;
-    if (c.heading ? linked.has(base(c.file.path) + "#" + c.heading.toLowerCase()) : linked.has(base(c.file.path))) continue;
+    if (c.heading ? linked.has(base(c.file.path) + "#" + c.heading.toLowerCase()) : linked.has(base(c.file.path))) { seenText.add(c.text.toLowerCase()); continue; }
+    if (seenText.has(c.text.toLowerCase())) continue;     // one link per name; a note beats a heading of the same name
     const re = new RegExp(`(?<![\\p{L}\\p{N}])${esc(c.text)}(?![\\p{L}\\p{N}])`, "giu");
     for (const m of text.matchAll(re)) {
       const from = m.index, to = from + m[0].length;
       if (overlaps(from, to)) continue;
       out.push({ from, to, matched: m[0], target: c });
       blocked.push([from, to]);           // no other link inside this one
-      seen.add(key);
+      seen.add(key); seenText.add(c.text.toLowerCase());
       break;                               // first mention only
     }
   }
@@ -581,6 +582,76 @@ function autoLinkEditor(plugin, editor, file) {
   editor.transaction({ changes });             // one step: Ctrl+Z undoes all of it
   const names = found.map((h) => h.matched);
   new Notice(`Auto-linked ${found.length}: ${names.slice(0, 6).join(", ")}${names.length > 6 ? "…" : ""}\nCtrl+Z to undo.`, 6000);
+}
+
+// Same, for text on disk: returns { text, found } with the links written in.
+function autoLinkText(app, text, file) {
+  const found = findAutoLinks(text, autoLinkCandidates(app, file.path));
+  let out = text;
+  for (const h of found.slice().sort((a, b) => b.from - a.from)) {
+    const t = h.target;
+    const alias = t.heading ? h.matched : (h.matched === t.file.basename ? undefined : h.matched);
+    let link = app.fileManager.generateMarkdownLink(t.file, file.path, t.heading ? "#" + t.heading : "", alias);
+    const lineStart = out.lastIndexOf("\n", h.from) + 1;
+    if (out.slice(lineStart, h.from).trimStart().startsWith("|")) link = link.replace(/(?<!\\)\|/g, "\\|");
+    out = out.slice(0, h.from) + link + out.slice(h.to);
+  }
+  return { text: out, found };
+}
+
+// ── Auto-link the whole vault ────────────────────────────────────────────
+// Scans every note, shows what it would link (untick notes to skip), then
+// writes the links. The originals are kept so "Undo" puts every note back.
+class VaultAutoLinkModal extends Modal {
+  constructor(plugin) { super(plugin.app); this.plugin = plugin; }
+  async onOpen() {
+    this.modalEl.addClass("vault-ask-autolink-modal");
+    this.titleEl.setText("Auto-link the vault");
+    const { contentEl } = this;
+    contentEl.createDiv({ cls: "vault-ask-status", text: "Looking through your notes…" });
+    const plan = [];
+    for (const file of this.app.vault.getMarkdownFiles().sort((a, b) => a.path.localeCompare(b.path))) {
+      const text = await this.app.vault.cachedRead(file);
+      const r = autoLinkText(this.app, text, file);
+      if (r.found.length) plan.push({ file, found: r.found, on: true });
+    }
+    contentEl.empty();
+    if (!plan.length) { contentEl.createDiv({ cls: "vault-ask-status", text: "Nothing to link: every mention of a note or heading is already linked." }); return; }
+    const total = () => plan.filter((x) => x.on).reduce((n, x) => n + x.found.length, 0);
+    contentEl.createDiv({ cls: "vault-ask-autolink-intro", text: "Plain mentions of other notes and their headings that would become links (first mention in each note):" });
+    const list = contentEl.createDiv({ cls: "vault-ask-autolink-list" });
+    const go = contentEl.createEl("button", { cls: "mod-cta vault-ask-write" });
+    const label = () => { const n = total(), m = plan.filter((x) => x.on).length; go.setText(`Link ${n} mention${n === 1 ? "" : "s"} in ${m} note${m === 1 ? "" : "s"}`); go.disabled = !n; };
+    for (const item of plan) {
+      const row = list.createEl("label", { cls: "vault-ask-autolink-row" });
+      const cb = row.createEl("input", { attr: { type: "checkbox" } });
+      cb.checked = true; cb.onchange = () => { item.on = cb.checked; label(); };
+      const body = row.createDiv({ cls: "vault-ask-pick-body" });
+      body.createDiv({ cls: "vault-ask-pick-title", text: item.file.basename });
+      body.createDiv({ cls: "vault-ask-pick-sub", text: item.found.map((h) => h.matched + " → " + (h.target.heading ? h.target.file.basename + " › " + h.target.heading : h.target.file.basename)).join(" · ") });
+    }
+    label();
+    go.onclick = async () => {
+      go.disabled = true;
+      const undo = {};
+      let n = 0, m = 0;
+      for (const item of plan.filter((x) => x.on)) {
+        await this.app.vault.process(item.file, (text) => {
+          const r = autoLinkText(this.app, text, item.file);   // recomputed on the live text
+          if (r.found.length) { undo[item.file.path] = text; n += r.found.length; m++; }
+          return r.text;
+        });
+      }
+      this.plugin.lastVaultAutoLink = undo;
+      this.close();
+      const note = new Notice("", 12000);
+      note.noticeEl.empty();
+      note.noticeEl.createSpan({ text: `Auto-linked ${n} mention${n === 1 ? "" : "s"} in ${m} note${m === 1 ? "" : "s"}. ` });
+      const u = note.noticeEl.createEl("a", { text: "Undo", href: "#" });
+      u.onclick = (e) => { e.preventDefault(); note.hide(); this.plugin.undoVaultAutoLink(); };
+    };
+  }
+  onClose() { this.contentEl.empty(); }
 }
 
 // ── Heading graph ────────────────────────────────────────────────────────
@@ -854,6 +925,7 @@ function tagBlock(app, tag, scopePath, sourcePath, inTable) {
 
 // Rewrite every live tag-link block in a note's text; returns the new text.
 function refreshTagBlocks(app, text, sourcePath) {
+  text = text.replace(/ ?\((%%tag:[^%]*%%[\s\S]*?%%\/tag%%)\)/g, " · $1");   // older format used brackets
   return text.replace(TAG_BLOCK, (m, tag, scope, inner, offset) => {
     const lineStart = text.lastIndexOf("\n", offset) + 1;
     const inTable = text.slice(lineStart, offset).trimStart().startsWith("|");
@@ -864,8 +936,8 @@ function refreshTagBlocks(app, text, sourcePath) {
 class LinkPicker extends FuzzySuggestModal {
   constructor(app, editor, sourcePath) {
     super(app); this.editor = editor; this.sourcePath = sourcePath;
-    this.setPlaceholder("Link to a note, an H2 heading, or #tag (links every heading with it)…");
-    this.setInstructions([{ command: "↑↓", purpose: "choose" }, { command: "↵", purpose: "link the selected text" }, { command: "#", purpose: "type to find tags" }, { command: "esc", purpose: "cancel" }]);
+    this.setPlaceholder("Link to a note, heading or #tag…");
+    this.setInstructions([{ command: "↵", purpose: "link the selected text" }, { command: "#", purpose: "tags" }, { command: "esc", purpose: "cancel" }]);
     // Notes linked on the current line (e.g. the Department column of a table row) come first.
     const line = editor.getLine(editor.getCursor("from").line);
     this.lineNotes = new Set();
@@ -876,50 +948,58 @@ class LinkPicker extends FuzzySuggestModal {
     this.inTable = line.trimStart().startsWith("|");
   }
   getItems() {
-    const notes = [], tags = [], scoped = [], preferred = [];
-    for (const file of this.app.vault.getMarkdownFiles().sort((a, b) => a.path.localeCompare(b.path))) {
-      notes.push({ file, heading: null });
-      const headings = (this.app.metadataCache.getFileCache(file) || {}).headings || [];
-      for (const h of headings) if (h.level === 2) notes.push({ file, heading: h.heading });
+    const suggested = [], notes = [], headings = [], tags = [];
+    const files = this.app.vault.getMarkdownFiles().sort((a, b) => a.basename.localeCompare(b.basename));
+    for (const file of files) {
+      const near = this.lineNotes.has(file.path);
+      (near ? suggested : notes).push({ type: "note", file, near });
+      for (const h of (this.app.metadataCache.getFileCache(file) || {}).headings || [])
+        if (h.level === 2) (near ? suggested : headings).push({ type: "heading", file, heading: h.heading, near });
     }
     for (const t of tagTargets(this.app)) {
-      tags.push({ tag: t.tag, scope: null, targets: t.targets });
-      const files = [...new Set(t.targets.map((x) => x.file))];
-      if (files.length > 1 || this.lineNotes.has(files[0] && files[0].path))
-        for (const f of files) {
-          const item = { tag: t.tag, scope: f, targets: t.targets.filter((x) => x.file === f) };
-          (this.lineNotes.has(f.path) ? preferred : scoped).push(item);
-        }
+      tags.push({ type: "tag", tag: t.tag, scope: null, targets: t.targets });
+      // Per-note version only for notes on the current line.
+      for (const path of this.lineNotes) {
+        const mine = t.targets.filter((x) => x.file.path === path);
+        if (mine.length && mine.length < t.targets.length) suggested.unshift({ type: "tag", tag: t.tag, scope: mine[0].file, targets: mine, near: true });
+        else if (mine.length) suggested.unshift({ type: "tag", tag: t.tag, scope: null, targets: t.targets, near: true });
+      }
     }
-    return [...preferred, ...notes, ...tags, ...scoped];
+    return [...suggested, ...notes, ...headings, ...tags];
   }
   getItemText(item) {
-    if (item.tag) return `${item.tag}${item.scope ? " " + noteName(item.scope.path) : ""} ${item.targets.map((t) => t.heading || noteName(t.file.path)).join(" ")}`;
-    const note = noteName(item.file.path);
-    return item.heading ? `${note} › ${item.heading}` : note;
+    if (item.type === "tag") return `${item.tag} ${item.scope ? item.scope.basename : ""} ${item.targets.map((t) => t.heading || t.file.basename).join(" ")}`;
+    if (item.type === "heading") return `${item.heading} ${item.file.basename} ${noteName(item.file.path)}`;
+    return `${item.file.basename} ${noteName(item.file.path)}`;
   }
   renderSuggestion(match, el) {
     const item = match.item;
-    el.addClass("vault-ask-link-item");
-    if (item.tag) {
-      el.createSpan({ text: item.tag, cls: "vault-ask-link-tag" });
-      if (item.scope) el.createSpan({ text: " › " + item.scope.basename, cls: "vault-ask-link-scope" });
+    el.addClass("vault-ask-pick");
+    const icon = el.createDiv({ cls: "vault-ask-pick-icon vault-ask-pick-" + item.type });
+    setIcon(icon, item.type === "tag" ? "hash" : item.type === "heading" ? "heading" : "file-text");
+    const body = el.createDiv({ cls: "vault-ask-pick-body" });
+    const top = body.createDiv({ cls: "vault-ask-pick-title" });
+    const sub = body.createDiv({ cls: "vault-ask-pick-sub" });
+    const folder = (f) => f.parent && f.parent.path !== "/" ? f.parent.path : "";
+    if (item.type === "tag") {
+      top.createSpan({ text: item.tag, cls: "vault-ask-pick-tag" });
+      if (item.scope) top.createSpan({ text: " · " + item.scope.basename + " only" });
       const n = item.targets.length;
-      el.createSpan({ text: `  ${n} ${item.targets.some((t) => t.heading) ? "heading" : "note"}${n === 1 ? "" : "s"}${item.scope ? "" : " in all notes"}`, cls: "vault-ask-link-path" });
-      el.createDiv({ text: item.targets.map((t) => t.heading || noteName(t.file.path)).join(" · "), cls: "vault-ask-link-preview" });
-    } else if (item.heading) {
-      el.createSpan({ text: "## ", cls: "vault-ask-link-h2" });
-      el.createSpan({ text: item.heading });
-      el.createSpan({ text: "  " + noteName(item.file.path), cls: "vault-ask-link-path" });
+      sub.setText(`Links ${n} ${item.targets.some((t) => t.heading) ? "heading" : "note"}${n === 1 ? "" : "s"}: ${item.targets.map((t) => t.heading || t.file.basename).join(", ")}`);
+    } else if (item.type === "heading") {
+      top.setText(item.heading);
+      sub.setText("Heading in " + item.file.basename);
     } else {
-      el.createSpan({ text: noteName(item.file.path) });
+      top.setText(item.file.basename);
+      sub.setText(folder(item.file) ? "Note in " + folder(item.file) : "Note");
     }
+    if (item.near) top.createSpan({ text: "Suggested", cls: "vault-ask-pick-badge" });
   }
   onChooseItem(item) {
     const selected = this.editor.getSelection();
-    if (item.tag) {
+    if (item.type === "tag") {
       const block = tagBlock(this.app, item.tag, item.scope ? item.scope.path : null, this.sourcePath, this.inTable);
-      this.editor.replaceSelection(selected ? `${selected} (${block})` : block);
+      this.editor.replaceSelection(selected ? `${selected} · ${block}` : block);
       return;
     }
     let link = this.app.fileManager.generateMarkdownLink(item.file, this.sourcePath, item.heading ? "#" + item.heading : "", selected || undefined);
@@ -974,18 +1054,17 @@ module.exports = class VaultAskPlugin extends Plugin {
     this.addSettingTab(new VaultAskSettings(this.app, this));
 
     // Auto-link: turn plain mentions of other notes / H2 headings into links.
-    const autoLink = () => {
-      const view = this.app.workspace.getActiveViewOfType(require("obsidian").MarkdownView);
-      if (!view || !view.file) { new Notice("Open a note to auto-link it."); return; }
-      autoLinkEditor(this, view.editor, view.file);
-    };
     this.addCommand({ id: "auto-link", name: "Auto-link mentions in this note", icon: "link-2",
       editorCallback: (editor, view) => view.file && autoLinkEditor(this, editor, view.file) });
+    this.addCommand({ id: "auto-link-vault", name: "Auto-link the whole vault…", icon: "link-2",
+      callback: () => new VaultAutoLinkModal(this).open() });
+    this.addCommand({ id: "auto-link-vault-undo", name: "Undo the last vault auto-link",
+      checkCallback: (check) => { if (!this.lastVaultAutoLink) return false; if (!check) this.undoVaultAutoLink(); return true; } });
     const linkBar = this.addStatusBarItem();
     linkBar.addClass("vault-ask-statusbar", "vault-ask-autolink", "mod-clickable");
-    linkBar.setAttribute("aria-label", "Auto-link mentions of other notes and headings in this note");
+    linkBar.setAttribute("aria-label", "Auto-link mentions of notes and headings across the whole vault");
     linkBar.createSpan({ text: "Auto-link" });
-    linkBar.onClickEvent(autoLink);
+    linkBar.onClickEvent(() => new VaultAutoLinkModal(this).open());
 
     // Keep live tag-link blocks up to date as tags move between headings.
     const refreshAll = async () => {
@@ -1040,6 +1119,16 @@ module.exports = class VaultAskPlugin extends Plugin {
     return view instanceof ChatView ? view : null;
   }
 
+  async undoVaultAutoLink() {
+    const undo = this.lastVaultAutoLink; if (!undo) return;
+    this.lastVaultAutoLink = null;
+    let n = 0;
+    for (const [path, text] of Object.entries(undo)) {
+      const f = this.app.vault.getAbstractFileByPath(path);
+      if (f instanceof TFile) { await this.app.vault.modify(f, text); n++; }
+    }
+    new Notice(`Auto-link undone in ${n} note${n === 1 ? "" : "s"}.`);
+  }
   async save() { await this.saveData({ settings: this.settings, index: this.index, chats: this.chats }); }
 };
 
@@ -1051,4 +1140,5 @@ module.exports.tagTargets = tagTargets;
 module.exports.refreshTagBlocks = refreshTagBlocks;
 module.exports.tagBlock = tagBlock;
 module.exports.findAutoLinks = findAutoLinks;
+module.exports.autoLinkText = autoLinkText;
 module.exports.buildHeadingGraph = buildHeadingGraph;

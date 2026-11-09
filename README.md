@@ -370,19 +370,27 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   length, tone, details); answer them and press **Write it** (or Ctrl+Enter). The box
   closes and the expansion streams straight into the note in place of the selection,
   consistent with related notes. Ctrl+Z restores the original.
-- **⛓ Auto-link** (status bar, or the command "Auto-link mentions in this note"): finds
-  plain-text mentions of your other notes' names and `##` headings in the open note and
-  links the first mention of each, e.g. `[[Marketing#GEO Issues|GEO Issues]]`. It skips
-  anything already linked, code, headings, tags, `%%` comments, URLs and properties,
-  escapes `|` in tables, and is a single undo step (Ctrl+Z).
-- **Link selection to a note or an H2.** Select text, then right-click → **Link selection
-  to…** (or Ctrl+Shift+L): pick a note, or a specific `##` heading in any note, and the
-  selection becomes `[[Note#Heading|selected text]]`. Type `#` to pick a **tag** instead:
-  it links every heading that carries it (the tag right under a heading belongs to that
-  heading), across all notes or **only in one note** (`#data-collection › Marketing`; on
-  a line that already links a note, e.g. a table row, that note's tags are offered first).
-  Tag links are **live**: they sit between hidden `%%tag:…%%` markers and update by
-  themselves when you tag or untag headings. `|` is escaped automatically inside tables.
+- **⛓ Auto-link** (status bar, or "Auto-link the whole vault…"): goes through **every
+  note** and finds plain-text mentions of other notes' names and `##` headings, then shows
+  a preview, note by note (`marketing → Marketing`, `GEO Issues → Marketing › GEO Issues`).
+  Untick any note you want left alone and press **Link N mentions in M notes**. It links
+  the first mention of each name per note, prefers a note over a heading with the same
+  name, skips anything already linked, code, headings, tags, `%%` comments, URLs and
+  properties, and escapes `|` in tables. **Undo** in the notice (or the command "Undo the
+  last vault auto-link") puts every note back. "Auto-link mentions in this note" still
+  does just the open note (Ctrl+Z undoes it).
+- **Link selection to…** Select text, then right-click → **Link selection to…** (or
+  Ctrl+Shift+L). Each row shows what it is (a note, a heading or a tag icon) with a
+  quiet detail line ("Heading in Marketing", "Links 1 heading: GEO Issues"). The notes
+  linked on the current line, e.g. the Department column of a table row, are listed
+  first and marked **Suggested**, along with their headings and tags. Then come notes,
+  headings, and tags across the vault. A note or heading turns the selection into
+  `[[Note#Heading|selected text]]`. A **tag** links every heading that carries it (the tag
+  right under a heading belongs to that heading), either across all notes or, from the
+  suggestions, only in that row's note. The links go after your text with a `·`, no
+  brackets: `Initial Data Collection · GEO Issues`. They are **live**: they sit between
+  hidden `%%tag:…%%` markers and update by themselves when you tag or untag headings.
+  `|` is escaped automatically inside tables.
 - **Heading graph.** The network icon in the left ribbon (or "Open heading graph") opens
   a graph like Obsidian's, but split by headings: notes, their `##` headings, and tags.
   Lines join a note to its headings, a heading to whatever its section links to (a whole

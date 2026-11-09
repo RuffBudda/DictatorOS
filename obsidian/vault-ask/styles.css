@@ -104,3 +104,23 @@
 .vault-ask-questions { margin: 12px 0; max-height: 40vh; overflow-y: auto; user-select: text; }
 .vault-ask-expand-modal .vault-ask-composer { margin-top: 4px; }
 .vault-ask-write { margin-top: 10px; float: right; }
+
+/* Link picker rows: icon, name, quiet detail line */
+.vault-ask-pick { display: flex; align-items: center; gap: 10px; }
+.vault-ask-pick-icon { flex: none; width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: var(--background-modifier-hover); color: var(--text-muted); }
+.vault-ask-pick-icon .svg-icon { width: 15px; height: 15px; }
+.vault-ask-pick-icon.vault-ask-pick-tag { color: var(--text-accent); }
+.vault-ask-pick-icon.vault-ask-pick-heading { color: var(--text-normal); }
+.vault-ask-pick-body { min-width: 0; flex: 1; }
+.vault-ask-pick-title { color: var(--text-normal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vault-ask-pick-sub { color: var(--text-faint); font-size: var(--font-ui-smaller); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vault-ask-pick-tag { color: var(--text-accent); font-weight: 600; }
+.vault-ask-pick-badge { margin-left: 8px; font-size: var(--font-ui-smaller); color: var(--text-accent); border: 1px solid var(--interactive-accent); border-radius: 999px; padding: 0 6px; }
+
+/* Vault-wide auto-link preview */
+.vault-ask-autolink-intro { color: var(--text-muted); margin-bottom: 8px; }
+.vault-ask-autolink-list { max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.vault-ask-autolink-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.vault-ask-autolink-row:hover { background: var(--background-modifier-hover); }
+.vault-ask-autolink-row input { margin-top: 3px; }
+.vault-ask-autolink-row .vault-ask-pick-sub { white-space: normal; }
