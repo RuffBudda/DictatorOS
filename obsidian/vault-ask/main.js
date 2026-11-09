@@ -18,6 +18,11 @@ const DEFAULTS = {
   embedModel: "nomic-embed-text",
   topK: 6,
   minScore: 0.35,
+  palette: "ember",                 // heading colours (see PALETTES)
+  customColors: ["#e5383b", "#ff8c42", "#f4c95d", "#f28da0", "#c3a6ff", "#a8a2a3"],
+  pageLog: true,                    // keep created / updated properties on every note
+  changeLog: true,                  // record edits in a Change Log note
+  changeLogPath: "Change Log.md",
 };
 const CHUNK_CHARS = 1200;   // target chunk size
 const EMBED_BATCH = 32;     // chunks per embedding request
@@ -619,6 +624,7 @@ class VaultAutoLinkModal extends Modal {
     contentEl.createDiv({ cls: "vault-ask-status", text: "Looking through your notes…" });
     const plan = [];
     for (const file of this.app.vault.getMarkdownFiles().sort((a, b) => a.path.localeCompare(b.path))) {
+      if (file.path === this.plugin.settings.changeLogPath) continue;
       const text = await this.app.vault.cachedRead(file);
       const r = autoLinkText(this.app, text, file);
       if (r.found.length) plan.push({ file, found: r.found, on: true });
@@ -669,11 +675,11 @@ class VaultAutoLinkModal extends Modal {
 // a specific heading), and a heading to the tags in its section.
 const GRAPH_VIEW = "dictatoros-heading-graph";
 
-function buildHeadingGraph(app, texts) {
+function buildHeadingGraph(app, texts, skipPath) {
   const nodes = new Map(), edges = new Map();
   const node = (id, n) => { if (!nodes.has(id)) nodes.set(id, Object.assign({ id, deg: 0 }, n)); return nodes.get(id); };
   const edge = (a, b, kind) => { if (a === b) return; const k = a < b ? a + "|" + b : b + "|" + a; if (!edges.has(k)) edges.set(k, { a, b, kind }); };
-  const files = app.vault.getMarkdownFiles();
+  const files = app.vault.getMarkdownFiles().filter((f) => f.path !== skipPath);
   const sharing = new Map();   // tag id -> set of heading/note ids carrying it
   const sections = (file) => {
     const cache = app.metadataCache.getFileCache(file) || {};
@@ -698,6 +704,7 @@ function buildHeadingGraph(app, texts) {
       const dest = linkpath ? app.metadataCache.getFirstLinkpathDest(linkpath, file.path) : file;
       if (!dest || dest.extension !== "md") continue;
       const target = sub && nodes.has(dest.path + "#" + sub) ? dest.path + "#" + sub : dest.path;
+      if (!nodes.has(target)) continue;
       edge(ownerId(file, heads, l.position.start.line), target, "link");
     }
     // Folder links (obsidian://dictatoros-folder) -> a folder dot
@@ -775,7 +782,7 @@ class HeadingGraphView extends ItemView {
   async build() {
     const texts = new Map();
     for (const f of this.app.vault.getMarkdownFiles()) texts.set(f.path, await this.app.vault.cachedRead(f));
-    const g = buildHeadingGraph(this.app, texts);
+    const g = buildHeadingGraph(this.app, texts, this.plugin && this.plugin.settings.changeLogPath);
     const old = new Map((this.nodes || []).map((n) => [n.id, n]));
     this.nodes = g.nodes.map((n) => { const o = old.get(n.id); return Object.assign(n, o ? { x: o.x, y: o.y, vx: 0, vy: 0 } : { x: (Math.random() - 0.5) * 400, y: (Math.random() - 0.5) * 400, vx: 0, vy: 0 }); });
     const byId = new Map(this.nodes.map((n) => [n.id, n]));
@@ -1189,6 +1196,24 @@ class VaultAskSettings extends PluginSettingTab {
     text("Chat model", "Ollama model that writes the answers.", "chatModel");
     text("Embedding model", "Ollama model used to search notes (changing it re-indexes the vault).", "embedModel");
     text("Notes per answer", "How many note chunks are given to the model.", "topK");
+    containerEl.createEl("h3", { text: "Heading colours" });
+    new Setting(containerEl).setName("Palette").setDesc("Colours for H1 to H6 (needs the dictatoros-headings snippet on).")
+      .addDropdown((d) => { for (const [k, p] of Object.entries(PALETTES)) d.addOption(k, p.name);
+        d.setValue(s.palette).onChange(async (v) => { s.palette = v; applyPalette(this.plugin); await this.plugin.save(); this.display(); }); });
+    const cur = PALETTES[s.palette] && PALETTES[s.palette].colors;
+    const row = new Setting(containerEl).setName(s.palette === "custom" ? "Custom colours" : "Preview").setDesc("H1 → H6");
+    for (let i = 0; i < 6; i++) {
+      if (s.palette === "custom") row.addColorPicker((c) => c.setValue(s.customColors[i]).onChange(async (v) => { s.customColors[i] = v; applyPalette(this.plugin); await this.plugin.save(); }));
+      else row.controlEl.createSpan({ cls: "vault-ask-swatch", attr: { style: `background:${cur[i]}`, "aria-label": "H" + (i + 1) } });
+    }
+    containerEl.createEl("h3", { text: "Page log" });
+    new Setting(containerEl).setName("Created / updated on every note").setDesc("Keeps `created` and `updated` properties on each note.")
+      .addToggle((t) => t.setValue(s.pageLog).onChange(async (v) => { s.pageLog = v; await this.plugin.save(); if (v) this.plugin.changes.backfill(); }));
+    new Setting(containerEl).setName("Change Log note").setDesc("Records every edit (with links to the notes and headings) in one note, newest first.")
+      .addToggle((t) => t.setValue(s.changeLog).onChange(async (v) => { s.changeLog = v; await this.plugin.save(); }));
+    new Setting(containerEl).setName("Change Log location").setDesc("Path of the log note.")
+      .addText((t) => t.setValue(s.changeLogPath).onChange(async (v) => { s.changeLogPath = (v.trim() || DEFAULTS.changeLogPath).replace(/(?<!\.md)$/, ".md"); await this.plugin.save(); }));
+    containerEl.createEl("h3", { text: "Ask the Vault" });
     new Setting(containerEl).setName("Rebuild index").setDesc("Re-embed every note from scratch.")
       .addButton((b) => b.setButtonText("Rebuild").onClick(async () => {
         this.plugin.index = {}; await this.plugin.save();
@@ -1200,6 +1225,142 @@ class VaultAskSettings extends PluginSettingTab {
       .addButton((b) => b.setButtonText("Delete all").setWarning().onClick(async () => {
         this.plugin.chats = []; await this.plugin.save(); this.display(); new Notice("Chat history deleted");
       }));
+  }
+}
+
+// ── Heading colours ──────────────────────────────────────────────────────
+// Palettes for H1…H6. The snippet dictatoros-headings.css reads --dos-h1…6;
+// the chosen palette is set on <body>, which overrides it.
+const PALETTES = {
+  ember:   { name: "Ember (red → orange → gold)", colors: ["#e5383b", "#ff8c42", "#f4c95d", "#f28da0", "#c3a6ff", "#a8a2a3"] },
+  rainbow: { name: "Rainbow",                     colors: ["#ff5c5c", "#ffa94d", "#ffe066", "#69db7c", "#4dabf7", "#b197fc"] },
+  ocean:   { name: "Ocean (blues and teals)",     colors: ["#4dabf7", "#22b8cf", "#38d9a9", "#a5d8ff", "#91a7ff", "#adb5bd"] },
+  forest:  { name: "Forest (greens and earth)",   colors: ["#69db7c", "#a9e34b", "#ffd43b", "#e8a87c", "#c0a080", "#9aa59a"] },
+  pastel:  { name: "Pastel",                      colors: ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#bdb2ff"] },
+  neon:    { name: "Neon",                        colors: ["#ff2e63", "#08d9d6", "#f9f871", "#b967ff", "#05ffa1", "#fffb96"] },
+  mono:    { name: "Mono red (shades)",           colors: ["#ff4d4f", "#e5383b", "#c9184a", "#ba181b", "#a4161a", "#8a7f80"] },
+  custom:  { name: "Custom (pick below)",         colors: null },
+};
+function applyPalette(plugin) {
+  const s = plugin.settings, p = PALETTES[s.palette] || PALETTES.ember;
+  const colors = p.colors || s.customColors;
+  colors.forEach((c, i) => document.body.style.setProperty(`--dos-h${i + 1}`, c));
+}
+function clearPalette() { for (let i = 1; i <= 6; i++) document.body.style.removeProperty(`--dos-h${i}`); }
+
+// ── Page log + Change Log ────────────────────────────────────────────────
+// Every note gets `created` and `updated` properties. Edits are collected per
+// note and, once the note has been quiet for a while (or you switch away),
+// written to a Change Log note as one linked line: what changed (headings
+// added/removed, words), newest first under a heading per day.
+const pad = (n) => String(n).padStart(2, "0");
+const stamp = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const dayOf = (d) => stamp(d).slice(0, 10);
+const timeOf = (d) => stamp(d).slice(11);
+const countWords = (t) => (t.replace(/^---\n[\s\S]*?\n---\n?/, "").match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || []).length;
+
+class ChangeLog {
+  constructor(plugin) {
+    this.plugin = plugin; this.app = plugin.app;
+    this.snap = new Map();      // path -> { headings: [..], words }
+    this.pending = new Map();   // path -> { first: Date, last: Date, created: bool }
+    this.own = new Map();       // path -> time of our own last write (ignored)
+    this.timer = null;
+  }
+  get s() { return this.plugin.settings; }
+  isLog(path) { return path === this.s.changeLogPath; }
+  skip(file) { return !file || file.extension !== "md" || this.isLog(file.path); }
+  mine(path) { const t = this.own.get(path); return t && Date.now() - t < 3000; }
+  markOwn(path) { this.own.set(path, Date.now()); }
+
+  async snapshot(file) {
+    const text = await this.app.vault.cachedRead(file);
+    const heads = ((this.app.metadataCache.getFileCache(file) || {}).headings || []).map((h) => h.heading);
+    this.snap.set(file.path, { headings: heads, words: countWords(text) });
+  }
+  async start() {
+    for (const f of this.app.vault.getMarkdownFiles()) if (!this.skip(f)) await this.snapshot(f);
+    if (this.s.pageLog) await this.backfill();
+    if (this.s.changeLog && !this.app.vault.getAbstractFileByPath(this.s.changeLogPath)) await this.write(new Date(), "Change Log started");
+  }
+  // Notes without created/updated get them from the file's own dates.
+  async backfill() {
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      if (this.skip(f)) continue;
+      const fm = (this.app.metadataCache.getFileCache(f) || {}).frontmatter || {};
+      if (fm.created && fm.updated) continue;
+      this.markOwn(f.path);
+      await this.app.fileManager.processFrontMatter(f, (m) => {
+        if (!m.created) m.created = stamp(new Date(f.stat.ctime));
+        if (!m.updated) m.updated = stamp(new Date(f.stat.mtime));
+      }, { mtime: f.stat.mtime });
+    }
+  }
+
+  touch(file, created) {
+    if (this.skip(file) || this.mine(file.path)) return;
+    const now = new Date();
+    const p = this.pending.get(file.path) || { first: now, created: false };
+    p.last = now; p.created = p.created || !!created;
+    this.pending.set(file.path, p);
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.flush(), 90 * 1000);   // after 1.5 min of quiet
+  }
+
+  // Write out everything that's pending (except the note being typed in, unless forced).
+  async flush(force) {
+    const active = this.app.workspace.getActiveFile();
+    const lines = [];
+    for (const [path, p] of [...this.pending]) {
+      if (!force && active && active.path === path && Date.now() - p.last < 60 * 1000) continue;
+      this.pending.delete(path);
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (!(file instanceof TFile)) continue;
+      const before = this.snap.get(path) || { headings: [], words: 0 };
+      await this.snapshot(file);
+      const after = this.snap.get(path);
+      if (this.s.pageLog) {
+        this.markOwn(path);
+        await this.app.fileManager.processFrontMatter(file, (m) => {
+          if (!m.created) m.created = stamp(p.created ? p.first : new Date(file.stat.ctime));
+          m.updated = stamp(p.last);
+        });
+      }
+      if (!this.s.changeLog) continue;
+      const link = (h) => this.app.fileManager.generateMarkdownLink(file, this.s.changeLogPath, h ? "#" + h : "", h ? plainText(h) : undefined);
+      const added = after.headings.filter((h) => !before.headings.includes(h));
+      const removed = before.headings.filter((h) => !after.headings.includes(h));
+      const parts = [];
+      if (added.length) parts.push("added " + added.map((h) => link(h)).join(", "));
+      if (removed.length) parts.push("removed " + removed.map((h) => "~~" + plainText(h) + "~~").join(", "));
+      const dw = after.words - before.words;
+      if (dw) parts.push(`${dw > 0 ? "+" : "−"}${Math.abs(dw)} words`);
+      if (!p.created && !parts.length) parts.push("small edit");
+      lines.push({ at: p.last, text: `${p.created ? "created" : "edited"} ${link()}${parts.length ? " · " + parts.join(" · ") : ""}` });
+    }
+    for (const l of lines) await this.write(l.at, l.text);
+    if (this.pending.size) { clearTimeout(this.timer); this.timer = setTimeout(() => this.flush(), 60 * 1000); }
+  }
+
+  async event(text) { if (this.s.changeLog) await this.write(new Date(), text); }
+
+  // Newest first: today's "## YYYY-MM-DD" heading at the top, entries under it.
+  async write(at, text) {
+    const path = this.s.changeLogPath, day = dayOf(at), line = `- ${timeOf(at)} · ${text}`;
+    let file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) {
+      const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+      if (dir && !this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir);
+      file = await this.app.vault.create(path, "---\ntags: [log]\n---\n# Change Log\n\nEvery note's edits, newest first. Written by Ask the Vault.\n");
+    }
+    this.markOwn(path);
+    await this.app.vault.process(file, (t) => {
+      const head = `## ${day}`;
+      if (t.includes("\n" + head + "\n")) return t.replace("\n" + head + "\n", `\n${head}\n${line}\n`);
+      const m = t.match(/\n## \d{4}-\d{2}-\d{2}\n/);
+      const block = `${head}\n${line}\n\n`;
+      return m ? t.slice(0, m.index + 1) + block + t.slice(m.index + 1) : t.replace(/\n*$/, "\n\n") + block;
+    });
   }
 }
 
@@ -1222,6 +1383,36 @@ module.exports = class VaultAskPlugin extends Plugin {
     bar.createSpan({ text: "Ask vault" });
     bar.onClickEvent(() => this.openChat());
     this.addSettingTab(new VaultAskSettings(this.app, this));
+
+    // Heading colours + page log / Change Log
+    applyPalette(this);
+    this.register(clearPalette);
+    this.changes = new ChangeLog(this);
+    this.addCommand({ id: "cycle-heading-palette", name: "Next heading colour palette", callback: async () => {
+      const keys = Object.keys(PALETTES).filter((k) => k !== "custom" || this.settings.customColors);
+      this.settings.palette = keys[(keys.indexOf(this.settings.palette) + 1) % keys.length];
+      applyPalette(this); await this.save(); new Notice("Heading colours: " + PALETTES[this.settings.palette].name);
+    } });
+    this.addCommand({ id: "open-change-log", name: "Open Change Log", callback: () => this.app.workspace.openLinkText(this.settings.changeLogPath, "", false) });
+    this.addCommand({ id: "flush-change-log", name: "Write pending edits to the Change Log now", callback: () => this.changes.flush(true) });
+    this.app.workspace.onLayoutReady(async () => {
+      await this.changes.start();
+      // Registered only now: Obsidian fires "create" for every file while loading.
+      this.registerEvent(this.app.vault.on("modify", (f) => this.changes.touch(f)));
+      this.registerEvent(this.app.vault.on("create", (f) => { if (f instanceof TFile) this.changes.touch(f, true); }));
+      this.registerEvent(this.app.vault.on("rename", (f, old) => {
+        if (!(f instanceof TFile) || f.extension !== "md" || this.changes.isLog(f.path)) return;
+        const snap = this.changes.snap.get(old); if (snap) { this.changes.snap.delete(old); this.changes.snap.set(f.path, snap); }
+        const pend = this.changes.pending.get(old); if (pend) { this.changes.pending.delete(old); this.changes.pending.set(f.path, pend); }
+        this.changes.event(`renamed ${this.app.fileManager.generateMarkdownLink(f, this.settings.changeLogPath)} (was ${old.replace(/\.md$/, "")})`);
+      }));
+      this.registerEvent(this.app.vault.on("delete", (f) => {
+        if (!(f instanceof TFile) || f.extension !== "md" || this.changes.isLog(f.path)) return;
+        this.changes.pending.delete(f.path); this.changes.snap.delete(f.path);
+        this.changes.event(`deleted ~~${f.path.replace(/\.md$/, "")}~~`);
+      }));
+      this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.changes.flush()));
+    });
     // Folder links: [Folder](obsidian://dictatoros-folder?...). Handled in-app on
     // click (reading view) and via the URL handler otherwise.
     this.registerObsidianProtocolHandler(FOLDER_ACTION, (params) => params.path && revealFolder(this.app, params.path));
@@ -1277,7 +1468,7 @@ module.exports = class VaultAskPlugin extends Plugin {
         if (!text.includes("%%tag:") && !text.includes("dictatoros-folder?")) continue;
         const vid = encodeURIComponent(this.app.appId || this.app.vault.getName());
         const fix = (d) => refreshTagBlocks(this.app, d, f.path).replace(/obsidian:\/\/dictatoros-folder\?vault=[^&)]*&/g, `obsidian://dictatoros-folder?vault=${vid}&`);
-        if (fix(text) !== text) await this.app.vault.process(f, fix);
+        if (fix(text) !== text) { if (this.changes) this.changes.markOwn(f.path); await this.app.vault.process(f, fix); }
       }
     };
     let tagTimer = null;
@@ -1334,6 +1525,7 @@ module.exports = class VaultAskPlugin extends Plugin {
     }
     new Notice(`Auto-link undone in ${n} note${n === 1 ? "" : "s"}.`);
   }
+  onunload() { if (this.changes) this.changes.flush(true); }
   async save() { await this.saveData({ settings: this.settings, index: this.index, chats: this.chats }); }
 };
 
@@ -1347,3 +1539,4 @@ module.exports.tagBlock = tagBlock;
 module.exports.findAutoLinks = findAutoLinks;
 module.exports.autoLinkText = autoLinkText;
 module.exports.buildHeadingGraph = buildHeadingGraph;
+module.exports.ChangeLog = ChangeLog;

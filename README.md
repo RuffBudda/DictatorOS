@@ -356,10 +356,29 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
 ### Obsidian: heading colours
 
 `obsidian/snippets/dictatoros-headings.css` (linked into every vault and switched on by
-`install.sh`) gives each heading level its own colour on top of the Omarchy theme:
-H1 red, H2 orange, H3 gold, H4 rose, H5 lilac, H6 grey. Links inside a heading keep the
-heading's colour and are shown by their underline. Change the six `--dos-h*` values at
-the top of the file to taste (Settings → Appearance → CSS snippets toggles it).
+`install.sh`) gives each heading level its own colour on top of the Omarchy theme, and
+links inside a heading keep the heading's colour (shown by their underline). Pick the
+colours in **Settings → Ask the Vault → Heading colours**: Ember (default: red, orange,
+gold, rose, lilac, grey), Rainbow, Ocean, Forest, Pastel, Neon, Mono red, or Custom (a
+colour picker per level). The command "Next heading colour palette" cycles them.
+
+### Obsidian: page log and Change Log
+
+Every note keeps `created` and `updated` properties (existing notes are filled in from
+their file dates the first time). Edits are also recorded in **`Change Log.md`** at the
+vault root, newest first under a heading per day, with links to the notes and to any
+headings added, e.g.
+
+    ## 2026-11-09
+    - 14:32 · edited [[Technology]] · added [[Technology#Cognit|Cognit]] · +35 words
+    - 14:10 · created [[Cognit]]
+    - 13:50 · renamed [[Vendor Pitches/Cognit]] (was Untitled)
+
+An edit is written once the note has been quiet for about a minute and a half, or when
+you switch to another note, so a typing session becomes one line. The plugin's own
+writes (dates, live tag links) aren't logged, and the log is left out of the heading
+graph and Auto-link. Commands: "Open Change Log", "Write pending edits to the Change
+Log now". Both parts can be turned off, and the log moved, in the plugin settings.
 
 ### Obsidian: Ask the Vault
 

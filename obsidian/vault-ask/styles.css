@@ -172,3 +172,6 @@ a.external-link[href^="obsidian://dictatoros-folder"],
 .cm-editor .external-link.dos-folder-link::after, .HyperMD-header .external-link::after,
 a.external-link[href^="obsidian://dictatoros-folder"]::after { display: none !important; }
 .cm-editor .dos-folder-link svg, .HyperMD-header .external-link svg { display: none !important; }
+
+/* Settings: palette preview swatches */
+.vault-ask-swatch { display: inline-block; width: 20px; height: 20px; border-radius: 4px; margin-left: 6px; border: 1px solid var(--background-modifier-border); }
