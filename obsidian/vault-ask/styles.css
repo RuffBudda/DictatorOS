@@ -92,3 +92,4 @@
 .vault-ask-graph-key .dot.heading { background: var(--text-muted); }
 .vault-ask-graph-key .dot.tag { background: var(--text-accent); }
 .vault-ask-graph-key .line.shared { width: 16px; height: 2px; background: var(--text-accent); opacity: 0.6; display: inline-block; }
+.vault-ask-link-scope { color: var(--text-normal); font-weight: 600; }

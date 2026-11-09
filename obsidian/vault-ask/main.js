@@ -505,7 +505,11 @@ class HeadingGraphView extends ItemView {
     this.registerDomEvent(window, "pointerup", (e) => this.onUp(e));
     this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(root);
     // Rebuild when notes change (debounced).
-    this.registerEvent(this.app.metadataCache.on("resolved", () => { clearTimeout(this.rebuildT); this.rebuildT = setTimeout(() => this.build(), 500); }));
+    const soon = () => { clearTimeout(this.rebuildT); this.rebuildT = setTimeout(() => this.build(), 400); };
+    this.registerEvent(this.app.metadataCache.on("changed", soon));
+    this.registerEvent(this.app.metadataCache.on("resolved", soon));
+    this.registerEvent(this.app.vault.on("delete", soon));
+    this.registerEvent(this.app.vault.on("rename", soon));
     this.build();
   }
 
@@ -642,9 +646,13 @@ class HeadingGraphView extends ItemView {
 
 // "Link selection to…": pick a note, an H2 heading inside a note, or a tag.
 // A note/heading turns the selected text into a link: [[Note#Heading|text]].
-// A tag links to every heading carrying that tag (a tag belongs to the heading
-// whose section it sits in; tags above the first heading or in the note's
-// properties belong to the note itself).
+// A tag links to every heading carrying that tag, optionally only in one note
+// (a tag belongs to the heading whose section it sits in; tags above the first
+// heading or in the note's properties belong to the note itself).
+//
+// Tag links stay live: they are written between hidden markers,
+//   %%tag:#data-collection in:Business Function/Marketing%%[[…]], [[…]]%%/tag%%
+// and rewritten whenever notes change (see TagLinkUpdater).
 function tagTargets(app) {
   const byTag = new Map();
   const add = (tag, target) => {
@@ -668,24 +676,65 @@ function tagTargets(app) {
   return [...byTag.values()].sort((a, b) => a.tag.localeCompare(b.tag));
 }
 
+const TAG_BLOCK = /%%tag:(#[^\s%]+)(?: in:([^%]+?))?%%([\s\S]*?)%%\/tag%%/g;
+
+// The links for a tag (optionally only inside one note), as Markdown.
+function tagLinksMarkdown(app, tag, scopePath, sourcePath, inTable) {
+  const entry = tagTargets(app).find((t) => t.tag.toLowerCase() === tag.toLowerCase());
+  const targets = entry ? entry.targets.filter((t) => !scopePath || t.file.path === scopePath) : [];
+  return targets.map((t) => {
+    const link = app.fileManager.generateMarkdownLink(t.file, sourcePath, t.heading ? "#" + t.heading : "", t.heading || undefined);
+    return inTable ? link.replace(/(?<!\\)\|/g, "\\|") : link;   // a bare | would split a table cell
+  }).join(", ");
+}
+
+function tagBlock(app, tag, scopePath, sourcePath, inTable) {
+  return `%%tag:${tag}${scopePath ? " in:" + scopePath : ""}%%${tagLinksMarkdown(app, tag, scopePath, sourcePath, inTable)}%%/tag%%`;
+}
+
+// Rewrite every live tag-link block in a note's text; returns the new text.
+function refreshTagBlocks(app, text, sourcePath) {
+  return text.replace(TAG_BLOCK, (m, tag, scope, inner, offset) => {
+    const lineStart = text.lastIndexOf("\n", offset) + 1;
+    const inTable = text.slice(lineStart, offset).trimStart().startsWith("|");
+    return tagBlock(app, tag, scope ? scope.trim() : null, sourcePath, inTable);
+  });
+}
+
 class LinkPicker extends FuzzySuggestModal {
   constructor(app, editor, sourcePath) {
     super(app); this.editor = editor; this.sourcePath = sourcePath;
     this.setPlaceholder("Link to a note, an H2 heading, or #tag (links every heading with it)…");
     this.setInstructions([{ command: "↑↓", purpose: "choose" }, { command: "↵", purpose: "link the selected text" }, { command: "#", purpose: "type to find tags" }, { command: "esc", purpose: "cancel" }]);
+    // Notes linked on the current line (e.g. the Department column of a table row) come first.
+    const line = editor.getLine(editor.getCursor("from").line);
+    this.lineNotes = new Set();
+    for (const m of line.matchAll(/\[\[([^\]|#]+)/g)) {
+      const f = app.metadataCache.getFirstLinkpathDest(m[1].trim(), sourcePath);
+      if (f) this.lineNotes.add(f.path);
+    }
+    this.inTable = line.trimStart().startsWith("|");
   }
   getItems() {
-    const items = [];
+    const notes = [], tags = [], scoped = [], preferred = [];
     for (const file of this.app.vault.getMarkdownFiles().sort((a, b) => a.path.localeCompare(b.path))) {
-      items.push({ file, heading: null });
+      notes.push({ file, heading: null });
       const headings = (this.app.metadataCache.getFileCache(file) || {}).headings || [];
-      for (const h of headings) if (h.level === 2) items.push({ file, heading: h.heading });
+      for (const h of headings) if (h.level === 2) notes.push({ file, heading: h.heading });
     }
-    for (const t of tagTargets(this.app)) items.push({ tag: t.tag, targets: t.targets });
-    return items;
+    for (const t of tagTargets(this.app)) {
+      tags.push({ tag: t.tag, scope: null, targets: t.targets });
+      const files = [...new Set(t.targets.map((x) => x.file))];
+      if (files.length > 1 || this.lineNotes.has(files[0] && files[0].path))
+        for (const f of files) {
+          const item = { tag: t.tag, scope: f, targets: t.targets.filter((x) => x.file === f) };
+          (this.lineNotes.has(f.path) ? preferred : scoped).push(item);
+        }
+    }
+    return [...preferred, ...notes, ...tags, ...scoped];
   }
   getItemText(item) {
-    if (item.tag) return `${item.tag} ${item.targets.map((t) => t.heading || noteName(t.file.path)).join(" ")}`;
+    if (item.tag) return `${item.tag}${item.scope ? " " + noteName(item.scope.path) : ""} ${item.targets.map((t) => t.heading || noteName(t.file.path)).join(" ")}`;
     const note = noteName(item.file.path);
     return item.heading ? `${note} › ${item.heading}` : note;
   }
@@ -694,8 +743,9 @@ class LinkPicker extends FuzzySuggestModal {
     el.addClass("vault-ask-link-item");
     if (item.tag) {
       el.createSpan({ text: item.tag, cls: "vault-ask-link-tag" });
+      if (item.scope) el.createSpan({ text: " › " + item.scope.basename, cls: "vault-ask-link-scope" });
       const n = item.targets.length;
-      el.createSpan({ text: `  ${n} ${item.targets.some((t) => t.heading) ? "heading" : "note"}${n === 1 ? "" : "s"}`, cls: "vault-ask-link-path" });
+      el.createSpan({ text: `  ${n} ${item.targets.some((t) => t.heading) ? "heading" : "note"}${n === 1 ? "" : "s"}${item.scope ? "" : " in all notes"}`, cls: "vault-ask-link-path" });
       el.createDiv({ text: item.targets.map((t) => t.heading || noteName(t.file.path)).join(" · "), cls: "vault-ask-link-preview" });
     } else if (item.heading) {
       el.createSpan({ text: "## ", cls: "vault-ask-link-h2" });
@@ -705,17 +755,16 @@ class LinkPicker extends FuzzySuggestModal {
       el.createSpan({ text: noteName(item.file.path) });
     }
   }
-  linkTo(target, alias) {
-    return this.app.fileManager.generateMarkdownLink(target.file, this.sourcePath, target.heading ? "#" + target.heading : "", alias);
-  }
   onChooseItem(item) {
     const selected = this.editor.getSelection();
     if (item.tag) {
-      const links = item.targets.map((t) => this.linkTo(t, t.heading || undefined)).join(", ");
-      this.editor.replaceSelection(selected ? `${selected} (${links})` : links);
+      const block = tagBlock(this.app, item.tag, item.scope ? item.scope.path : null, this.sourcePath, this.inTable);
+      this.editor.replaceSelection(selected ? `${selected} (${block})` : block);
       return;
     }
-    this.editor.replaceSelection(this.linkTo(item, selected || undefined));
+    let link = this.app.fileManager.generateMarkdownLink(item.file, this.sourcePath, item.heading ? "#" + item.heading : "", selected || undefined);
+    if (this.inTable) link = link.replace(/(?<!\\)\|/g, "\\|");
+    this.editor.replaceSelection(link);
   }
 }
 
@@ -763,6 +812,22 @@ module.exports = class VaultAskPlugin extends Plugin {
     bar.createSpan({ text: "Ask vault" });
     bar.onClickEvent(() => this.openChat());
     this.addSettingTab(new VaultAskSettings(this.app, this));
+
+    // Keep live tag-link blocks up to date as tags move between headings.
+    const refreshAll = async () => {
+      for (const f of this.app.vault.getMarkdownFiles()) {
+        const text = await this.app.vault.cachedRead(f);
+        if (!text.includes("%%tag:")) continue;
+        if (refreshTagBlocks(this.app, text, f.path) !== text)
+          await this.app.vault.process(f, (d) => refreshTagBlocks(this.app, d, f.path));
+      }
+    };
+    let tagTimer = null;
+    const scheduleTags = () => { clearTimeout(tagTimer); tagTimer = setTimeout(refreshAll, 800); };
+    this.registerEvent(this.app.metadataCache.on("changed", scheduleTags));
+    this.registerEvent(this.app.vault.on("rename", scheduleTags));
+    this.registerEvent(this.app.vault.on("delete", scheduleTags));
+    this.app.workspace.onLayoutReady(scheduleTags);
 
     // Link the selected text to a note or to an H2 heading in a note.
     const pick = (editor, view) => new LinkPicker(this.app, editor, view.file ? view.file.path : "").open();
@@ -812,4 +877,6 @@ module.exports.VaultAsk = VaultAsk;
 module.exports.chunkText = chunkText;
 module.exports.LinkPicker = LinkPicker;
 module.exports.tagTargets = tagTargets;
+module.exports.refreshTagBlocks = refreshTagBlocks;
+module.exports.tagBlock = tagBlock;
 module.exports.buildHeadingGraph = buildHeadingGraph;

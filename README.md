@@ -374,8 +374,10 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   to…** (or Ctrl+Shift+L): pick a note, or a specific `##` heading in any note, and the
   selection becomes `[[Note#Heading|selected text]]`. Type `#` to pick a **tag** instead:
   it links every heading that carries it (the tag right under a heading belongs to that
-  heading), e.g. `kickoff plan ([[Marketing#GEO Issues|GEO Issues]], [[Operations#SOP|SOP]])`.
-
+  heading), across all notes or **only in one note** (`#data-collection › Marketing`; on
+  a line that already links a note, e.g. a table row, that note's tags are offered first).
+  Tag links are **live**: they sit between hidden `%%tag:…%%` markers and update by
+  themselves when you tag or untag headings. `|` is escaped automatically inside tables.
 - **Heading graph.** The network icon in the left ribbon (or "Open heading graph") opens
   a graph like Obsidian's, but split by headings: notes, their `##` headings, and tags.
   Lines join a note to its headings, a heading to whatever its section links to (a whole
