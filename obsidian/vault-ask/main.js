@@ -9,7 +9,7 @@
 //   buttons to replace the selection or insert below it.
 // - Chats are saved (data.json) and listed under History.
 // - Link picker: link the selected text to a note or an H2 heading in a note.
-const { Plugin, ItemView, Notice, MarkdownRenderer, PluginSettingTab, Setting, FuzzySuggestModal, TFile, requestUrl, setIcon } = require("obsidian");
+const { Plugin, ItemView, Modal, Notice, MarkdownRenderer, PluginSettingTab, Setting, FuzzySuggestModal, TFile, requestUrl, setIcon } = require("obsidian");
 
 const VIEW_TYPE = "dictatoros-vault-ask-chat";
 const DEFAULTS = {
@@ -423,6 +423,166 @@ class ChatView extends ItemView {
   }
 }
 
+// ── Auto-link ────────────────────────────────────────────────────────────
+// Find plain-text mentions of other notes' names and H2 headings in a note and
+// turn the first mention of each into a link. Skips text that is already a
+// link, code, headings, tags, %%comments%%, URLs and the properties block.
+function protectedRanges(text) {
+  const ranges = [];
+  const add = (re) => { for (const m of text.matchAll(re)) ranges.push([m.index, m.index + m[0].length]); };
+  const fm = text.match(/^---\n[\s\S]*?\n---\n/); if (fm) ranges.push([0, fm[0].length]);
+  add(/```[\s\S]*?```/g);              // fenced code
+  add(/`[^`\n]*`/g);                   // inline code
+  add(/%%[\s\S]*?%%/g);                // comments (incl. live tag-link markers)
+  add(/!?\[\[[^\]]*\]\]/g);            // wiki links / embeds
+  add(/!?\[[^\]]*\]\([^)]*\)/g);       // markdown links
+  add(/https?:\/\/\S+/g);              // URLs
+  add(/^#{1,6} .*$/gm);                // heading lines
+  add(/(^|\s)#[\p{L}\p{N}_/-]+/gu);    // tags
+  return ranges;
+}
+
+// candidates: [{ text, file, heading }]. Returns [{ from, to, matched, target }] (offsets), longest names first.
+function findAutoLinks(text, candidates) {
+  const blocked = protectedRanges(text);
+  const overlaps = (a, b) => blocked.some(([x, y]) => a < y && b > x);
+  const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const out = [];
+  const seen = new Set();
+  // Targets the note already links to (by note name, and note#heading) are skipped.
+  const linked = new Set();
+  const base = (p) => p.split("/").pop().replace(/\.md$/, "").toLowerCase();
+  for (const m of text.matchAll(/\[\[([^\]|]+)/g)) {
+    const [name, head] = m[1].split("#");
+    if (name) { linked.add(base(name)); if (head) linked.add(base(name) + "#" + head.toLowerCase()); }
+  }
+  for (const c of candidates.slice().sort((a, b) => b.text.length - a.text.length)) {
+    if (c.text.length < 3) continue;
+    const key = c.file.path + "#" + (c.heading || "");
+    if (seen.has(key)) continue;
+    if (c.heading ? linked.has(base(c.file.path) + "#" + c.heading.toLowerCase()) : linked.has(base(c.file.path))) continue;
+    const re = new RegExp(`(?<![\\p{L}\\p{N}])${esc(c.text)}(?![\\p{L}\\p{N}])`, "giu");
+    for (const m of text.matchAll(re)) {
+      const from = m.index, to = from + m[0].length;
+      if (overlaps(from, to)) continue;
+      out.push({ from, to, matched: m[0], target: c });
+      blocked.push([from, to]);           // no other link inside this one
+      seen.add(key);
+      break;                               // first mention only
+    }
+  }
+  return out.sort((a, b) => a.from - b.from);
+}
+
+function autoLinkCandidates(app, sourcePath) {
+  const cands = [];
+  for (const file of app.vault.getMarkdownFiles()) {
+    if (file.path !== sourcePath) cands.push({ text: file.basename, file, heading: null });
+    for (const h of (app.metadataCache.getFileCache(file) || {}).headings || [])
+      if (h.level === 2 && !(file.path === sourcePath)) cands.push({ text: h.heading, file, heading: h.heading });
+  }
+  return cands;
+}
+
+// ── Expand with AI, inside the note ──────────────────────────────────────
+// A small box asks the clarifying questions; once answered, the expansion
+// streams straight into the note in place of the selection (Ctrl+Z undoes it).
+class ExpandModal extends Modal {
+  constructor(plugin, editor, file) {
+    super(plugin.app);
+    this.plugin = plugin; this.editor = editor; this.file = file;
+    this.ask = new VaultAsk(plugin);
+    this.from = editor.getCursor("from"); this.to = editor.getCursor("to");
+    this.text = editor.getRange(this.from, this.to);
+    this.turns = []; this.abort = null;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    this.modalEl.addClass("vault-ask-expand-modal");
+    this.titleEl.setText("Expand with AI");
+    const q = contentEl.createDiv({ cls: "vault-ask-passage" });
+    q.createDiv({ cls: "vault-ask-passage-text", text: this.text });
+    this.qEl = contentEl.createDiv({ cls: "vault-ask-body markdown-rendered vault-ask-questions" });
+    this.qEl.createDiv({ cls: "vault-ask-status", text: "Reading the passage…" });
+    const box = contentEl.createDiv({ cls: "vault-ask-composer" });
+    this.input = box.createEl("textarea", { cls: "vault-ask-input", attr: { rows: "3", placeholder: "Answer the questions…" } });
+    this.go = contentEl.createEl("button", { text: "Write it", cls: "mod-cta vault-ask-write" });
+    this.go.disabled = true;
+    this.go.onclick = () => this.write();
+    this.input.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.write(); } });
+    this.questions();
+  }
+  onClose() { if (this.abort) this.abort.abort(); this.contentEl.empty(); }
+
+  async context() {
+    if (!this.hits) {
+      await this.ask.refreshIndex();
+      this.hits = await this.ask.search(this.text, 4);
+    }
+    return this.hits;
+  }
+
+  async questions() {
+    try {
+      const hits = await this.context();
+      this.abort = new AbortController();
+      const q = await this.ask.stream(this.ask.expandMessages({ path: this.file.path, text: this.text }, hits, []), async (t) => {
+        this.qEl.empty(); await MarkdownRenderer.render(this.app, t, this.qEl, this.file.path, this.plugin);
+      }, this.abort.signal, 0.6);
+      this.turns.push({ role: "assistant", content: q });
+      this.go.disabled = false;
+      this.input.focus();
+    } catch (e) {
+      if (e.name !== "AbortError") { this.qEl.empty(); this.qEl.setText("Error: " + e.message); }
+    } finally { this.abort = null; }
+  }
+
+  // Close the box and stream the expansion into the note, replacing the selection.
+  async write() {
+    const answer = this.input.value.trim();
+    if (!answer || this.go.disabled) return;
+    this.turns.push({ role: "user", content: answer });
+    const hits = await this.context();
+    const messages = this.ask.expandMessages({ path: this.file.path, text: this.text }, hits, this.turns);
+    const editor = this.editor, start = editor.posToOffset(this.from);
+    let written = this.text.length;               // length of what currently sits at the selection
+    this.close();
+    const notice = new Notice("Writing the expansion into the note…", 0);
+    try {
+      const put = (t) => {
+        editor.replaceRange(t, editor.offsetToPos(start), editor.offsetToPos(start + written));
+        written = t.length;
+      };
+      const final = await this.ask.stream(messages, put, undefined, 0.6);
+      put(final);
+      notice.hide();
+      new Notice("Expanded. Ctrl+Z to undo.");
+    } catch (e) {
+      notice.hide();
+      new Notice("Expand failed: " + e.message);
+    }
+  }
+}
+
+// ── Auto-link the open note ──────────────────────────────────────────────
+function autoLinkEditor(plugin, editor, file) {
+  const app = plugin.app;
+  const text = editor.getValue();
+  const found = findAutoLinks(text, autoLinkCandidates(app, file.path));
+  if (!found.length) { new Notice("Auto-link: no unlinked mentions of your notes or headings found."); return; }
+  const changes = found.map((h) => {
+    const t = h.target;
+    const alias = t.heading ? h.matched : (h.matched === t.file.basename ? undefined : h.matched);
+    let link = app.fileManager.generateMarkdownLink(t.file, file.path, t.heading ? "#" + t.heading : "", alias);
+    const lineStart = text.lastIndexOf("\n", h.from) + 1;
+    if (text.slice(lineStart, h.from).trimStart().startsWith("|")) link = link.replace(/(?<!\\)\|/g, "\\|");
+    return { from: editor.offsetToPos(h.from), to: editor.offsetToPos(h.to), text: link };
+  });
+  editor.transaction({ changes });             // one step: Ctrl+Z undoes all of it
+  const names = found.map((h) => h.matched);
+  new Notice(`Auto-linked ${found.length}: ${names.slice(0, 6).join(", ")}${names.length > 6 ? "…" : ""}\nCtrl+Z to undo.`, 6000);
+}
+
 // ── Heading graph ────────────────────────────────────────────────────────
 // Like Obsidian's graph, but split by headings: notes, their headings (H2 and
 // below; text above the first one belongs to the note), and tags. Lines join a
@@ -813,6 +973,20 @@ module.exports = class VaultAskPlugin extends Plugin {
     bar.onClickEvent(() => this.openChat());
     this.addSettingTab(new VaultAskSettings(this.app, this));
 
+    // Auto-link: turn plain mentions of other notes / H2 headings into links.
+    const autoLink = () => {
+      const view = this.app.workspace.getActiveViewOfType(require("obsidian").MarkdownView);
+      if (!view || !view.file) { new Notice("Open a note to auto-link it."); return; }
+      autoLinkEditor(this, view.editor, view.file);
+    };
+    this.addCommand({ id: "auto-link", name: "Auto-link mentions in this note", icon: "link-2",
+      editorCallback: (editor, view) => view.file && autoLinkEditor(this, editor, view.file) });
+    const linkBar = this.addStatusBarItem();
+    linkBar.addClass("vault-ask-statusbar", "vault-ask-autolink", "mod-clickable");
+    linkBar.setAttribute("aria-label", "Auto-link mentions of other notes and headings in this note");
+    linkBar.createSpan({ text: "Auto-link" });
+    linkBar.onClickEvent(autoLink);
+
     // Keep live tag-link blocks up to date as tags move between headings.
     const refreshAll = async () => {
       for (const f of this.app.vault.getMarkdownFiles()) {
@@ -833,13 +1007,10 @@ module.exports = class VaultAskPlugin extends Plugin {
     const pick = (editor, view) => new LinkPicker(this.app, editor, view.file ? view.file.path : "").open();
     this.addCommand({ id: "link-selection", name: "Link selection to note or heading…", icon: "link",
       hotkeys: [{ modifiers: ["Mod", "Shift"], key: "l" }], editorCallback: pick });
-    // Expand the selected text (the AI asks clarifying questions first).
-    const expand = async (editor, view) => {
-      const text = editor.getSelection().trim();
-      if (!text) { new Notice("Select the text you want to expand first."); return; }
-      if (!view.file) return;
-      const chat = await this.openChat();
-      if (chat) await chat.startExpand(view.file.path, text);
+    // Expand the selected text in place (the AI asks clarifying questions first).
+    const expand = (editor, view) => {
+      if (!editor.getSelection().trim()) { new Notice("Select the text you want to expand first."); return; }
+      if (view.file) new ExpandModal(this, editor, view.file).open();
     };
     this.addCommand({ id: "expand-selection", name: "Expand selection with AI…", icon: "wand-2",
       hotkeys: [{ modifiers: ["Mod", "Shift"], key: "e" }], editorCallback: expand });
@@ -879,4 +1050,5 @@ module.exports.LinkPicker = LinkPicker;
 module.exports.tagTargets = tagTargets;
 module.exports.refreshTagBlocks = refreshTagBlocks;
 module.exports.tagBlock = tagBlock;
+module.exports.findAutoLinks = findAutoLinks;
 module.exports.buildHeadingGraph = buildHeadingGraph;

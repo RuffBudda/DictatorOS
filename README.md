@@ -365,11 +365,16 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   Follow-up questions work. The header has **history** (every chat is saved; reopen or
   delete them), **new chat**, and **close panel**. The send button turns into **stop**
   while an answer streams.
-- **Expand with AI.** Select text, then right-click → **Expand with AI…** (or Ctrl+Shift+E).
-  Before writing anything the AI asks a few questions (purpose, audience, length, tone,
-  details), then writes the expanded passage using related notes for consistency. Each
-  draft has **Replace selection**, **Insert below** and **Copy**; ask for changes to get a
-  new draft.
+- **Expand with AI, in the note.** Select text, then right-click → **Expand with AI…** (or
+  Ctrl+Shift+E). A small box shows the AI's clarifying questions (purpose, audience,
+  length, tone, details); answer them and press **Write it** (or Ctrl+Enter). The box
+  closes and the expansion streams straight into the note in place of the selection,
+  consistent with related notes. Ctrl+Z restores the original.
+- **⛓ Auto-link** (status bar, or the command "Auto-link mentions in this note"): finds
+  plain-text mentions of your other notes' names and `##` headings in the open note and
+  links the first mention of each, e.g. `[[Marketing#GEO Issues|GEO Issues]]`. It skips
+  anything already linked, code, headings, tags, `%%` comments, URLs and properties,
+  escapes `|` in tables, and is a single undo step (Ctrl+Z).
 - **Link selection to a note or an H2.** Select text, then right-click → **Link selection
   to…** (or Ctrl+Shift+L): pick a note, or a specific `##` heading in any note, and the
   selection becomes `[[Note#Heading|selected text]]`. Type `#` to pick a **tag** instead:
