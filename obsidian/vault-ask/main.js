@@ -75,6 +75,9 @@ const plainText = (t) => String(t || "")
   .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
   .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2").replace(/\[\[([^\]]+)\]\]/g, (m, x) => x.split("#").pop())
   .replace(/[*_`~=]{1,3}([^*_`~=]+)[*_`~=]{1,3}/g, "$1").trim();
+// The "#Heading" part of a link to a heading. Obsidian matches headings by their
+// plain text, so a heading like "### [[WordPress]]" is linked as "#WordPress".
+const headingSub = (h) => h ? "#" + plainText(h).replace(/[\[\]#|^]/g, "").replace(/\s+/g, " ").trim() : "";
 const FOLDER_LINK_RE = /\]\(obsidian:\/\/dictatoros-folder\?[^)]*?path=([^)&\s]+)[^)]*\)/g;
 const notesBlock = (hits) => hits.map((h) => `Note [[${noteName(h.path)}]]:\n${h.text}`).join("\n\n---\n\n");
 const stripThink = (t) => t.replace(/<think>[\s\S]*?(<\/think>|$)/g, "");
@@ -471,7 +474,7 @@ function findAutoLinks(text, candidates) {
     if (c.text.length < 3) continue;
     const key = c.file.path + "#" + (c.heading || "");
     if (seen.has(key)) continue;
-    if (c.heading ? linked.has(base(c.file.path) + "#" + c.heading.toLowerCase()) : linked.has(base(c.file.path))) { seenText.add(c.text.toLowerCase()); continue; }
+    if (c.heading ? linked.has(base(c.file.path) + headingSub(c.heading).toLowerCase()) : linked.has(base(c.file.path))) { seenText.add(c.text.toLowerCase()); continue; }
     if (seenText.has(c.text.toLowerCase())) continue;     // one link per name; a note beats a heading of the same name
     const re = new RegExp(`(?<![\\p{L}\\p{N}])${esc(c.text)}(?![\\p{L}\\p{N}])`, "giu");
     for (const m of text.matchAll(re)) {
@@ -493,7 +496,7 @@ function autoLinkCandidates(app, sourcePath) {
   for (const file of app.vault.getMarkdownFiles()) {
     if (file.path !== sourcePath) cands.push({ text: file.basename, file, heading: null });
     for (const h of (app.metadataCache.getFileCache(file) || {}).headings || [])
-      if (h.level === 2 && !(file.path === sourcePath)) cands.push({ text: h.heading, file, heading: h.heading });
+      if (h.level === 2 && !(file.path === sourcePath)) cands.push({ text: plainText(h.heading), file, heading: h.heading });
   }
   return cands;
 }
@@ -587,7 +590,7 @@ function autoLinkEditor(plugin, editor, file) {
   const changes = found.map((h) => {
     const t = h.target;
     const alias = t.heading ? h.matched : (h.matched === t.file.basename && t.file.extension === "md" ? undefined : h.matched);
-    let link = app.fileManager.generateMarkdownLink(t.file, file.path, t.heading ? "#" + t.heading : "", alias);
+    let link = app.fileManager.generateMarkdownLink(t.file, file.path, headingSub(t.heading), alias);
     const lineStart = text.lastIndexOf("\n", h.from) + 1;
     if (text.slice(lineStart, h.from).trimStart().startsWith("|")) link = link.replace(/(?<!\\)\|/g, "\\|");
     return { from: editor.offsetToPos(h.from), to: editor.offsetToPos(h.to), text: link };
@@ -604,7 +607,7 @@ function autoLinkText(app, text, file) {
   for (const h of found.slice().sort((a, b) => b.from - a.from)) {
     const t = h.target;
     const alias = t.heading ? h.matched : (h.matched === t.file.basename && t.file.extension === "md" ? undefined : h.matched);
-    let link = app.fileManager.generateMarkdownLink(t.file, file.path, t.heading ? "#" + t.heading : "", alias);
+    let link = app.fileManager.generateMarkdownLink(t.file, file.path, headingSub(t.heading), alias);
     const lineStart = out.lastIndexOf("\n", h.from) + 1;
     if (out.slice(lineStart, h.from).trimStart().startsWith("|")) link = link.replace(/(?<!\\)\|/g, "\\|");
     out = out.slice(0, h.from) + link + out.slice(h.to);
@@ -688,13 +691,13 @@ function buildHeadingGraph(app, texts, skipPath) {
   const ownerId = (file, heads, line) => {
     let owner = null;
     for (const h of heads) { if (h.position.start.line <= line) owner = h; else break; }
-    return owner ? file.path + "#" + owner.heading : file.path;
+    return owner ? file.path + headingSub(owner.heading) : file.path;
   };
   for (const file of files) {
     node(file.path, { kind: "note", label: file.basename, path: file.path });
     for (const h of sections(file).heads) {
-      node(file.path + "#" + h.heading, { kind: "heading", label: plainText(h.heading), path: file.path, heading: h.heading });
-      edge(file.path, file.path + "#" + h.heading, "contains");
+      node(file.path + headingSub(h.heading), { kind: "heading", label: plainText(h.heading), path: file.path, heading: h.heading });
+      edge(file.path, file.path + headingSub(h.heading), "contains");
     }
   }
   for (const file of files) {
@@ -901,7 +904,7 @@ class HeadingGraphView extends ItemView {
       const n = d.node;
       if (n.kind === "folder") revealFolder(this.app, n.path);
       else if (n.kind === "tag") this.app.internalPlugins.getPluginById("global-search")?.instance.openGlobalSearch("tag:" + n.label);
-      else this.app.workspace.openLinkText(n.heading ? n.path + "#" + n.heading : n.path, "", false);
+      else this.app.workspace.openLinkText(n.path + headingSub(n.heading), "", false);
     }
   }
 }
@@ -948,7 +951,7 @@ function tagLinksMarkdown(app, tag, scopePath, sourcePath, inTable, label) {
   const targets = entry ? entry.targets.filter((t) => !scopePath || t.file.path === scopePath) : [];
   const links = targets.map((t, i) => {
     const alias = label && i === 0 ? label : (t.heading ? plainText(t.heading) : undefined);
-    const link = app.fileManager.generateMarkdownLink(t.file, sourcePath, t.heading ? "#" + t.heading : "", alias);
+    const link = app.fileManager.generateMarkdownLink(t.file, sourcePath, headingSub(t.heading), alias);
     return inTable ? link.replace(/(?<!\\)\|/g, "\\|") : link;   // a bare | would split a table cell
   });
   if (label && !links.length) return label;          // nothing tagged (yet): keep the plain text
@@ -1179,7 +1182,7 @@ class LinkPicker extends Modal {
       this.editor.replaceSelection(tagBlock(this.app, n.tag, n.scope ? n.scope.path : null, this.sourcePath, this.inTable, selected));
       return;
     }
-    let link = this.app.fileManager.generateMarkdownLink(n.file, this.sourcePath, n.heading ? "#" + n.heading : "", selected || undefined);
+    let link = this.app.fileManager.generateMarkdownLink(n.file, this.sourcePath, headingSub(n.heading), selected || undefined);
     if (this.inTable) link = link.replace(/(?<!\\)\|/g, "\\|");
     this.editor.replaceSelection(link);
   }
@@ -1327,7 +1330,7 @@ class ChangeLog {
         });
       }
       if (!this.s.changeLog) continue;
-      const link = (h) => this.app.fileManager.generateMarkdownLink(file, this.s.changeLogPath, h ? "#" + h : "", h ? plainText(h) : undefined);
+      const link = (h) => this.app.fileManager.generateMarkdownLink(file, this.s.changeLogPath, headingSub(h), h ? plainText(h) : undefined);
       const added = after.headings.filter((h) => !before.headings.includes(h));
       const removed = before.headings.filter((h) => !after.headings.includes(h));
       const parts = [];
