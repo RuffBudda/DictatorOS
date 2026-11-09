@@ -54,3 +54,7 @@ body {
 }
 .HyperMD-header :is(.cm-link, .cm-url, .cm-hmd-internal-link, .cm-underline, a),
 .markdown-rendered :is(h1, h2, h3, h4, h5, h6) a { color: inherit !important; }
+
+/* Hide "+ Add property" under a note's properties (add them with the
+   "Add file property" command or by typing in the YAML instead). */
+.metadata-add-button { display: none !important; }
