@@ -93,7 +93,18 @@ p = sys.argv[1]; d = json.load(open(p)) if os.path.exists(p) else []
 if "dictatoros-vault-ask" not in d: d.append("dictatoros-vault-ask")
 json.dump(d, open(p, "w"))
 PY2
-    echo "Obsidian: Ask the Vault in $vault"
+    # Heading colours snippet (enabled in appearance.json)
+    mkdir -p "$vault/.obsidian/snippets"
+    ln -sfn "$DOT/obsidian/snippets/dictatoros-headings.css" "$vault/.obsidian/snippets/dictatoros-headings.css"
+    python3 -I - "$vault/.obsidian/appearance.json" <<'PY3'
+import json, os, sys
+p = sys.argv[1]; d = json.load(open(p)) if os.path.exists(p) else {}
+s = d.get("enabledCssSnippets") or []
+if "dictatoros-headings" not in s: s.append("dictatoros-headings")
+d["enabledCssSnippets"] = s
+json.dump(d, open(p, "w"), indent=2)
+PY3
+    echo "Obsidian: Ask the Vault + heading colours in $vault"
   done < <(jq -r '.vaults | values[].path' ~/.config/obsidian/obsidian.json 2>/dev/null)
 fi
 

@@ -353,6 +353,14 @@ with the DictatorOS logo: a crown made of tiles over the name. `fetch` and `neof
 In a terminal the crown is built first (rows rise from the bottom, then the name types
 out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips that.
 
+### Obsidian: heading colours
+
+`obsidian/snippets/dictatoros-headings.css` (linked into every vault and switched on by
+`install.sh`) gives each heading level its own colour on top of the Omarchy theme:
+H1 red, H2 orange, H3 gold, H4 rose, H5 lilac, H6 grey. Links inside a heading keep the
+heading's colour and are shown by their underline. Change the six `--dos-h*` values at
+the top of the file to taste (Settings → Appearance → CSS snippets toggles it).
+
 ### Obsidian: Ask the Vault
 
 `obsidian/vault-ask/` is a small Obsidian plugin (no third-party code):

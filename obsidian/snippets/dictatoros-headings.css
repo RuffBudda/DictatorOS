@@ -1,0 +1,56 @@
+/* DictatorOS: a distinct colour per heading level (red → orange → gold → rose →
+   lilac → grey), and headings that contain links keep their heading colour
+   (the link is shown by its underline only). Change the six values below. */
+body {
+  --dos-h1: #e5383b;
+  --dos-h2: #ff8c42;
+  --dos-h3: #f4c95d;
+  --dos-h4: #f28da0;
+  --dos-h5: #c3a6ff;
+  --dos-h6: #a8a2a3;
+  --h1-color: var(--dos-h1); --h2-color: var(--dos-h2); --h3-color: var(--dos-h3);
+  --h4-color: var(--dos-h4); --h5-color: var(--dos-h5); --h6-color: var(--dos-h6);
+  --text-title-h1: var(--dos-h1); --text-title-h2: var(--dos-h2); --text-title-h3: var(--dos-h3);
+  --text-title-h4: var(--dos-h4); --text-title-h5: var(--dos-h5); --text-title-h6: var(--dos-h6);
+}
+.cm-header-1, .markdown-rendered h1, .HyperMD-header-1 { color: var(--dos-h1); }
+.cm-header-2, .markdown-rendered h2, .HyperMD-header-2 { color: var(--dos-h2); }
+.cm-header-3, .markdown-rendered h3, .HyperMD-header-3 { color: var(--dos-h3); }
+.cm-header-4, .markdown-rendered h4, .HyperMD-header-4 { color: var(--dos-h4); }
+.cm-header-5, .markdown-rendered h5, .HyperMD-header-5 { color: var(--dos-h5); }
+.cm-header-6, .markdown-rendered h6, .HyperMD-header-6 { color: var(--dos-h6); }
+
+/* Links inside headings: heading colour, underlined. Obsidian colours links via
+   these variables, so redefine them on each heading line / element. */
+.HyperMD-header-1, .markdown-rendered h1, .inline-title.h1 {
+  --link-color: var(--dos-h1); --link-color-hover: var(--dos-h1);
+  --link-external-color: var(--dos-h1); --link-external-color-hover: var(--dos-h1);
+  --link-unresolved-color: var(--dos-h1); --text-accent: var(--dos-h1);
+}
+.HyperMD-header-2, .markdown-rendered h2, .inline-title.h2 {
+  --link-color: var(--dos-h2); --link-color-hover: var(--dos-h2);
+  --link-external-color: var(--dos-h2); --link-external-color-hover: var(--dos-h2);
+  --link-unresolved-color: var(--dos-h2); --text-accent: var(--dos-h2);
+}
+.HyperMD-header-3, .markdown-rendered h3, .inline-title.h3 {
+  --link-color: var(--dos-h3); --link-color-hover: var(--dos-h3);
+  --link-external-color: var(--dos-h3); --link-external-color-hover: var(--dos-h3);
+  --link-unresolved-color: var(--dos-h3); --text-accent: var(--dos-h3);
+}
+.HyperMD-header-4, .markdown-rendered h4, .inline-title.h4 {
+  --link-color: var(--dos-h4); --link-color-hover: var(--dos-h4);
+  --link-external-color: var(--dos-h4); --link-external-color-hover: var(--dos-h4);
+  --link-unresolved-color: var(--dos-h4); --text-accent: var(--dos-h4);
+}
+.HyperMD-header-5, .markdown-rendered h5, .inline-title.h5 {
+  --link-color: var(--dos-h5); --link-color-hover: var(--dos-h5);
+  --link-external-color: var(--dos-h5); --link-external-color-hover: var(--dos-h5);
+  --link-unresolved-color: var(--dos-h5); --text-accent: var(--dos-h5);
+}
+.HyperMD-header-6, .markdown-rendered h6, .inline-title.h6 {
+  --link-color: var(--dos-h6); --link-color-hover: var(--dos-h6);
+  --link-external-color: var(--dos-h6); --link-external-color-hover: var(--dos-h6);
+  --link-unresolved-color: var(--dos-h6); --text-accent: var(--dos-h6);
+}
+.HyperMD-header :is(.cm-link, .cm-url, .cm-hmd-internal-link, .cm-underline, a),
+.markdown-rendered :is(h1, h2, h3, h4, h5, h6) a { color: inherit !important; }
