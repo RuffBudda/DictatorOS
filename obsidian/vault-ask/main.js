@@ -1,12 +1,15 @@
 // Ask the Vault (DictatorOS): a side chat that answers only from this vault,
 // using local models through Ollama. Nothing leaves the machine.
 //
-// How it works: notes are split into chunks and embedded with an embedding
-// model (cached in this plugin's data.json, refreshed when a note changes).
-// Each question is embedded too; the closest chunks are given to the chat
-// model, with the last few exchanges for follow-ups, and the answer streams
-// into the side panel as it is written, citing the notes it used.
-const { Plugin, ItemView, Notice, MarkdownRenderer, PluginSettingTab, Setting, FuzzySuggestModal, requestUrl, setIcon } = require("obsidian");
+// - Ask: each question is matched against the vault (embeddings cached in
+//   data.json, refreshed when a note changes); the closest chunks go to the
+//   chat model, which answers only from them, streaming, citing the notes.
+// - Expand: select text -> the model first asks clarifying questions, then
+//   writes the expanded passage (using related notes for consistency), with
+//   buttons to replace the selection or insert below it.
+// - Chats are saved (data.json) and listed under History.
+// - Link picker: link the selected text to a note or an H2 heading in a note.
+const { Plugin, ItemView, Notice, MarkdownRenderer, PluginSettingTab, Setting, FuzzySuggestModal, TFile, requestUrl, setIcon } = require("obsidian");
 
 const VIEW_TYPE = "dictatoros-vault-ask-chat";
 const DEFAULTS = {
@@ -18,8 +21,24 @@ const DEFAULTS = {
 };
 const CHUNK_CHARS = 1200;   // target chunk size
 const EMBED_BATCH = 32;     // chunks per embedding request
-const HISTORY_TURNS = 3;    // previous question/answer pairs sent for follow-ups
+const HISTORY_TURNS = 6;    // previous messages sent along for follow-ups (ask mode)
+const MAX_CHATS = 100;      // saved chats kept in History
 const NOT_FOUND = "I couldn't find that in your vault.";
+
+const ASK_SYSTEM =
+  "You answer questions using ONLY the notes provided from the user's Obsidian vault. " +
+  "Do not use outside knowledge. If the notes do not contain the answer, reply exactly: " +
+  `"${NOT_FOUND}" Be concise. When you use a note, cite it exactly as it is labelled, e.g. [[Folder/Note name]].`;
+
+const EXPAND_SYSTEM =
+  "You help the user expand a passage from their Obsidian notes. Related notes from their vault are " +
+  "provided for context; stay consistent with them and don't invent facts that contradict them.\n" +
+  "Step 1 (your first reply): do NOT write the expansion yet. Ask 2 to 4 short, numbered questions to " +
+  "understand what they need, for example purpose, audience, length, tone, and details to include. " +
+  "Reply with only the questions.\n" +
+  "Step 2 (after they answer): write the expanded passage in Markdown. Output only the passage, with no " +
+  "preamble or commentary.\n" +
+  "If they then ask for changes, output the full revised passage.";
 
 // Split a note into ~CHUNK_CHARS pieces along paragraph boundaries.
 function chunkText(text) {
@@ -44,6 +63,10 @@ function cosine(a, b) {
   for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
   return na && nb ? dot / Math.sqrt(na * nb) : 0;
 }
+
+const noteName = (path) => path.replace(/\.md$/, "");
+const notesBlock = (hits) => hits.map((h) => `Note [[${noteName(h.path)}]]:\n${h.text}`).join("\n\n---\n\n");
+const stripThink = (t) => t.replace(/<think>[\s\S]*?(<\/think>|$)/g, "");
 
 class VaultAsk {
   constructor(plugin) { this.plugin = plugin; }
@@ -87,41 +110,44 @@ class VaultAsk {
       done++;
       if (onProgress) onProgress(done, stale.length);
     }
-    if (stale.length) await this.plugin.saveIndex();
+    if (stale.length) await this.plugin.save();
     return stale.length;
   }
 
-  async search(question) {
-    const [q] = await this.embed(["search_query: " + question]);
+  async search(text, k) {
+    const [q] = await this.embed(["search_query: " + text]);
     const hits = [];
     for (const [path, entry] of Object.entries(this.plugin.index))
       for (const c of entry.chunks) hits.push({ path, text: c.text, score: cosine(q, c.vec) });
     hits.sort((a, b) => b.score - a.score);
-    return hits.filter((h) => h.score >= this.s.minScore).slice(0, this.s.topK);
+    return hits.filter((h) => h.score >= this.s.minScore).slice(0, k || this.s.topK);
   }
 
-  messages(question, hits, history) {
-    const notes = hits.map((h) => `Note [[${h.path.replace(/\.md$/, "")}]]:\n${h.text}`).join("\n\n---\n\n");
-    const system =
-      "You answer questions using ONLY the notes provided from the user's Obsidian vault. " +
-      "Do not use outside knowledge. If the notes do not contain the answer, reply exactly: " +
-      `"${NOT_FOUND}" Be concise. When you use a note, cite it exactly as it is labelled, e.g. [[Folder/Note name]].`;
-    const past = [];
-    for (const t of history.slice(-HISTORY_TURNS)) past.push({ role: "user", content: t.question }, { role: "assistant", content: t.answer });
+  // Ask mode: system + recent turns + (notes + question).
+  askMessages(question, hits, turns) {
+    const past = turns.slice(-HISTORY_TURNS).map((t) => ({ role: t.role, content: t.content }));
     return [
-      { role: "system", content: system },
+      { role: "system", content: ASK_SYSTEM },
       ...past,
-      { role: "user", content: `Notes:\n\n${notes}\n\nQuestion: ${question}` },
+      { role: "user", content: `Notes:\n\n${notesBlock(hits)}\n\nQuestion: ${question}` },
     ];
   }
 
-  // Stream the answer: onToken(fullTextSoFar) is called as the model writes.
-  async streamAnswer(question, hits, history, onToken, signal) {
+  // Expand mode: system + the passage and related notes + the whole conversation.
+  expandMessages(expand, hits, turns) {
+    const ctx = `Passage to expand (from [[${noteName(expand.path)}]]):\n"""\n${expand.text}\n"""\n\n` +
+      (hits.length ? `Related notes from the vault:\n\n${notesBlock(hits)}` : "No related notes were found in the vault.");
+    return [{ role: "system", content: EXPAND_SYSTEM }, { role: "user", content: ctx },
+      ...turns.map((t) => ({ role: t.role, content: t.content }))];
+  }
+
+  // Stream a chat completion: onToken(fullTextSoFar) is called as the model writes.
+  async stream(messages, onToken, signal, temperature) {
     let res;
     try {
       res = await fetch(this.base + "/api/chat", {
         method: "POST", signal, headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: this.s.chatModel, stream: true, think: false, options: { temperature: 0.2 }, messages: this.messages(question, hits, history) }),
+        body: JSON.stringify({ model: this.s.chatModel, stream: true, think: false, options: { temperature }, messages }),
       });
     } catch (e) {
       if (e.name === "AbortError") throw e;
@@ -141,30 +167,35 @@ class VaultAsk {
         if (!line) continue;
         const msg = JSON.parse(line);
         if (msg.error) throw new Error("Ollama: " + msg.error);
-        if (msg.message && msg.message.content) { text += msg.message.content; onToken(text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "")); }
+        if (msg.message && msg.message.content) { text += msg.message.content; onToken(stripThink(text)); }
       }
     }
-    return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    return stripThink(text).trim();
   }
 }
 
 class ChatView extends ItemView {
-  constructor(leaf, plugin) { super(leaf); this.plugin = plugin; this.ask = new VaultAsk(plugin); this.history = []; this.abort = null; }
+  constructor(leaf, plugin) { super(leaf); this.plugin = plugin; this.ask = new VaultAsk(plugin); this.chat = null; this.abort = null; this.showingHistory = false; }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return "Ask the Vault"; }
   getIcon() { return "bot"; }
+
+  iconButton(parent, icon, label, onClick) {
+    const b = parent.createEl("button", { cls: "clickable-icon vault-ask-icon", attr: { "aria-label": label } });
+    setIcon(b, icon); b.onclick = onClick; return b;
+  }
 
   async onOpen() {
     const root = this.contentEl;
     root.empty(); root.addClass("vault-ask-view");
     const head = root.createDiv({ cls: "vault-ask-head" });
-    head.createSpan({ text: "Ask the Vault", cls: "vault-ask-title" });
-    head.createSpan({ text: "local · only your notes", cls: "vault-ask-sub" });
-    const newBtn = head.createEl("button", { text: "New chat", cls: "vault-ask-new" });
-    newBtn.onclick = () => this.reset();
+    this.titleEl = head.createDiv({ cls: "vault-ask-title", text: "Ask the Vault" });
+    this.historyBtn = this.iconButton(head, "history", "Previous chats", () => this.toggleHistory());
+    this.iconButton(head, "square-pen", "New chat", () => this.newChat());
+    this.iconButton(head, "panel-right-close", "Close chat panel", () => this.leaf.detach());
 
     this.log = root.createDiv({ cls: "vault-ask-log" });
-    // Clicks on [[links]] in answers open the note.
+    // Clicks on [[links]] in answers and on source links open the note.
     this.log.addEventListener("click", (e) => {
       const a = e.target.closest("a.internal-link, a.vault-ask-source");
       if (!a) return;
@@ -173,24 +204,137 @@ class ChatView extends ItemView {
     });
 
     // Composer: one rounded box holding the text area and a round send button.
-    const form = root.createDiv({ cls: "vault-ask-form" });
-    const box = form.createDiv({ cls: "vault-ask-composer" });
+    this.form = root.createDiv({ cls: "vault-ask-form" });
+    const box = this.form.createDiv({ cls: "vault-ask-composer" });
     this.input = box.createEl("textarea", { cls: "vault-ask-input", attr: { rows: "1", placeholder: "Ask about your notes…", title: "Enter to send · Shift+Enter for a new line" } });
     this.sendBtn = box.createEl("button", { cls: "vault-ask-send", attr: { "aria-label": "Send" } });
     setIcon(this.sendBtn, "arrow-up");
     this.sendBtn.onclick = () => (this.abort ? this.abort.abort() : this.send());
-    const grow = () => { this.input.style.height = "auto"; this.input.style.height = Math.min(this.input.scrollHeight, 180) + "px"; };
-    this.input.addEventListener("input", grow);
-    this.input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!this.abort) { this.send(); grow(); } } });
-    this.reset();
+    this.grow = () => { this.input.style.height = "auto"; this.input.style.height = Math.min(this.input.scrollHeight, 180) + "px"; };
+    this.input.addEventListener("input", this.grow);
+    this.input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!this.abort) this.send(); } });
+    this.newChat();
   }
 
-  reset() {
+  async onClose() { if (this.abort) this.abort.abort(); }
+
+  // ── chats ────────────────────────────────────────────────────────────────
+  newChat(mode, expand) {
     if (this.abort) this.abort.abort();
-    this.history = [];
+    this.chat = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), mode: mode || "ask", title: "", created: Date.now(), turns: [], expand: expand || null };
+    this.showingHistory = false; this.historyBtn.removeClass("is-active");
+    this.titleEl.setText(this.chat.mode === "expand" ? "Expand with AI" : "Ask the Vault");
+    this.input.placeholder = this.chat.mode === "expand" ? "Answer the questions, or ask for changes…" : "Ask about your notes…";
+    this.form.show();
     this.log.empty();
-    this.log.createDiv({ cls: "vault-ask-hint", text: "Ask anything your notes can answer. Answers come only from this vault, run on this laptop, and link the notes they used." });
-    if (this.input) this.input.focus();
+    if (this.chat.mode === "ask")
+      this.log.createDiv({ cls: "vault-ask-hint", text: "Ask anything your notes can answer. Answers come only from this vault, run on this laptop, and link the notes they used." });
+    this.input.focus();
+  }
+
+  async saveChat() {
+    const c = this.chat;
+    if (!c.turns.length) return;
+    if (!c.title) {
+      const first = c.mode === "expand" ? "Expand: " + c.expand.text : c.turns[0].content;
+      c.title = first.replace(/\s+/g, " ").trim().slice(0, 60);
+    }
+    c.updated = Date.now();
+    const chats = this.plugin.chats.filter((x) => x.id !== c.id);
+    chats.unshift(JSON.parse(JSON.stringify(c)));
+    this.plugin.chats = chats.slice(0, MAX_CHATS);
+    await this.plugin.save();
+  }
+
+  openChat(saved) {
+    this.newChat(saved.mode, saved.expand);
+    this.chat = JSON.parse(JSON.stringify(saved));
+    this.titleEl.setText(this.chat.mode === "expand" ? "Expand with AI" : "Ask the Vault");
+    this.log.empty();
+    if (this.chat.mode === "expand") this.renderPassage();
+    let answers = 0;
+    for (const t of this.chat.turns) {
+      if (t.role === "user") this.log.createDiv({ cls: "vault-ask-msg vault-ask-user", text: t.content });
+      else this.renderBot(t.content, t.sources, this.chat.mode === "expand" && answers++ > 0);
+    }
+    this.scroll();
+  }
+
+  toggleHistory() {
+    if (this.showingHistory) { this.openChat(this.chat); return; }
+    this.showingHistory = true; this.historyBtn.addClass("is-active");
+    this.form.hide();
+    this.log.empty();
+    const chats = this.plugin.chats;
+    this.log.createDiv({ cls: "vault-ask-section", text: "Previous chats" });
+    if (!chats.length) { this.log.createDiv({ cls: "vault-ask-hint", text: "No saved chats yet." }); return; }
+    for (const c of chats) {
+      const row = this.log.createDiv({ cls: "vault-ask-chat-row" });
+      const ic = row.createSpan({ cls: "vault-ask-chat-icon" }); setIcon(ic, c.mode === "expand" ? "wand-2" : "message-square");
+      const txt = row.createDiv({ cls: "vault-ask-chat-text" });
+      txt.createDiv({ cls: "vault-ask-chat-title", text: c.title || "(untitled)" });
+      txt.createDiv({ cls: "vault-ask-chat-date", text: new Date(c.updated || c.created).toLocaleString() });
+      const del = this.iconButton(row, "trash-2", "Delete chat", async (e) => {
+        e.stopPropagation();
+        this.plugin.chats = this.plugin.chats.filter((x) => x.id !== c.id);
+        await this.plugin.save();
+        this.showingHistory = false; this.toggleHistory();
+      });
+      del.addClass("vault-ask-chat-del");
+      row.onclick = () => this.openChat(c);
+    }
+  }
+
+  // ── rendering ────────────────────────────────────────────────────────────
+  scroll() { this.log.scrollTop = this.log.scrollHeight; }
+
+  renderPassage() {
+    const e = this.chat.expand;
+    const q = this.log.createDiv({ cls: "vault-ask-passage" });
+    q.createDiv({ cls: "vault-ask-passage-label", text: "Expanding from " + noteName(e.path) });
+    q.createDiv({ cls: "vault-ask-passage-text", text: e.text });
+  }
+
+  renderBot(text, sources, withActions) {
+    const bubble = this.log.createDiv({ cls: "vault-ask-msg vault-ask-bot" });
+    const body = bubble.createDiv({ cls: "vault-ask-body markdown-rendered" });
+    MarkdownRenderer.render(this.app, text, body, "", this);
+    if (sources && sources.length) this.renderSources(bubble, sources);
+    if (withActions) this.renderActions(bubble, text);
+    return bubble;
+  }
+
+  renderSources(bubble, sources) {
+    const src = bubble.createDiv({ cls: "vault-ask-sources" });
+    src.createSpan({ text: this.chat.mode === "expand" ? "Context: " : "Searched: ", cls: "vault-ask-sources-title" });
+    for (const p of sources) src.createEl("a", { text: noteName(p), cls: "vault-ask-source", href: "#", attr: { "data-href": p } });
+  }
+
+  renderActions(bubble, text) {
+    const bar = bubble.createDiv({ cls: "vault-ask-actions" });
+    const mk = (label, icon, fn) => { const b = bar.createEl("button", { cls: "vault-ask-action" }); const i = b.createSpan(); setIcon(i, icon); b.createSpan({ text: label }); b.onclick = fn; };
+    mk("Replace selection", "replace", () => this.applyExpansion(text, "replace"));
+    mk("Insert below", "list-plus", () => this.applyExpansion(text, "below"));
+    mk("Copy", "copy", async () => { await navigator.clipboard.writeText(text); new Notice("Copied"); });
+  }
+
+  // Put the expansion into the note: replace the original passage, or add it after it.
+  async applyExpansion(text, how) {
+    const e = this.chat.expand;
+    const file = this.app.vault.getAbstractFileByPath(e.path);
+    if (!(file instanceof TFile)) { await navigator.clipboard.writeText(text); new Notice("Note not found; the text is on your clipboard."); return; }
+    let found = false;
+    await this.app.vault.process(file, (data) => {
+      const i = data.indexOf(e.text);
+      if (i < 0) return data;
+      found = true;
+      return how === "replace" ? data.slice(0, i) + text + data.slice(i + e.text.length)
+                               : data.slice(0, i + e.text.length) + "\n\n" + text + data.slice(i + e.text.length);
+    });
+    if (!found) { await navigator.clipboard.writeText(text); new Notice("The original text has changed in the note; the expansion is on your clipboard."); return; }
+    if (how === "replace") e.text = text;   // so a later "replace" swaps this version
+    await this.saveChat();
+    new Notice(how === "replace" ? "Selection replaced" : "Inserted below the selection");
   }
 
   setBusy(busy) {
@@ -199,47 +343,77 @@ class ChatView extends ItemView {
     this.sendBtn.toggleClass("vault-ask-stop", busy);
   }
 
-  scroll() { this.log.scrollTop = this.log.scrollHeight; }
+  // ── sending ──────────────────────────────────────────────────────────────
+  async startExpand(path, text) {
+    this.newChat("expand", { path, text });
+    this.renderPassage();
+    await this.run(null);
+  }
 
   async send() {
-    const question = this.input.value.trim();
-    if (!question) return;
-    this.input.value = ""; this.input.style.height = "auto";
+    const content = this.input.value.trim();
+    if (!content || this.showingHistory) return;
+    this.input.value = ""; this.grow();
     const hint = this.log.querySelector(".vault-ask-hint"); if (hint) hint.remove();
-    this.log.createDiv({ cls: "vault-ask-msg vault-ask-user", text: question });
+    this.log.createDiv({ cls: "vault-ask-msg vault-ask-user", text: content });
+    await this.run(content);
+  }
+
+  // One model reply. content = the user's new message (null for the first expand turn).
+  async run(content) {
+    const chat = this.chat;
     const bubble = this.log.createDiv({ cls: "vault-ask-msg vault-ask-bot" });
     const status = bubble.createDiv({ cls: "vault-ask-status" });
     const body = bubble.createDiv({ cls: "vault-ask-body markdown-rendered" });
     this.scroll();
     this.abort = new AbortController();
     this.setBusy(true);
-    let answer = "";
+    let answer = "", sources = [];
     try {
       status.setText("Indexing notes…");
       await this.ask.refreshIndex((d, n) => status.setText(`Indexing notes… ${d}/${n}`));
       status.setText("Searching your notes…");
-      const hits = await this.ask.search(question);
-      if (!hits.length) { status.remove(); body.setText(NOT_FOUND); this.history.push({ question, answer: NOT_FOUND }); return; }
-      status.setText("Thinking (local model)…");
+      let messages, temperature;
+      if (chat.mode === "expand") {
+        const hits = await this.ask.search(chat.expand.text, 4);
+        sources = [...new Set(hits.map((h) => h.path))];
+        if (content) chat.turns.push({ role: "user", content });
+        messages = this.ask.expandMessages(chat.expand, hits, chat.turns);
+        temperature = 0.6;
+      } else {
+        const hits = await this.ask.search(content);
+        sources = [...new Set(hits.map((h) => h.path))];
+        if (!hits.length) {
+          status.remove(); body.setText(NOT_FOUND);
+          chat.turns.push({ role: "user", content }, { role: "assistant", content: NOT_FOUND });
+          await this.saveChat(); return;
+        }
+        messages = this.ask.askMessages(content, hits, chat.turns);
+        chat.turns.push({ role: "user", content });
+        temperature = 0.2;
+      }
+      status.setText(chat.mode === "expand" && !content ? "Reading the passage…" : "Thinking (local model)…");
       let pending = null, latest = "";
       const render = async () => { pending = null; body.empty(); await MarkdownRenderer.render(this.app, latest, body, "", this); this.scroll(); };
-      answer = await this.ask.streamAnswer(question, hits, this.history, (t) => {
+      answer = await this.ask.stream(messages, (t) => {
         if (status.isConnected) status.remove();
         latest = t;
         if (!pending) pending = setTimeout(render, 60);   // re-render at most ~16x a second
-      }, this.abort.signal);
+      }, this.abort.signal, temperature);
       if (pending) clearTimeout(pending);
       latest = answer; await render();
-      this.history.push({ question, answer });
-      // The notes the answer was drawn from.
-      const src = bubble.createDiv({ cls: "vault-ask-sources" });
-      src.createSpan({ text: "Searched: ", cls: "vault-ask-sources-title" });
-      for (const p of [...new Set(hits.map((h) => h.path))])
-        src.createEl("a", { text: p.replace(/\.md$/, ""), cls: "vault-ask-source", href: "#", attr: { "data-href": p } });
+      chat.turns.push({ role: "assistant", content: answer, sources });
+      if (sources.length) this.renderSources(bubble, sources);
+      // In expand chats every reply after the questions is a draft you can use.
+      const replies = chat.turns.filter((t) => t.role === "assistant").length;
+      if (chat.mode === "expand" && replies > 1) this.renderActions(bubble, answer);
+      await this.saveChat();
     } catch (e) {
       if (status.isConnected) status.remove();
-      if (e.name === "AbortError") { body.createDiv({ cls: "vault-ask-note", text: "(stopped)" }); if (answer) this.history.push({ question, answer }); }
-      else body.setText("Error: " + e.message);
+      if (e.name === "AbortError") {
+        body.createDiv({ cls: "vault-ask-note", text: "(stopped)" });
+        if (answer) { chat.turns.push({ role: "assistant", content: answer, sources }); await this.saveChat(); }
+      } else body.setText("Error: " + e.message);
     } finally {
       this.abort = null;
       this.setBusy(false);
@@ -247,8 +421,6 @@ class ChatView extends ItemView {
       this.input.focus();
     }
   }
-
-  async onClose() { if (this.abort) this.abort.abort(); }
 }
 
 // "Link selection to…": pick a note, or an H2 heading inside a note, and turn
@@ -269,7 +441,7 @@ class LinkPicker extends FuzzySuggestModal {
     return items;
   }
   getItemText(item) {
-    const note = item.file.path.replace(/\.md$/, "");
+    const note = noteName(item.file.path);
     return item.heading ? `${note} › ${item.heading}` : note;
   }
   renderSuggestion(match, el) {
@@ -278,9 +450,9 @@ class LinkPicker extends FuzzySuggestModal {
     if (item.heading) {
       el.createSpan({ text: "## ", cls: "vault-ask-link-h2" });
       el.createSpan({ text: item.heading });
-      el.createSpan({ text: "  " + item.file.path.replace(/\.md$/, ""), cls: "vault-ask-link-path" });
+      el.createSpan({ text: "  " + noteName(item.file.path), cls: "vault-ask-link-path" });
     } else {
-      el.createSpan({ text: item.file.path.replace(/\.md$/, "") });
+      el.createSpan({ text: noteName(item.file.path) });
     }
   }
   onChooseItem(item) {
@@ -297,17 +469,21 @@ class VaultAskSettings extends PluginSettingTab {
     const { containerEl } = this; containerEl.empty();
     const s = this.plugin.settings;
     const text = (name, desc, key) => new Setting(containerEl).setName(name).setDesc(desc)
-      .addText((t) => t.setValue(String(s[key])).onChange(async (v) => { s[key] = key === "topK" ? (parseInt(v, 10) || DEFAULTS.topK) : v.trim(); await this.plugin.saveSettings(); }));
+      .addText((t) => t.setValue(String(s[key])).onChange(async (v) => { s[key] = key === "topK" ? (parseInt(v, 10) || DEFAULTS.topK) : v.trim(); await this.plugin.save(); }));
     text("Ollama URL", "Where the local Ollama server listens.", "ollamaUrl");
     text("Chat model", "Ollama model that writes the answers.", "chatModel");
     text("Embedding model", "Ollama model used to search notes (changing it re-indexes the vault).", "embedModel");
     text("Notes per answer", "How many note chunks are given to the model.", "topK");
     new Setting(containerEl).setName("Rebuild index").setDesc("Re-embed every note from scratch.")
       .addButton((b) => b.setButtonText("Rebuild").onClick(async () => {
-        this.plugin.index = {}; await this.plugin.saveIndex();
+        this.plugin.index = {}; await this.plugin.save();
         new Notice("Ask the Vault: indexing…");
         const n = await new VaultAsk(this.plugin).refreshIndex();
         new Notice(`Ask the Vault: indexed ${n} notes.`);
+      }));
+    new Setting(containerEl).setName("Delete chat history").setDesc(`${this.plugin.chats.length} saved chats.`)
+      .addButton((b) => b.setButtonText("Delete all").setWarning().onClick(async () => {
+        this.plugin.chats = []; await this.plugin.save(); this.display(); new Notice("Chat history deleted");
       }));
   }
 }
@@ -317,6 +493,7 @@ module.exports = class VaultAskPlugin extends Plugin {
     const data = (await this.loadData()) || {};
     this.settings = Object.assign({}, DEFAULTS, data.settings || {});
     this.index = data.index || {};
+    this.chats = data.chats || [];
     this.registerView(VIEW_TYPE, (leaf) => new ChatView(leaf, this));
     this.addRibbonIcon("bot", "Ask the Vault (local AI side chat)", () => this.openChat());
     this.addCommand({ id: "open-chat", name: "Open side chat", callback: () => this.openChat() });
@@ -332,25 +509,37 @@ module.exports = class VaultAskPlugin extends Plugin {
     const pick = (editor, view) => new LinkPicker(this.app, editor, view.file ? view.file.path : "").open();
     this.addCommand({ id: "link-selection", name: "Link selection to note or heading…", icon: "link",
       hotkeys: [{ modifiers: ["Mod", "Shift"], key: "l" }], editorCallback: pick });
+    // Expand the selected text (the AI asks clarifying questions first).
+    const expand = async (editor, view) => {
+      const text = editor.getSelection().trim();
+      if (!text) { new Notice("Select the text you want to expand first."); return; }
+      if (!view.file) return;
+      const chat = await this.openChat();
+      if (chat) await chat.startExpand(view.file.path, text);
+    };
+    this.addCommand({ id: "expand-selection", name: "Expand selection with AI…", icon: "wand-2",
+      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "e" }], editorCallback: expand });
     this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor, view) => {
-      menu.addItem((item) => item.setTitle(editor.getSelection() ? "Link selection to…" : "Insert link to note or heading…")
-        .setIcon("link").onClick(() => pick(editor, view)));
+      const sel = !!editor.getSelection().trim();
+      menu.addItem((item) => item.setTitle(sel ? "Link selection to…" : "Insert link to note or heading…").setIcon("link").onClick(() => pick(editor, view)));
+      if (sel) menu.addItem((item) => item.setTitle("Expand with AI…").setIcon("wand-2").onClick(() => expand(editor, view)));
     }));
   }
 
+  // Open (or reveal) the side chat and return its view.
   async openChat() {
     let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
     if (!leaf) {
       leaf = this.app.workspace.getRightLeaf(false);
       await leaf.setViewState({ type: VIEW_TYPE, active: true });
     }
-    this.app.workspace.revealLeaf(leaf);
+    await this.app.workspace.revealLeaf(leaf);
     const view = leaf.view;
     if (view && view.input) setTimeout(() => view.input.focus(), 50);
+    return view instanceof ChatView ? view : null;
   }
 
-  async saveSettings() { await this.saveData({ settings: this.settings, index: this.index }); }
-  async saveIndex() { await this.saveData({ settings: this.settings, index: this.index }); }
+  async save() { await this.saveData({ settings: this.settings, index: this.index, chats: this.chats }); }
 };
 
 // Exposed for tests (not used by Obsidian).

@@ -362,7 +362,14 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   sidebar. Answers **stream in as they're written**, come **only from your vault** (local
   models through [Ollama](https://ollama.com), nothing leaves the machine), and link the
   notes they used. If the notes don't cover the question it says so instead of guessing.
-  Follow-up questions work; **Stop** halts an answer, **New chat** starts over.
+  Follow-up questions work. The header has **history** (every chat is saved; reopen or
+  delete them), **new chat**, and **close panel**. The send button turns into **stop**
+  while an answer streams.
+- **Expand with AI.** Select text, then right-click → **Expand with AI…** (or Ctrl+Shift+E).
+  Before writing anything the AI asks a few questions (purpose, audience, length, tone,
+  details), then writes the expanded passage using related notes for consistency. Each
+  draft has **Replace selection**, **Insert below** and **Copy**; ask for changes to get a
+  new draft.
 - **Link selection to a note or an H2.** Select text, then right-click → **Link selection
   to…** (or Ctrl+Shift+L): pick a note, or a specific `##` heading in any note, and the
   selection becomes `[[Note#Heading|selected text]]`.
@@ -376,7 +383,7 @@ Setup and details:
 - `install.sh` links it into every Obsidian vault and enables it.
 - Notes are indexed the first time you ask and only changed notes are re-indexed after
   that. The index is stored in the plugin's `data.json`, which is git-ignored because it
-  contains note text.
+  contains note text. Saved chats live there too (Settings → Ask the Vault → Delete all to clear them).
 - Models and the Ollama address can be changed in Settings → Ask the Vault.
 
 ### Theme
