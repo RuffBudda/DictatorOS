@@ -380,12 +380,15 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   last vault auto-link") puts every note back. "Auto-link mentions in this note" still
   does just the open note (Ctrl+Z undoes it).
 - **Link selection to…** Select text, then right-click → **Link selection to…** (or
-  Ctrl+Shift+L). It opens a tree like the file explorer: **folder › note › `##` heading**,
+  Ctrl+Shift+L). It opens a tree like the file explorer: **folder › note (or canvas) › `##` heading**,
   then a **Tags** tree where each tag opens to the notes that use it. Filter chips across
   the top (**All · Notes · Headings · Tags**, or Tab to switch) narrow it down, and typing
   searches within the filter (start with `#` for tags). ← / → close and open branches,
   ↑ / ↓ move, Enter links. The note already linked on the current line (e.g. a table
   row) is marked *this row*.
+  **Folders** can be linked too: clicking the link opens that folder in the file explorer
+  (Obsidian has no folder links, so these are `obsidian://dictatoros-folder` links the
+  plugin handles).
   A note or heading turns the selection into
   `[[Note#Heading|selected text]]`. A **tag** links every heading that carries it (the tag
   right under a heading belongs to that heading), either everywhere (the tag itself) or
