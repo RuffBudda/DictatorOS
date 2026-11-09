@@ -798,7 +798,7 @@ class HeadingGraphView extends ItemView {
     this.legend = root.createDiv({ cls: "vault-ask-graph-legend" });
     const key = (cls, label, opt) => {
       const i = this.legend.createDiv({ cls: "vault-ask-graph-key" + (opt ? " is-toggle" : "") });
-      i.createSpan({ cls: (cls === "shared" ? "line " : "dot ") + cls }); i.createSpan({ text: label });
+      i.createSpan({ cls: (cls === "shared" ? "vault-ask-gl-line " : "vault-ask-gl-dot ") + "is-" + cls }); i.createSpan({ text: label });
       if (opt) { i.dataset.opt = opt; i.setAttribute("aria-label", "Show / hide " + label.toLowerCase()); i.onclick = () => this.toggle(opt); }
     };
     key("note", "Note"); key("canvas", "Canvas"); key("heading", "Headings", "headings"); key("tag", "Tags", "tags"); key("folder", "Folders", "folders"); key("shared", "Same tag", "shared");
