@@ -85,7 +85,7 @@
 /* Heading graph */
 .vault-ask-graph { position: relative; padding: 0 !important; overflow: hidden; }
 .vault-ask-graph canvas { display: block; cursor: grab; }
-.vault-ask-graph-legend { position: absolute; left: 12px; top: 12px; flex-wrap: wrap; max-width: calc(100% - 320px); display: flex; gap: 12px; font-size: var(--font-ui-smaller); color: var(--text-muted); background: var(--background-primary); padding: 4px 10px; border: 1px solid var(--background-modifier-border); border-radius: 999px; }
+.vault-ask-graph-legend { position: absolute; left: 12px; bottom: 44px; flex-wrap: wrap; max-width: calc(100% - 24px); display: flex; gap: 4px 12px; font-size: var(--font-ui-smaller); color: var(--text-muted); background: var(--background-primary); padding: 4px 10px; border: 1px solid var(--background-modifier-border); border-radius: 10px; }
 .vault-ask-graph-key { display: flex; align-items: center; gap: 5px; }
 .vault-ask-graph-key .vault-ask-gl-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .vault-ask-graph-key .vault-ask-gl-dot.is-note { background: var(--text-normal); }
@@ -208,3 +208,4 @@ a.external-link[href^="obsidian://dictatoros-folder"]::after { display: none !im
 .vault-ask-gp-pop { position: absolute; z-index: 20; padding: 10px; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: 10px; box-shadow: var(--shadow-l); display: flex; flex-direction: column; gap: 8px; }
 .vault-ask-gp-pop-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; justify-items: center; }
 .vault-ask-graph-key .vault-ask-gl-dot.is-canvas { background: var(--text-normal); border-radius: 0; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); width: 9px; height: 9px; }
+.vault-ask-graph-key { white-space: nowrap; }
