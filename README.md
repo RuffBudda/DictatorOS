@@ -380,14 +380,16 @@ out, ~0.7 s) and fastfetch prints the info beside it. `FETCH_NO_ANIM=1` skips th
   last vault auto-link") puts every note back. "Auto-link mentions in this note" still
   does just the open note (Ctrl+Z undoes it).
 - **Link selection to…** Select text, then right-click → **Link selection to…** (or
-  Ctrl+Shift+L). The list is a tree in sections: **This row** (the notes linked on the
-  current line, e.g. the Department column of a table row, with their headings and
-  tags), **Notes** (each note with its `##` headings nested under it) and **Tags**. Type
-  to search (headings then show as `Note › Heading`), or start with `#` for tags only.
+  Ctrl+Shift+L). It opens a tree like the file explorer: **folder › note › `##` heading**,
+  then a **Tags** tree where each tag opens to the notes that use it. Filter chips across
+  the top (**All · Notes · Headings · Tags**, or Tab to switch) narrow it down, and typing
+  searches within the filter (start with `#` for tags). ← / → close and open branches,
+  ↑ / ↓ move, Enter links. The note already linked on the current line (e.g. a table
+  row) is marked *this row*.
   A note or heading turns the selection into
   `[[Note#Heading|selected text]]`. A **tag** links every heading that carries it (the tag
-  right under a heading belongs to that heading), either across all notes or, from the
-  suggestions, only in that row's note. The links go after your text with a `·`, no
+  right under a heading belongs to that heading), either everywhere (the tag itself) or
+  only in one note (the note under the tag, e.g. `#data-collection › only in Marketing`). The links go after your text with a `·`, no
   brackets: `Initial Data Collection · GEO Issues`. They are **live**: they sit between
   hidden `%%tag:…%%` markers and update by themselves when you tag or untag headings.
   `|` is escaped automatically inside tables.

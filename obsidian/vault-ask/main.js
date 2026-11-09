@@ -9,7 +9,7 @@
 //   buttons to replace the selection or insert below it.
 // - Chats are saved (data.json) and listed under History.
 // - Link picker: link the selected text to a note or an H2 heading in a note.
-const { Plugin, ItemView, Modal, Notice, MarkdownRenderer, PluginSettingTab, Setting, FuzzySuggestModal, SuggestModal, prepareFuzzySearch, TFile, requestUrl, setIcon } = require("obsidian");
+const { Plugin, ItemView, Modal, Notice, MarkdownRenderer, PluginSettingTab, Setting, TFile, requestUrl, setIcon } = require("obsidian");
 
 const VIEW_TYPE = "dictatoros-vault-ask-chat";
 const DEFAULTS = {
@@ -933,98 +933,186 @@ function refreshTagBlocks(app, text, sourcePath) {
   });
 }
 
-// Picker laid out as a tree: "This row" (notes linked on the current line, with
-// their headings and tags), then every note with its headings nested beneath,
-// then tags. Headings always carry their note ("Departments › Marketing"), so
-// a heading and a note with the same name never look alike.
-class LinkPicker extends SuggestModal {
+// Link picker: a tree like the file explorer (folder › note › heading) plus a
+// tag tree (tag › the notes that use it), with filter chips across the top.
+// Arrows move, → / ← open and close, Tab switches filter, Enter links.
+const PICK_FILTERS = [
+  { id: "all", label: "All", picks: ["note", "heading", "tag", "tagnote"] },
+  { id: "notes", label: "Notes", picks: ["note"] },
+  { id: "headings", label: "Headings", picks: ["heading"] },
+  { id: "tags", label: "Tags", picks: ["tag", "tagnote"] },
+];
+
+class LinkPicker extends Modal {
   constructor(app, editor, sourcePath) {
     super(app); this.editor = editor; this.sourcePath = sourcePath;
-    this.setPlaceholder("Link to… (type a note or heading, or # for tags)");
-    this.setInstructions([{ command: "↑↓", purpose: "move" }, { command: "↵", purpose: "link the selected text" }, { command: "#", purpose: "tags only" }, { command: "esc", purpose: "cancel" }]);
-    this.limit = 300;
     const line = editor.getLine(editor.getCursor("from").line);
+    this.inTable = line.trimStart().startsWith("|");
     this.lineNotes = [];
     for (const m of line.matchAll(/\[\[([^\]|#]+)/g)) {
       const f = app.metadataCache.getFirstLinkpathDest(m[1].trim(), sourcePath);
       if (f && !this.lineNotes.includes(f)) this.lineNotes.push(f);
     }
-    this.inTable = line.trimStart().startsWith("|");
-    this.all = this.build();
+    this.filter = "all"; this.query = ""; this.cursor = 0;
+    this.collapsed = new Set();
+    this.roots = this.build();
   }
+
   build() {
-    const items = [];
     const h2s = (file) => ((this.app.metadataCache.getFileCache(file) || {}).headings || []).filter((h) => h.level === 2);
-    const tags = tagTargets(this.app);
-    const where = (t) => t.heading ? `${t.file.basename} › ${t.heading}` : t.file.basename;
-    for (const file of this.lineNotes) {
-      items.push({ group: "This row", type: "note", file });
-      for (const h of h2s(file)) items.push({ group: "This row", type: "heading", file, heading: h.heading, nested: true });
-      for (const t of tags) {
-        const mine = t.targets.filter((x) => x.file === file);
-        if (mine.length) items.push({ group: "This row", type: "tag", tag: t.tag, scope: mine.length < t.targets.length ? file : null, targets: mine.length < t.targets.length ? mine : t.targets, nested: true });
-      }
+    // Folder › note › heading
+    const top = { kind: "root", children: [] }, folders = new Map([["", top]]);
+    const folderNode = (path) => {
+      if (folders.has(path)) return folders.get(path);
+      const parent = folderNode(path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
+      const n = { kind: "folder", id: "f:" + path, label: path.split("/").pop(), children: [] };
+      parent.children.push(n); folders.set(path, n); return n;
+    };
+    for (const file of this.app.vault.getMarkdownFiles().sort((a, b) => a.path.localeCompare(b.path))) {
+      const dir = file.parent && file.parent.path !== "/" ? file.parent.path : "";
+      folderNode(dir).children.push({ kind: "note", id: "n:" + file.path, label: file.basename, file, row: this.lineNotes.includes(file),
+        children: h2s(file).map((h) => ({ kind: "heading", id: "h:" + file.path + "#" + h.heading, label: h.heading, file, heading: h.heading, children: [] })) });
     }
-    for (const file of this.app.vault.getMarkdownFiles().sort((a, b) => a.basename.localeCompare(b.basename))) {
-      if (this.lineNotes.includes(file)) continue;
-      items.push({ group: "Notes", type: "note", file });
-      for (const h of h2s(file)) items.push({ group: "Notes", type: "heading", file, heading: h.heading, nested: true });
-    }
-    for (const t of tags) items.push({ group: "Tags", type: "tag", tag: t.tag, scope: null, targets: t.targets });
-    for (const it of items) {
-      it.text = it.type === "tag" ? `${it.tag} ${it.targets.map(where).join(" ")}`
-        : it.type === "heading" ? `${it.file.basename} ${it.heading}` : `${it.file.basename} ${it.file.path}`;
-      it.where = where;
-    }
-    return items;
+    const sortTree = (n) => { n.children.sort((a, b) => (a.kind === "folder" ? 0 : 1) - (b.kind === "folder" ? 0 : 1) || a.label.localeCompare(b.label)); n.children.forEach(sortTree); };
+    sortTree(top);
+    // Tag › note (only that note's headings)
+    const where = (t) => t.heading || "whole note";
+    const tags = { kind: "section", id: "s:tags", label: "Tags", children: tagTargets(this.app).map((t) => {
+      const byNote = new Map();
+      for (const x of t.targets) { if (!byNote.has(x.file)) byNote.set(x.file, []); byNote.get(x.file).push(x); }
+      const kids = byNote.size > 1 ? [...byNote].map(([file, list]) => ({ kind: "tagnote", id: "t:" + t.tag + ":" + file.path, label: file.basename, file, tag: t.tag, scope: file, targets: list, row: this.lineNotes.includes(file), detail: list.map(where).join(", "), children: [] })) : [];
+      return { kind: "tag", id: "t:" + t.tag, label: t.tag, tag: t.tag, scope: null, targets: t.targets, children: kids,
+        detail: t.targets.map((x) => x.heading ? x.file.basename + " › " + x.heading : x.file.basename).join(", ") };
+    }) };
+    return [{ kind: "section", id: "s:notes", label: "Notes", children: top.children }, tags];
   }
-  getSuggestions(query) {
-    let q = query.trim(), items = this.all;
-    if (q.startsWith("#")) { items = items.filter((i) => i.type === "tag"); q = q.slice(1); }
-    let out;
-    if (!q) out = items.map((i) => Object.assign({}, i));
-    else {
-      const fuzzy = prepareFuzzySearch(q);
-      const order = ["This row", "Notes", "Tags"];
-      const tagOnly = query.trim().startsWith("#");
-      out = items.map((i) => ({ i, m: fuzzy(tagOnly ? i.tag : i.text) })).filter((x) => x.m)
-        .sort((a, b) => order.indexOf(a.i.group) - order.indexOf(b.i.group) || b.m.score - a.m.score)
-        .map((x) => Object.assign({}, x.i, { nested: false }));   // flat while searching
-    }
-    out.forEach((it, k) => { it.first = k === 0 || out[k - 1].group !== it.group; });
+
+  // Rows to show for the current filter/search: [{ node, depth, pick }]
+  rows() {
+    const f = PICK_FILTERS.find((x) => x.id === this.filter);
+    const words = this.query.toLowerCase().split(/\s+/).filter(Boolean);
+    const searching = words.length > 0;
+    const matches = (text) => { const t = text.toLowerCase(); return words.every((w) => t.includes(w)); };
+    const out = [];
+    const walk = (n, depth, ctx) => {
+      if (this.filter === "notes" && n.kind === "heading") return [];
+      if (this.filter === "tags" && n.id === "s:notes") return [];
+      if ((this.filter === "notes" || this.filter === "headings") && n.id === "s:tags") return [];
+      const pick = f.picks.includes(n.kind);
+      const self = pick && (!searching || matches(n.label + " " + (ctx || "") + " " + (n.detail || "")));
+      const open = searching || !this.collapsed.has(n.id);
+      const kids = [];
+      for (const c of n.children) kids.push(...walk(c, depth + 1, n.kind === "note" || n.kind === "tag" ? n.label : ctx));
+      if (!self && !kids.length) return [];
+      const me = { node: n, depth, pick: self, hasKids: n.children.length > 0 && !(this.filter === "notes" && n.kind === "note") && n.kind !== "section" };
+      return [me, ...(open || n.kind === "section" ? kids : [])];
+    };
+    for (const r of this.roots) out.push(...walk(r, -1, ""));
     return out;
   }
-  renderSuggestion(item, el) {
-    el.addClass("vault-ask-pick");
-    if (item.first) el.addClass("vault-ask-pick-first");
-    if (item.first) el.createDiv({ cls: "vault-ask-pick-group", text: item.group });
-    const row = el.createDiv({ cls: "vault-ask-pick-row" + (item.nested ? " is-nested" : "") });
-    const icon = row.createDiv({ cls: "vault-ask-pick-icon vault-ask-pick-" + item.type });
-    setIcon(icon, item.type === "tag" ? "hash" : item.type === "heading" ? "heading-2" : "file-text");
-    const body = row.createDiv({ cls: "vault-ask-pick-body" });
-    const top = body.createDiv({ cls: "vault-ask-pick-title" });
-    if (item.type === "tag") {
-      top.createSpan({ text: item.tag, cls: "vault-ask-pick-tag" });
-      if (item.scope) top.createSpan({ text: "  in " + item.scope.basename + " only", cls: "vault-ask-pick-muted" });
-      const n = item.targets.length;
-      body.createDiv({ cls: "vault-ask-pick-sub", text: `Links ${n === 1 ? "" : "all " + n + " "}${item.targets.some((t) => t.heading) ? "heading" : "note"}${n === 1 ? "" : "s"}: ` + item.targets.map(item.where).join(", ") });
-    } else if (item.type === "heading") {
-      if (!item.nested) top.createSpan({ text: item.file.basename + " › ", cls: "vault-ask-pick-muted" });
-      top.createSpan({ text: item.heading });
-    } else {
-      top.createSpan({ text: item.file.basename, cls: "vault-ask-pick-note" });
-      const folder = item.file.parent && item.file.parent.path !== "/" ? item.file.parent.path : "";
-      if (folder) top.createSpan({ text: "  " + folder, cls: "vault-ask-pick-muted" });
+
+  onOpen() {
+    this.modalEl.addClass("vault-ask-picker");
+    const { contentEl } = this;
+    this.input = contentEl.createEl("input", { cls: "vault-ask-picker-search", attr: { type: "text", placeholder: "Search notes, headings and tags…" } });
+    this.chips = contentEl.createDiv({ cls: "vault-ask-picker-chips" });
+    this.list = contentEl.createDiv({ cls: "vault-ask-picker-list" });
+    const hint = contentEl.createDiv({ cls: "vault-ask-picker-hint" });
+    hint.setText(this.editor.getSelection() ? "↵ link the selected text   ← → open / close   Tab filter   Esc cancel" : "↵ insert link   ← → open / close   Tab filter   Esc cancel");
+    this.input.addEventListener("input", () => { this.query = this.input.value.trim().replace(/^#/, ""); if (this.input.value.trim().startsWith("#")) this.setFilter("tags", true); this.cursor = -1; this.render(); });
+    this.input.addEventListener("keydown", (e) => this.key(e));
+    this.renderChips(); this.render();
+    setTimeout(() => this.input.focus(), 0);
+  }
+  onClose() { this.contentEl.empty(); }
+
+  setFilter(id, keepQuery) {
+    this.filter = id; this.cursor = -1;
+    if (!keepQuery) { this.query = ""; this.input.value = ""; }
+    this.renderChips(); this.render();
+  }
+  renderChips() {
+    this.chips.empty();
+    for (const f of PICK_FILTERS) {
+      const c = this.chips.createEl("button", { text: f.label, cls: "vault-ask-chip" + (f.id === this.filter ? " is-active" : "") });
+      c.onclick = () => { this.setFilter(f.id, true); this.input.focus(); };
     }
   }
-  onChooseSuggestion(item) {
+
+  render() {
+    this.view = this.rows();
+    const picks = this.view.map((r, i) => r.pick ? i : -1).filter((i) => i >= 0);
+    if (this.cursor < 0 || !this.view[this.cursor]) this.cursor = picks.length ? picks[0] : 0;
+    this.list.empty();
+    if (!this.view.some((r) => r.pick)) { this.list.createDiv({ cls: "vault-ask-picker-empty", text: "Nothing matches." }); return; }
+    this.view.forEach((r, i) => {
+      const n = r.node;
+      if (n.kind === "section") { if (this.filter === "all") this.list.createDiv({ cls: "vault-ask-picker-section", text: n.label }); return; }
+      const el = this.list.createDiv({ cls: `vault-ask-picker-row is-${n.kind}` + (r.pick ? "" : " is-context") + (i === this.cursor ? " is-selected" : "") });
+      el.style.paddingLeft = 8 + r.depth * 18 + "px";
+      const tw = el.createDiv({ cls: "vault-ask-picker-twisty" });
+      if (r.hasKids) setIcon(tw, this.query || !this.collapsed.has(n.id) ? "chevron-down" : "chevron-right");
+      const ic = el.createDiv({ cls: "vault-ask-picker-icon" });
+      setIcon(ic, { folder: "folder", note: "file-text", heading: "heading-2", tag: "hash", tagnote: "file-text" }[n.kind]);
+      const body = el.createDiv({ cls: "vault-ask-picker-body" });
+      const t = body.createDiv({ cls: "vault-ask-picker-label" });
+      if (n.kind === "tag") t.createSpan({ text: n.label, cls: "vault-ask-pick-tag" });
+      else if (n.kind === "tagnote") { t.createSpan({ text: "only in " }); t.createSpan({ text: n.label, cls: "vault-ask-picker-strong" }); }
+      else t.setText(n.label);
+      if (n.row) t.createSpan({ text: "this row", cls: "vault-ask-picker-badge" });
+      if (n.kind === "tag") body.createDiv({ cls: "vault-ask-picker-detail", text: (n.children.length ? "everywhere: " : "") + n.detail });
+      if (n.kind === "tagnote") body.createDiv({ cls: "vault-ask-picker-detail", text: n.detail });
+      if (r.pick) el.createDiv({ cls: "vault-ask-picker-action", text: "↵" });
+      el.onmouseenter = () => { if (this.cursor !== i) { this.cursor = i; this.paintCursor(); } };
+      el.onclick = (e) => {
+        if (r.hasKids && (!r.pick || e.target.closest(".vault-ask-picker-twisty"))) { this.toggle(n); return; }
+        if (r.pick) this.choose(n);
+      };
+    });
+    this.paintCursor();
+  }
+  paintCursor() {
+    const els = this.list.querySelectorAll(".vault-ask-picker-row, .vault-ask-picker-section");
+    let k = 0;
+    this.view.forEach((r, i) => {
+      if (r.node.kind === "section" && this.filter !== "all") return;
+      const el = els[k++]; if (!el) return;
+      el.toggleClass("is-selected", i === this.cursor);
+      if (i === this.cursor) el.scrollIntoView({ block: "nearest" });
+    });
+  }
+  toggle(n) { if (this.query) return; this.collapsed.has(n.id) ? this.collapsed.delete(n.id) : this.collapsed.add(n.id); this.render(); }
+  key(e) {
+    const moveable = this.view.map((r, i) => r.node.kind !== "section" ? i : -1).filter((i) => i >= 0);
+    const at = moveable.indexOf(this.cursor);
+    const r = this.view[this.cursor];
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const next = moveable[Math.max(0, Math.min(moveable.length - 1, at + (e.key === "ArrowDown" ? 1 : -1)))];
+      if (next !== undefined) { this.cursor = next; this.paintCursor(); }
+    } else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && r && r.hasKids && !this.query) {
+      const closed = this.collapsed.has(r.node.id);
+      if ((e.key === "ArrowRight") === closed) { e.preventDefault(); this.toggle(r.node); }
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const i = PICK_FILTERS.findIndex((f) => f.id === this.filter);
+      this.setFilter(PICK_FILTERS[(i + (e.shiftKey ? PICK_FILTERS.length - 1 : 1)) % PICK_FILTERS.length].id, true);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (!r) return;
+      if (r.pick) this.choose(r.node); else if (r.hasKids) this.toggle(r.node);
+    }
+  }
+
+  choose(n) {
+    this.close();
     const selected = this.editor.getSelection();
-    if (item.type === "tag") {
-      const block = tagBlock(this.app, item.tag, item.scope ? item.scope.path : null, this.sourcePath, this.inTable);
+    if (n.kind === "tag" || n.kind === "tagnote") {
+      const block = tagBlock(this.app, n.tag, n.scope ? n.scope.path : null, this.sourcePath, this.inTable);
       this.editor.replaceSelection(selected ? `${selected} · ${block}` : block);
       return;
     }
-    let link = this.app.fileManager.generateMarkdownLink(item.file, this.sourcePath, item.heading ? "#" + item.heading : "", selected || undefined);
+    let link = this.app.fileManager.generateMarkdownLink(n.file, this.sourcePath, n.heading ? "#" + n.heading : "", selected || undefined);
     if (this.inTable) link = link.replace(/(?<!\\)\|/g, "\\|");
     this.editor.replaceSelection(link);
   }

@@ -128,3 +128,34 @@
 .vault-ask-autolink-row:hover { background: var(--background-modifier-hover); }
 .vault-ask-autolink-row input { margin-top: 3px; }
 .vault-ask-autolink-row .vault-ask-pick-sub { white-space: normal; }
+
+/* Link picker: explorer-style tree with filter chips */
+.vault-ask-picker { width: min(620px, 94vw); padding: 0; }
+.vault-ask-picker .modal-close-button { display: none; }
+.vault-ask-picker .modal-content { display: flex; flex-direction: column; }
+.vault-ask-picker-search { margin: 14px 14px 8px; padding: 8px 12px; font-size: var(--font-ui-medium); border-radius: 8px; }
+.vault-ask-picker-chips { display: flex; gap: 6px; padding: 0 14px 10px; border-bottom: 1px solid var(--background-modifier-border); }
+.vault-ask-chip { height: auto; padding: 3px 12px; border-radius: 999px; font-size: var(--font-ui-small); background: transparent !important; box-shadow: none !important; border: 1px solid var(--background-modifier-border) !important; color: var(--text-muted); cursor: pointer; }
+.vault-ask-chip:hover { color: var(--text-normal); }
+.vault-ask-chip.is-active { border-color: var(--interactive-accent) !important; color: var(--text-accent); background: var(--background-modifier-hover) !important; }
+.vault-ask-picker-list { max-height: 58vh; overflow-y: auto; padding: 6px 8px; }
+.vault-ask-picker-section { font-size: var(--font-ui-smaller); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); padding: 10px 8px 4px; }
+.vault-ask-picker-row { display: flex; align-items: center; gap: 6px; padding-top: 4px; padding-bottom: 4px; padding-right: 8px; border-radius: 6px; cursor: pointer; }
+.vault-ask-picker-row.is-selected { background: var(--background-modifier-hover); }
+.vault-ask-picker-row.is-context { color: var(--text-muted); }
+.vault-ask-picker-twisty { flex: none; width: 14px; height: 14px; color: var(--text-faint); display: flex; }
+.vault-ask-picker-twisty .svg-icon, .vault-ask-picker-icon .svg-icon { width: 14px; height: 14px; }
+.vault-ask-picker-icon { flex: none; display: flex; color: var(--text-faint); }
+.vault-ask-picker-row.is-tag .vault-ask-picker-icon { color: var(--text-accent); }
+.vault-ask-picker-row.is-folder .vault-ask-picker-label { color: var(--text-muted); }
+.vault-ask-picker-row.is-note .vault-ask-picker-label { font-weight: 600; }
+.vault-ask-picker-row.is-context.is-note .vault-ask-picker-label { font-weight: 400; }
+.vault-ask-picker-body { flex: 1; min-width: 0; }
+.vault-ask-picker-label, .vault-ask-picker-detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vault-ask-picker-detail { color: var(--text-faint); font-size: var(--font-ui-smaller); }
+.vault-ask-picker-strong { font-weight: 600; }
+.vault-ask-picker-badge { margin-left: 8px; font-size: var(--font-ui-smaller); color: var(--text-accent); }
+.vault-ask-picker-action { color: var(--text-faint); font-size: var(--font-ui-smaller); visibility: hidden; }
+.vault-ask-picker-row.is-selected .vault-ask-picker-action { visibility: visible; }
+.vault-ask-picker-empty { color: var(--text-faint); padding: 16px; text-align: center; }
+.vault-ask-picker-hint { color: var(--text-faint); font-size: var(--font-ui-smaller); padding: 8px 14px; border-top: 1px solid var(--background-modifier-border); text-align: center; word-spacing: 2px; }
