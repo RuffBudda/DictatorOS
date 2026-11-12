@@ -321,6 +321,12 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
   (and "cancel all", which asks twice). The panel also shows every printer's status
   (Ready, Printing, Stopped with the reason) and has a ⚙ button for printer settings.
   Right-click the icon to go straight to printer settings.
+
+### Desktop widgets
+
+On the wallpaper layer, behind windows: see them on an empty desktop or with Super+D.
+Spacing matches window gaps, and they sit below the bar when it's shown.
+
 - **Top-left: WHOOP** Sleep %, Recovery % and Strain (0–21) rings, refreshed every 15 min.
   This is a separate plugin, [OmaWhoop](https://github.com/RuffBudda/OmaWhoop) (`ruffbudda.whoop`),
   installed from its own repo by `install.sh` (and reinstalled if it goes missing). One-time setup:
