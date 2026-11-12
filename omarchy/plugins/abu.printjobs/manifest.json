@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "abu.printjobs",
+  "name": "Print jobs",
+  "version": "1.0.0",
+  "author": "abu",
+  "license": "MIT",
+  "description": "Shows a printer icon in the bar while print jobs are queued in CUPS.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "PrintJobs.qml" },
+  "barWidget": {
+    "displayName": "Print jobs",
+    "description": "Printer icon while something is printing; click to open the queue.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

@@ -44,6 +44,7 @@ link omarchy/plugins/abu.desktop-osd         ~/.config/omarchy/plugins/abu.deskt
 link omarchy/plugins/abu.stickynotes         ~/.config/omarchy/plugins/abu.stickynotes
 link omarchy/plugins/abu.power             ~/.config/omarchy/plugins/abu.power
 link omarchy/plugins/abu.wallpaper-fade      ~/.config/omarchy/plugins/abu.wallpaper-fade
+link omarchy/plugins/abu.printjobs           ~/.config/omarchy/plugins/abu.printjobs
 link omarchy/themes/red                      ~/.config/omarchy/themes/red
 link fastfetch/config.jsonc                    ~/.config/fastfetch/config.jsonc
 link bin/fetch                                ~/.local/bin/fetch

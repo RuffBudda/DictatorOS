@@ -315,6 +315,9 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
   username and password like the OpenVPN Connect app (downloads your profile from
   OpenVPN Access Server), or enter details manually (`bin/vpn-signin`, `bin/vpn-new`).
 - **Sticky notes** (`abu.stickynotes`, Super+M): a bento board of notes in a bar panel.
+- **Print jobs** (`abu.printjobs`): a printer icon appears in the bar while anything is
+  queued in CUPS (checked every 2 s) and goes away when it's done. Hover for the job count
+  and printer. Click opens the print queue, right-click opens printer settings.
 
 ### Desktop widgets
 
@@ -581,7 +584,7 @@ icons/               app icons
 omarchy/
   branding/          blank screensaver and fastfetch logo
   hooks/             theme-set (black wallpaper) and post-update (dotfiles check) hooks
-  plugins/abu.*      custom shell plugins (bar, lock, alt-tab, monitor, widgets, VPN, notes…)
+  plugins/abu.*      custom shell plugins (bar, lock, alt-tab, monitor, widgets, VPN, notes, print jobs…)
   shell.json         bar layout and shell settings
   themes/red/        the Red theme
 packages/            patched gnome-network-displays build
