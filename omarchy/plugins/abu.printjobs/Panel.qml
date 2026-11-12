@@ -45,6 +45,26 @@ Panel {
     if (sec < 3600) return Math.floor(sec / 60) + " min ago"
     return Math.floor(sec / 3600) + " h ago"
   }
+  // 0..1 when the driver reports pages, -1 when it doesn't (show an
+  // indeterminate bar while printing), null when there's nothing to show.
+  function progress(job) {
+    if (job.pagesTotal > 0) return Math.min(1, job.pagesDone / job.pagesTotal)
+    return job.state === "printing" ? -1 : null
+  }
+  function progressText(job) {
+    const parts = []
+    if (job.pagesTotal > 0) parts.push("Page " + Math.min(job.pagesDone + (job.state === "printing" ? 1 : 0), job.pagesTotal)
+                                       + " of " + job.pagesTotal + " · " + Math.round(100 * job.pagesDone / job.pagesTotal) + "%")
+    else if (job.pagesDone > 0) parts.push(job.pagesDone + (job.pagesDone === 1 ? " page done" : " pages done"))
+    const msg = job.status || printerMessage(job.printer)
+    if (msg) parts.push(msg)
+    return parts.join(" · ")
+  }
+  function printerMessage(name) {
+    for (const p of root.printers) if (p.name === name) return p.message || ""
+    return ""
+  }
+  readonly property bool anyPrinting: jobs.some(j => j.state === "printing")
   function size(kb) { return kb >= 1024 ? (kb / 1024).toFixed(1) + " MB" : kb + " KB" }
   function printerLabel(name) {
     for (const p of root.printers) if (p.name === name) return p.info || name
@@ -66,7 +86,7 @@ Panel {
     onExited: function(code) { if (code !== 0) root.queued = 0 }
   }
   Timer {
-    interval: 2000; running: true; repeat: true; triggeredOnStart: true
+    interval: root.opened && root.anyPrinting ? 1000 : 2000; running: true; repeat: true; triggeredOnStart: true
     onTriggered: {
       if (!lpstat.running) lpstat.running = true
       if (root.opened) root.refresh()
@@ -150,7 +170,9 @@ Panel {
               id: hero
               width: parent.width
               title: header.count === 0 ? "Nothing printing" : (header.count === 1 ? "1 print job" : header.count + " print jobs")
-              meta: header.count === 0 ? "The queue is empty" : root.stateLabel(root.jobs[0].state) + " on " + root.printerLabel(root.jobs[0].printer)
+              meta: header.count === 0 ? "The queue is empty"
+                    : root.stateLabel(root.jobs[0].state) + " on " + root.printerLabel(root.jobs[0].printer)
+                      + (root.jobs[0].pagesTotal > 0 ? " · " + Math.round(100 * root.jobs[0].pagesDone / root.jobs[0].pagesTotal) + "%" : "")
               foreground: root.foreground
               fontFamily: root.fontFamily
               iconComponent: Component {
@@ -247,6 +269,58 @@ Panel {
                     text: root.stateLabel(jobItem.modelData.state) + " · " + root.printerLabel(jobItem.modelData.printer)
                           + " · " + root.size(jobItem.modelData.sizeKb) + " · " + root.ago(jobItem.modelData.age)
                     color: jobItem.modelData.state === "stopped" ? root.urgent : root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                    elide: Text.ElideRight
+                  }
+
+                  // Progress: a bar (filled to the page count, or a sliding segment
+                  // when the driver doesn't report pages) plus "Page 2 of 5 · 40%"
+                  // and/or the printer's own status message.
+                  Item {
+                    id: bar
+                    readonly property var value: root.progress(jobItem.modelData)
+                    visible: value !== null
+                    Layout.fillWidth: true
+                    Layout.topMargin: Style.space(4)
+                    implicitHeight: Style.space(4)
+                    Rectangle {
+                      anchors.fill: parent
+                      radius: height / 2
+                      color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.15)
+                    }
+                    Rectangle {
+                      visible: bar.value !== null && bar.value >= 0
+                      width: parent.width * Math.max(0, bar.value || 0)
+                      height: parent.height
+                      radius: height / 2
+                      color: root.foreground
+                      Behavior on width { NumberAnimation { duration: Style.duration(250); easing.type: Easing.OutCubic } }
+                    }
+                    Rectangle {
+                      id: slider
+                      visible: bar.value === -1
+                      width: parent.width * 0.3
+                      height: parent.height
+                      radius: height / 2
+                      color: root.foreground
+                      NumberAnimation on x {
+                        running: slider.visible && root.opened && Style.duration(1000) > 0
+                        loops: Animation.Infinite
+                        from: -slider.width
+                        to: bar.width
+                        duration: 1400
+                      }
+                    }
+                    clip: true
+                  }
+                  Text {
+                    readonly property string line: root.progressText(jobItem.modelData)
+                    visible: line !== ""
+                    Layout.fillWidth: true
+                    textFormat: Text.PlainText
+                    text: line
+                    color: root.dim
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
                     elide: Text.ElideRight

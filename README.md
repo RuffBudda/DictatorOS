@@ -317,7 +317,9 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 - **Sticky notes** (`abu.stickynotes`, Super+M): a bento board of notes in a bar panel.
 - **Print jobs** (`abu.printjobs`): a printer icon appears in the bar while anything is
   queued in CUPS (checked every 2 s) and goes away when it's done. Click it for the print
-  queue panel: each job's name, printer, state, size and age, with pause/resume and cancel
+  queue panel: each job's name, printer, state, size and age, a progress bar ("Page 3 of 5 ·
+  40%" when the printer driver reports pages, otherwise a moving bar with the printer's own
+  status such as "Sending data to printer"), with pause/resume and cancel
   (and "cancel all", which asks twice). The panel also shows every printer's status
   (Ready, Printing, Stopped with the reason) and has a ⚙ button for printer settings.
   Right-click the icon to go straight to printer settings.

@@ -36,7 +36,8 @@ try:
     if cmd == "list":
         attrs = ["job-id", "job-name", "job-printer-uri", "job-state", "job-k-octets",
                  "time-at-creation", "job-originating-user-name", "job-media-sheets-completed",
-                 "job-state-reasons"]
+                 "job-state-reasons", "job-impressions", "job-impressions-completed",
+                 "job-media-sheets", "job-printer-state-message"]
         jobs = []
         # CUPS keeps job names private: only an "my jobs" query returns them for
         # your own jobs. Other users' jobs stay "Untitled".
@@ -53,6 +54,11 @@ try:
                 "state": STATES.get(a.get("job-state"), "pending"),
                 "sizeKb": int(a.get("job-k-octets") or 0),
                 "sheets": int(a.get("job-media-sheets-completed") or 0),
+                # Progress, when the driver reports it (many don't until the end):
+                # pages done / total pages, else sheets done / total sheets.
+                "pagesDone": int(a.get("job-impressions-completed") or a.get("job-media-sheets-completed") or 0),
+                "pagesTotal": int(a.get("job-impressions") or a.get("job-media-sheets") or 0),
+                "status": text(a.get("job-printer-state-message"), 120),
                 "age": max(0, int(time.time()) - int(a.get("time-at-creation") or time.time())),
             })
         printers = []
