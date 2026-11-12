@@ -316,14 +316,11 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
   OpenVPN Access Server), or enter details manually (`bin/vpn-signin`, `bin/vpn-new`).
 - **Sticky notes** (`abu.stickynotes`, Super+M): a bento board of notes in a bar panel.
 - **Print jobs** (`abu.printjobs`): a printer icon appears in the bar while anything is
-  queued in CUPS (checked every 2 s) and goes away when it's done. Hover for the job count
-  and printer. Click opens the print queue, right-click opens printer settings.
-
-### Desktop widgets
-
-On the wallpaper layer, behind windows: see them on an empty desktop or with Super+D.
-Spacing matches window gaps, and they sit below the bar when it's shown.
-
+  queued in CUPS (checked every 2 s) and goes away when it's done. Click it for the print
+  queue panel: each job's name, printer, state, size and age, with pause/resume and cancel
+  (and "cancel all", which asks twice). The panel also shows every printer's status
+  (Ready, Printing, Stopped with the reason) and has a ⚙ button for printer settings.
+  Right-click the icon to go straight to printer settings.
 - **Top-left: WHOOP** Sleep %, Recovery % and Strain (0–21) rings, refreshed every 15 min.
   This is a separate plugin, [OmaWhoop](https://github.com/RuffBudda/OmaWhoop) (`ruffbudda.whoop`),
   installed from its own repo by `install.sh` (and reinstalled if it goes missing). One-time setup:

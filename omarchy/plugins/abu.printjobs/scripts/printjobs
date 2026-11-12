@@ -1,0 +1,81 @@
+#!/usr/bin/env -S python3 -I
+"""Print queue helper for the abu.printjobs bar panel (talks to CUPS via pycups).
+
+  printjobs list                -> JSON {"jobs": [...], "printers": [...]}
+  printjobs cancel <job-id>     -> cancel one job
+  printjobs cancel-all          -> cancel every job of yours that isn't done
+  printjobs hold|release <id>   -> pause / resume one job
+"""
+import json, sys, time
+
+def out(obj):
+    print(json.dumps(obj)); sys.exit(0)
+
+def fail(msg):
+    print(json.dumps({"ok": False, "error": msg})); sys.exit(1)
+
+try:
+    import cups
+    conn = cups.Connection()
+except Exception as e:  # CUPS not running, etc.
+    fail(f"Can't reach the print service: {e}")
+
+STATES = {3: "pending", 4: "held", 5: "printing", 6: "stopped", 7: "cancelled", 8: "aborted", 9: "done"}
+PSTATES = {3: "idle", 4: "printing", 5: "stopped"}
+
+def text(v, n=120):
+    return str(v or "").replace("\n", " ").strip()[:n]
+
+def job_id(arg):
+    if not arg.isdigit():
+        fail("bad job id")
+    return int(arg)
+
+cmd = sys.argv[1] if len(sys.argv) > 1 else "list"
+try:
+    if cmd == "list":
+        attrs = ["job-id", "job-name", "job-printer-uri", "job-state", "job-k-octets",
+                 "time-at-creation", "job-originating-user-name", "job-media-sheets-completed",
+                 "job-state-reasons"]
+        jobs = []
+        # CUPS keeps job names private: only an "my jobs" query returns them for
+        # your own jobs. Other users' jobs stay "Untitled".
+        mine = conn.getJobs(which_jobs="not-completed", my_jobs=True, requested_attributes=attrs)
+        alljobs = conn.getJobs(which_jobs="not-completed", requested_attributes=attrs)
+        for jid, a in mine.items():
+            alljobs[jid] = {**alljobs.get(jid, {}), **a}
+        for jid, a in sorted(alljobs.items())[:200]:
+            jobs.append({
+                "id": int(jid),
+                "title": text(a.get("job-name")) or "Untitled",
+                "printer": text(str(a.get("job-printer-uri", "")).rsplit("/", 1)[-1], 60),
+                "user": text(a.get("job-originating-user-name"), 40),
+                "state": STATES.get(a.get("job-state"), "pending"),
+                "sizeKb": int(a.get("job-k-octets") or 0),
+                "sheets": int(a.get("job-media-sheets-completed") or 0),
+                "age": max(0, int(time.time()) - int(a.get("time-at-creation") or time.time())),
+            })
+        printers = []
+        for name, p in sorted(conn.getPrinters().items()):
+            printers.append({
+                "name": text(name, 60),
+                "info": text(p.get("printer-info") or name, 60),
+                "state": PSTATES.get(p.get("printer-state"), "idle"),
+                "message": text(p.get("printer-state-message"), 120),
+                "accepting": bool(p.get("printer-is-accepting-jobs", True)),
+            })
+        out({"ok": True, "jobs": jobs, "printers": printers})
+    elif cmd == "cancel" and len(sys.argv) == 3:
+        conn.cancelJob(job_id(sys.argv[2])); out({"ok": True})
+    elif cmd == "cancel-all":
+        for jid in conn.getJobs(which_jobs="not-completed", my_jobs=True):
+            conn.cancelJob(int(jid))
+        out({"ok": True})
+    elif cmd == "hold" and len(sys.argv) == 3:
+        conn.setJobHoldUntil(job_id(sys.argv[2]), "indefinite"); out({"ok": True})
+    elif cmd == "release" and len(sys.argv) == 3:
+        conn.setJobHoldUntil(job_id(sys.argv[2]), "no-hold"); out({"ok": True})
+    else:
+        fail("usage: printjobs list | cancel <id> | cancel-all | hold <id> | release <id>")
+except cups.IPPError as e:
+    fail(text(e.args[1] if len(e.args) > 1 else e, 200))
