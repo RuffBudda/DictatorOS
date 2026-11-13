@@ -139,6 +139,10 @@ if grep -qs b853 /sys/bus/usb/devices/*/idProduct && [[ ! -f /usr/lib/firmware/r
   echo "Bluetooth: not set up. Put Lenovo's Bluetooth driver (.exe) in ~/Downloads, then: sudo ~/dotfiles/system/install.sh"
 fi
 
+# ── Default apps ────────────────────────────────────────────
+# PDFs: use Papers (Folio's successor) instead of a browser/file-manager fallback.
+xdg-mime default org.gnome.Papers.desktop application/pdf 2>/dev/null || true
+
 # Apply now
 omarchy-theme-bg-set "$DOT/backgrounds/red-stripes.png" || true
 if command -v hyprctl >/dev/null; then
