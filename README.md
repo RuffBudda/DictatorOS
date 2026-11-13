@@ -245,7 +245,7 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 | **Super+Left / Right** | Lone window: snap to the left/right half (stays tiled). With others: move left/right. At the screen edge: move to the next/previous screen, wherever it sits |
 | **Super+Up / Down** | Lone window: snap to the top/bottom half. Side-by-side windows: stack them vertically (this one on top for Up, at the bottom for Down). Stacked: move up/down |
 | **Super+L** | Lock screen |
-| **Super+E** | Files |
+| **Super+E** | File manager (flea), same as Super+Shift+F |
 | **Ctrl+Shift+Esc** | Task Manager (Mission Center). btop is Super+Shift+T |
 | **Super+Shift+S** | Screenshot of a region |
 | **Super+P** | Project menu: PC screen only / Duplicate / Extend / Second screen only / Cast to a wireless display… / Display settings… |

@@ -200,7 +200,9 @@ hl.unbind("SUPER + M")
 o.bind("SUPER + M", "Sticky notes panel", "omarchy-shell stickynotes toggle")
 
 -- ── Files (Windows: Win+E) ──────────────────────────────────────────────
-o.bind("SUPER + E", "Files", { omarchy = "nautilus" })
+-- Same as SUPER+SHIFT+F: flea (see the flea --default block below).
+-- Was: { omarchy = "nautilus" }.
+o.bind("SUPER + E", "File manager", { launch = "flea --gui" })
 
 -- ── Task Manager (Windows: Ctrl+Shift+Esc) ──────────────────────────────
 -- Mission Center: CPU, memory, disk, network, GPU and processes.
@@ -308,3 +310,14 @@ end)
 -- Was: Toggle workspace layout.
 hl.unbind("SUPER + L")
 o.bind("SUPER + L", "Lock screen", "omarchy-system-lock")
+
+-- flea --default: begin. Written by `flea --default`; `flea --default off` removes the block whole.
+hl.unbind("SUPER + SHIFT + F")
+o.bind("SUPER + SHIFT + F", "File manager", { launch = 'flea --gui' })
+hl.unbind("SUPER + ALT + SHIFT + F")
+o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { launch = 'flea --gui "$(omarchy-cmd-terminal-cwd)"' })
+-- flea --default: end.
+
+-- flea --picker: begin. Written by `flea --picker`; `flea --picker off` removes the block whole.
+o.window("com.thisisgm.flea.picker", { tag = "+floating-window" })
+-- flea --picker: end.
