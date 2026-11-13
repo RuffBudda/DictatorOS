@@ -6,7 +6,8 @@
   },
   "bar": {
     "position": "top",
-    "transparent": true,
+    "transparent": false,
+    "background": "opaque",
     "centerAnchor": "omarchy.clock",
     "layout": {
       "left": [
@@ -42,7 +43,7 @@
           "id": "abu.printjobs"
         },
         {
-          "id": "omarchy.agents"
+          "id": "abu.agents"
         },
         {
           "id": "omarchy.bluetooth"
@@ -93,6 +94,9 @@
       "id": "abu.github-graph"
     },
     {
+      "id": "abu.agents"
+    },
+    {
       "id": "ruffbudda.whoop"
     },
     {
@@ -106,7 +110,8 @@
     "almorus.workspace-apps",
     "rmarchei.openvpn",
     "rasp.power",
-    "omarchy.background"
+    "omarchy.background",
+    "omarchy.agents"
   ],
   "cloneSourceRestores": [
     "abu.notifications",

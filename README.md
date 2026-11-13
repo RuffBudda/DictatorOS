@@ -121,9 +121,9 @@
   year of GitHub days, sitting on the wallpaper behind your windows.
 - **Wallpaper only when idle**: hidden (black) while a desktop has windows, drawn up from
   the bottom when it's empty.
-- **Black bar**: shown by default, Super+B hides it; solid black with red icons and a
+- **Black bar**: shown by default, Super+B hides it; opaque black with red icons and a
   battery percentage (bolt while plugged in). Monitor panel with a built-in screen arranger, per-screen scale and
-  rotation.
+  rotation, plus an **AI agents** panel showing usage/limits across your coding assistants.
 - **Update-proof**: after every `omarchy update`, your settings are restored and any
   changes the update wanted are saved as a patch for you to approve. System tweaks
   re-apply themselves automatically.
@@ -306,7 +306,7 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 
 ### Bar and panels
 
-- Hidden by default (**Super+B**); transparent with red icons; pushes windows down while
+- Hidden by default (**Super+B**); opaque black with red icons; pushes windows down while
   shown. Auto-hide is built in but off (`autoHide` in `abu.bar/Bar.qml`).
 - **Monitor panel** (`abu.monitor`): brightness, text size, a drag-to-arrange screen map,
   and per-screen scale and rotation. Backend: `bin/monitor-layout` writes `hypr/displays.lua`.
@@ -323,6 +323,12 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
   (and "cancel all", which asks twice). The panel also shows every printer's status
   (Ready, Printing, Stopped with the reason) and has a ⚙ button for printer settings.
   Right-click the icon to go straight to printer settings.
+- **AI agents** (`abu.agents`): one bar icon/panel for AI coding subscriptions and usage.
+  It reads records written by `omarchy-agent-usage-update` in
+  `~/.local/state/omarchy/agents/usage/` and shows limits, balances, accounts and local
+  token/session stats per agent (Claude, Codex, Grok and others as collectors are
+  available), with account switching and sign-in flows from the panel. See
+  [`omarchy/plugins/abu.agents/README.md`](omarchy/plugins/abu.agents/README.md) for details.
 
 ### Desktop widgets
 
@@ -466,8 +472,9 @@ Setup and details:
 
 ### Theme
 
-`omarchy/themes/red`: black backgrounds, red accents, red icon set, transparent bar with
-red icons, red lock screen. The wallpaper is forced to solid black on every theme change.
+`omarchy/themes/red`: black backgrounds, red accents, red icon set, and a red lock screen.
+The wallpaper is forced to solid black on every theme change. (The bar is opaque black by
+default in `omarchy/shell.json`.)
 
 Colour codes, from `omarchy/themes/red/colors.toml` (the bar, borders, terminal, menus and
 lock screen are all generated from it):
