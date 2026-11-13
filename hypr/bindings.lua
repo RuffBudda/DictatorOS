@@ -311,6 +311,9 @@ end)
 hl.unbind("SUPER + L")
 o.bind("SUPER + L", "Lock screen", "omarchy-system-lock")
 
+-- ── Calculator (Fn+F12 on keyboards where it emits XF86Calculator) ──────
+o.bind("XF86Calculator", "Calculator", "omacalc")
+
 -- flea --default: begin. Written by `flea --default`; `flea --default off` removes the block whole.
 hl.unbind("SUPER + SHIFT + F")
 o.bind("SUPER + SHIFT + F", "File manager", { launch = 'flea --gui' })
