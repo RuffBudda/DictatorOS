@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=nodeterm
+Comment=Run your agents on a canvas
+Exec=/home/abu/.local/bin/nodeterm %U
+Icon=nodeterm
+Terminal=false
+Categories=Development;Utility;
+StartupWMClass=nodeterm

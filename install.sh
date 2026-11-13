@@ -25,7 +25,11 @@ link hypr/contain.lua                          ~/.config/hypr/contain.lua
 link applications/nwg-displays.desktop          ~/.local/share/applications/nwg-displays.desktop
 link applications/vpn-new.desktop               ~/.local/share/applications/vpn-new.desktop
 link applications/rmdesk.desktop                ~/.local/share/applications/rmdesk.desktop
+link applications/nodeterm.desktop              ~/.local/share/applications/nodeterm.desktop
+link applications/opencode.desktop              ~/.local/share/applications/opencode.desktop
 link icons/rmdesk.svg                           ~/.local/share/icons/hicolor/scalable/apps/rmdesk.svg
+link icons/hicolor/256x256/apps/nodeterm.png    ~/.local/share/icons/hicolor/256x256/apps/nodeterm.png
+link icons/hicolor/256x256/apps/opencode.png    ~/.local/share/icons/hicolor/256x256/apps/opencode.png
 link hypr/xdph.conf                            ~/.config/hypr/xdph.conf
 link omarchy/shell.json                        ~/.config/omarchy/shell.json
 link omarchy/branding/about.txt                ~/.config/omarchy/branding/about.txt
@@ -45,6 +49,7 @@ link omarchy/plugins/abu.stickynotes         ~/.config/omarchy/plugins/abu.stick
 link omarchy/plugins/abu.power             ~/.config/omarchy/plugins/abu.power
 link omarchy/plugins/abu.wallpaper-fade      ~/.config/omarchy/plugins/abu.wallpaper-fade
 link omarchy/plugins/abu.printjobs           ~/.config/omarchy/plugins/abu.printjobs
+link omarchy/plugins/abu.optimizer            ~/.config/omarchy/plugins/abu.optimizer
 link omarchy/themes/red                      ~/.config/omarchy/themes/red
 link fastfetch/config.jsonc                    ~/.config/fastfetch/config.jsonc
 link bin/fetch                                ~/.local/bin/fetch

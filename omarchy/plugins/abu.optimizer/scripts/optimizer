@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+import json, os, subprocess, sys
+
+def sh(cmd):
+    return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+def list_items():
+    # Top processes by RSS
+    r = sh(["ps", "-eo", "pid=,rss=,user=,unit=,comm=,args=", "--sort=-rss"])
+    items = []
+    for line in r.stdout.splitlines()[:20]:
+        parts = line.split(None, 5)
+        if len(parts) < 6:
+            continue
+        pid, rss, user, unit, comm, args = parts
+        try:
+            pid_i = int(pid); rss_i = int(rss)
+        except ValueError:
+            continue
+        if pid_i == os.getpid():
+            continue
+        if unit in ("-", ""):
+            unit = ""
+        items.append({
+            "pid": pid_i,
+            "rssKb": rss_i,
+            "user": user,
+            "unit": unit,
+            "comm": comm,
+            "args": (args[:120] + "…") if len(args) > 120 else args,
+        })
+    mem = sh(["free", "-b"])
+    total = used = avail = 0
+    for line in mem.stdout.splitlines():
+        if line.startswith("Mem:"):
+            p = line.split()
+            if len(p) >= 7:
+                total, used, _, _, _, avail = map(int, p[1:7])
+            break
+    print(json.dumps({"ok": True, "items": items, "mem": {"total": total, "used": used, "available": avail}}))
+
+def free_ram():
+    # requires root
+    subprocess.run(["sync"], check=False)
+    try:
+        with open("/proc/sys/vm/drop_caches", "w") as f:
+            f.write("3\n")
+    except Exception as e:
+        print(json.dumps({"ok": False, "error": str(e)}))
+        return
+    print(json.dumps({"ok": True}))
+
+def stop(args):
+    unit = args[0] if args else ""
+    if not unit:
+        print(json.dumps({"ok": False, "error": "missing unit"})); return
+    # stop system or user? try system first as root context maybe
+    r = sh(["systemctl", "stop", unit])
+    if r.returncode != 0:
+        r = sh(["systemctl", "--user", "stop", unit])
+    if r.returncode == 0:
+        print(json.dumps({"ok": True}))
+    else:
+        err = (r.stderr or r.stdout).strip() or "failed"
+        print(json.dumps({"ok": False, "error": err}))
+
+def kill_pid(args):
+    pid = args[0] if args else ""
+    sig = args[1] if len(args) > 1 else "TERM"
+    r = sh(["kill", "-s", sig, str(pid)])
+    if r.returncode == 0:
+        print(json.dumps({"ok": True}))
+    else:
+        err = (r.stderr or r.stdout).strip() or "failed"
+        print(json.dumps({"ok": False, "error": err}))
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "list"
+    if cmd == "list": list_items()
+    elif cmd == "free-ram": free_ram()
+    elif cmd == "stop-unit": stop(sys.argv[2:])
+    elif cmd == "kill": kill_pid(sys.argv[2:])
+    else:
+        print(json.dumps({"ok": False, "error": "unknown command"}))

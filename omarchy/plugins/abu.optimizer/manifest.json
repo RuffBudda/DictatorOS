@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "abu.optimizer",
+  "name": "Optimizer",
+  "version": "1.0.0",
+  "author": "abu",
+  "description": "One-click RAM cleanup (drops filesystem caches)",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "Panel.qml" },
+  "barWidget": {
+    "displayName": "Optimizer",
+    "description": "Free up RAM by dropping filesystem caches",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "left"
+  }
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=OpenCode
+Comment=AI coding agent TUI
+Exec=omarchy-launch-tui opencode
+Icon=opencode
+Terminal=false
+Categories=Development;Utility;
