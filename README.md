@@ -252,6 +252,7 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
 | **Super+N** | Cast to a wireless display (Miracast / Chromecast) |
 | **Super+B** | Hide / show the top bar (shown by default) |
 | **Super+M** | Sticky notes panel |
+| **Fn+F12** | Calculator (XF86Calculator → `omacalc`) |
 
 ## Features in detail
 
