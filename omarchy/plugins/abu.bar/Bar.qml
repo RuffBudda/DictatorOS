@@ -68,6 +68,7 @@ Item {
   })
   property var layoutConfig: fallbackBarConfig.layout
   property string centerAnchor: ""
+  property bool barLocked: !!(root.barConfig && root.barConfig.locked)
   property bool requestedTransparent: false
   property bool useTransparentForeground: false
   property bool transparent: false
@@ -1941,7 +1942,7 @@ Item {
       property bool suppressClick: false
       property real pressedX: 0
       property real pressedY: 0
-      readonly property bool canReorder: root.shell && typeof root.shell.mutateShellConfig === "function"
+      readonly property bool canReorder: root.shell && typeof root.shell.mutateShellConfig === "function" && !root.barLocked
       readonly property real dragThreshold: Style.space(4)
 
       anchors.fill: parent
