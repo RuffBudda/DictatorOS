@@ -879,6 +879,8 @@ Item {
   }
 
   function toggleTransparency() {
+    // A locked bar keeps its look: no accidental double-click toggles.
+    if (root.barLocked) return
     var nextTransparent = !(root.requestedTransparent === true)
     if (root.shell && typeof root.shell.mutateShellConfig === "function") {
       root.shell.mutateShellConfig(function(config) {
