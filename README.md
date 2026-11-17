@@ -117,8 +117,9 @@
   AI Mode / Gemini / Lens.
 - **Minimal lock screen**: a big thin red clock; type your password and it unlocks
   as soon as it's complete (no Enter). The login and disk-unlock screens look the same.
-- **Desktop widgets**: WHOOP sleep/recovery/strain rings, live CPU/GPU/RAM rings and a
-  year of GitHub days, sitting on the wallpaper behind your windows.
+- **Desktop widgets**: WHOOP sleep/recovery/strain rings, live CPU/GPU/RAM rings, a
+  year of GitHub days and, while Spotify is running, what's playing, sitting on the
+  wallpaper behind your windows.
 - **Wallpaper only when idle**: hidden (black) while a desktop has windows, drawn up from
   the bottom when it's empty.
 - **Black bar**: shown by default, Super+B hides it; opaque black with red icons and a
@@ -350,6 +351,12 @@ Spacing matches window gaps, and they sit below the bar when it's shown.
   of the AMD iGPU and the NVIDIA card; the NVIDIA card is only read while it's already awake.
 - **Top-right: GitHub** contribution graph in red, every 30 min, from the signed-in `gh`
   account (`bin/github-contrib`).
+- **Top-right, below: Spotify** now playing, the same width as the GitHub box: album art,
+  title, artist, progress and red previous / play-pause / next buttons. Read over MPRIS
+  (no polling scripts, no network), so it only appears while Spotify is running with a
+  track loaded. Its buttons are the only part of the corner that takes clicks. Part of
+  `abu.github-graph`; after editing it, run `omarchy restart shell` (the plugin hot
+  reload doesn't pick up changes to these desktop widgets).
 
 ### Displays, casting and screen sharing
 

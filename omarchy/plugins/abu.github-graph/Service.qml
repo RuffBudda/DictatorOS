@@ -5,10 +5,13 @@
 // The WHOOP rings above the CPU / GPU / RAM box are their own plugin,
 // ruffbudda.whoop (https://github.com/RuffBudda/OmaWhoop); this one only
 // watches its cache file to leave room for it and size the GitHub box.
+// Under the GitHub graph, same width: Spotify now playing (MPRIS), shown
+// only while Spotify is running and has a track.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.Mpris
 import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
@@ -163,6 +166,32 @@ Item {
     onTriggered: if (!fetchProc.running) fetchProc.running = true
   }
 
+  // Spotify (MPRIS). Null while Spotify isn't running.
+  readonly property var spotify: {
+    var ps = Mpris.players ? Mpris.players.values : []
+    for (var i = 0; i < ps.length; i++) {
+      var p = ps[i]
+      if (!p) continue
+      var id = String(p.identity || "").toLowerCase()
+      var de = String(p.desktopEntry || "").toLowerCase()
+      if (id.indexOf("spotify") >= 0 || de.indexOf("spotify") >= 0) return p
+    }
+    return null
+  }
+  readonly property bool spotifyShown: spotify !== null && !!spotify.trackTitle
+  function mmss(sec) {
+    sec = Math.max(0, Math.floor(sec || 0))
+    var s = sec % 60
+    return Math.floor(sec / 60) + ":" + (s < 10 ? "0" : "") + s
+  }
+  // MPRIS doesn't push position; ask Quickshell to re-read it every second.
+  Timer {
+    interval: 1000
+    repeat: true
+    running: root.spotifyShown && root.spotify.isPlaying
+    onTriggered: root.spotify.positionChanged()
+  }
+
   // Main screen: the laptop panel if it's on, otherwise the first screen.
   readonly property var mainScreen: {
     var s = Quickshell.screens
@@ -177,7 +206,7 @@ Item {
   // GitHub graph: top-right corner.
   PanelWindow {
     screen: root.mainScreen
-    visible: root.weeks.length > 0 && root.mainScreen !== null
+    visible: (root.weeks.length > 0 || root.spotifyShown) && root.mainScreen !== null
     anchors { top: true; right: true }
     margins { top: root.edgeGap; right: root.edgeGap }
     implicitWidth: rightColumn.width
@@ -186,7 +215,8 @@ Item {
     exclusionMode: ExclusionMode.Normal   // respect the bar's space, reserve none
     WlrLayershell.layer: WlrLayer.Bottom
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-    mask: Region {}   // clicks pass through to the desktop
+    // Clicks pass through to the desktop, except on the Spotify controls card.
+    mask: Region { item: spotifyCard.visible ? spotifyCard : null }
     WlrLayershell.namespace: "abu-github-graph"
 
     Column {
@@ -195,6 +225,7 @@ Item {
 
     Rectangle {
       id: frame
+      visible: root.weeks.length > 0
       // As wide as one ring box and as tall as all of them stacked.
       readonly property int ringBoxes: (root.whoopReady ? 1 : 0) + (sysFrame.visible ? 1 : 0)
       width: card.targetWidth > 0 ? card.targetWidth : card.implicitWidth + 2 * root.pad
@@ -268,6 +299,150 @@ Item {
       }
 
     }
+    }
+
+    // Spotify now playing: same width as the GitHub box, right under it.
+    Rectangle {
+      id: spotifyCard
+      visible: root.spotifyShown
+      readonly property var p: root.spotify
+      readonly property int art: height - 2 * root.pad
+      width: frame.width
+      height: 120
+      radius: Style.cornerRadius
+      color: Qt.rgba(0, 0, 0, 0.35)
+      opacity: visible ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic } }
+
+      Rectangle {
+        id: artBox
+        x: root.pad; y: root.pad
+        width: spotifyCard.art; height: spotifyCard.art
+        radius: Math.max(2, Style.cornerRadius - 4)
+        clip: true
+        color: Qt.rgba(Commons.Color.accent.r, Commons.Color.accent.g, Commons.Color.accent.b, 0.15)
+        Image {
+          anchors.fill: parent
+          source: spotifyCard.p && spotifyCard.p.trackArtUrl ? spotifyCard.p.trackArtUrl : ""
+          asynchronous: true
+          fillMode: Image.PreserveAspectCrop
+          sourceSize.width: 192; sourceSize.height: 192
+          visible: status === Image.Ready
+        }
+      }
+
+      ColumnLayout {
+        anchors { left: artBox.right; leftMargin: root.pad; right: parent.right; rightMargin: root.pad
+                  top: parent.top; topMargin: root.pad; bottom: parent.bottom; bottomMargin: root.pad }
+        spacing: 2
+
+        Text {
+          Layout.fillWidth: true
+          elide: Text.ElideRight
+          textFormat: Text.PlainText
+          text: spotifyCard.p ? (spotifyCard.p.trackTitle || "") : ""
+          color: Commons.Color.accent
+          font.family: Style.font.family
+          font.pixelSize: 15
+          font.weight: Font.DemiBold
+        }
+        Text {
+          Layout.fillWidth: true
+          elide: Text.ElideRight
+          textFormat: Text.PlainText
+          text: spotifyCard.p ? (spotifyCard.p.trackArtist || "") : ""
+          color: Commons.Color.accent
+          opacity: 0.7
+          font.family: Style.font.family
+          font.pixelSize: 12
+          font.letterSpacing: 1
+        }
+        Item { Layout.fillHeight: true }
+
+        Rectangle {
+          Layout.fillWidth: true
+          height: 3; radius: 1.5
+          color: Qt.rgba(Commons.Color.accent.r, Commons.Color.accent.g, Commons.Color.accent.b, 0.15)
+          Rectangle {
+            height: parent.height; radius: parent.radius
+            color: Commons.Color.accent
+            width: {
+              var p = spotifyCard.p
+              if (!p || !(p.length > 0)) return 0
+              return parent.width * Math.max(0, Math.min(1, p.position / p.length))
+            }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 0
+          Text {
+            textFormat: Text.PlainText
+            text: spotifyCard.p ? root.mmss(spotifyCard.p.position) + " / " + root.mmss(spotifyCard.p.length) : ""
+            color: Commons.Color.accent
+            opacity: 0.7
+            font.family: Style.font.family
+            font.pixelSize: 11
+          }
+          Item { Layout.fillWidth: true }
+          Repeater {
+            // Icons drawn as flat shapes in the accent colour (Unicode media
+            // glyphs fall back to colour emoji).
+            model: ["prev", "toggle", "next"]
+            Item {
+              id: btn
+              required property string modelData
+              readonly property bool playing: !!(spotifyCard.p && spotifyCard.p.isPlaying)
+              readonly property bool enabledAct: {
+                var p = spotifyCard.p
+                if (!p) return false
+                return modelData === "prev" ? p.canGoPrevious
+                     : modelData === "next" ? p.canGoNext : p.canTogglePlaying
+              }
+              Layout.preferredWidth: 30
+              Layout.preferredHeight: 22
+              opacity: enabledAct ? (ma.containsMouse ? 1 : 0.8) : 0.3
+              Behavior on opacity { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
+
+              Canvas {
+                id: icon
+                anchors.centerIn: parent
+                width: 14; height: 14
+                property bool playing: btn.playing
+                onPlayingChanged: requestPaint()
+                onPaint: {
+                  var ctx = getContext("2d"); ctx.reset()
+                  ctx.fillStyle = Commons.Color.accent
+                  var w = width, h = height, k = btn.modelData
+                  function tri(x0, x1) {   // triangle from base x0 to tip x1
+                    ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x1, h / 2); ctx.lineTo(x0, h); ctx.closePath(); ctx.fill()
+                  }
+                  if (k === "prev") { ctx.fillRect(0, 0, 2, h); tri(w, 3) }
+                  else if (k === "next") { tri(0, w - 3); ctx.fillRect(w - 2, 0, 2, h) }
+                  else if (playing) { ctx.fillRect(2, 0, 3.5, h); ctx.fillRect(w - 5.5, 0, 3.5, h) }
+                  else tri(2, w)
+                }
+              }
+
+              MouseArea {
+                id: ma
+                anchors.fill: parent
+                hoverEnabled: true
+                enabled: btn.enabledAct
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  var p = spotifyCard.p
+                  if (!p) return
+                  if (btn.modelData === "prev") p.previous()
+                  else if (btn.modelData === "next") p.next()
+                  else p.togglePlaying()
+                }
+              }
+            }
+          }
+        }
+      }
     }
     }
   }
