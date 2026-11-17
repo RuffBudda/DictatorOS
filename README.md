@@ -353,8 +353,8 @@ Spacing matches window gaps, and they sit below the bar when it's shown.
   account (`bin/github-contrib`).
 - **Top-right, below: Spotify** now playing, the same width as the GitHub box: album art,
   title, artist, progress and red previous / play-pause / next buttons. Read over MPRIS
-  (no polling scripts, no network), so it only appears while Spotify is running with a
-  track loaded. Its buttons are the only part of the corner that takes clicks. Part of
+  (no polling scripts, no network), so it appears whenever Spotify is running and
+  disappears when it quits. Its buttons are the only part of the corner that takes clicks. Part of
   `abu.github-graph`; after editing it, run `omarchy restart shell` (the plugin hot
   reload doesn't pick up changes to these desktop widgets).
 

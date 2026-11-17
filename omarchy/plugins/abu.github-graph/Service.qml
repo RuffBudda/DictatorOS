@@ -178,7 +178,17 @@ Item {
     }
     return null
   }
-  readonly property bool spotifyShown: spotify !== null && !!spotify.trackTitle
+  // Shown whenever Spotify is open, even if MPRIS hasn't filled in the title
+  // (that happens for a track now and then; the raw metadata usually has it).
+  readonly property bool spotifyShown: spotify !== null
+  function metaText(key) {
+    var m = spotify && spotify.metadata ? spotify.metadata[key] : undefined
+    if (Array.isArray(m)) m = m.join(", ")
+    return m ? String(m) : ""
+  }
+  readonly property string spotifyTitle: spotify ? (spotify.trackTitle || metaText("xesam:title") || "Spotify") : ""
+  readonly property string spotifyArtist: spotify ? (spotify.trackArtist || metaText("xesam:artist")) : ""
+  readonly property string spotifyArt: spotify ? (spotify.trackArtUrl || metaText("mpris:artUrl")) : ""
   function mmss(sec) {
     sec = Math.max(0, Math.floor(sec || 0))
     var s = sec % 60
@@ -323,7 +333,7 @@ Item {
         color: Qt.rgba(Commons.Color.accent.r, Commons.Color.accent.g, Commons.Color.accent.b, 0.15)
         Image {
           anchors.fill: parent
-          source: spotifyCard.p && spotifyCard.p.trackArtUrl ? spotifyCard.p.trackArtUrl : ""
+          source: root.spotifyArt
           asynchronous: true
           fillMode: Image.PreserveAspectCrop
           sourceSize.width: 192; sourceSize.height: 192
@@ -340,7 +350,7 @@ Item {
           Layout.fillWidth: true
           elide: Text.ElideRight
           textFormat: Text.PlainText
-          text: spotifyCard.p ? (spotifyCard.p.trackTitle || "") : ""
+          text: root.spotifyTitle
           color: Commons.Color.accent
           font.family: Style.font.family
           font.pixelSize: 15
@@ -350,7 +360,7 @@ Item {
           Layout.fillWidth: true
           elide: Text.ElideRight
           textFormat: Text.PlainText
-          text: spotifyCard.p ? (spotifyCard.p.trackArtist || "") : ""
+          text: root.spotifyArtist
           color: Commons.Color.accent
           opacity: 0.7
           font.family: Style.font.family
