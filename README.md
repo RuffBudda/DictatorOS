@@ -325,6 +325,13 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
   (and "cancel all", which asks twice). The panel also shows every printer's status
   (Ready, Printing, Stopped with the reason) and has a ⚙ button for printer settings.
   Right-click the icon to go straight to printer settings.
+- **Downloads** (`abu.downloads`): Chromium web apps (Outlook, SharePoint, Teams) have no
+  toolbar, so no download bubble. A download arrow now bobs in the bar while anything
+  downloads and stays 10 minutes after. Click it for each file's progress, size, speed and
+  time left, with pause/resume and cancel, then Open / Show in folder once done, plus a
+  "Download complete" notification. The `chromium/downloads-bridge` extension reads
+  `chrome.downloads` and talks to `bin/downloads-host` over native messaging.
+  Chromium must be fully quit and relaunched once after install.
 - **AI agents** (`abu.agents`): one bar icon/panel for AI coding subscriptions and usage.
   It reads records written by `omarchy-agent-usage-update` in
   `~/.local/state/omarchy/agents/usage/` and shows limits, balances, accounts and local

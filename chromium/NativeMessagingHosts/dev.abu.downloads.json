@@ -1,0 +1,7 @@
+{
+  "name": "dev.abu.downloads",
+  "description": "DictatorOS downloads bridge (bin/downloads-host)",
+  "path": "@HOST_PATH@",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://eegcklgfopkgniacdacaehpdmkjkbjai/"]
+}

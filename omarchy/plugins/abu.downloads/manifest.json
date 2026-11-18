@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "abu.downloads",
+  "name": "Downloads",
+  "version": "1.0.0",
+  "author": "abu",
+  "license": "MIT",
+  "description": "Shows a download icon in the bar while Chromium (including web apps) is downloading.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "Panel.qml" },
+  "barWidget": {
+    "displayName": "Downloads",
+    "description": "Download icon while Chromium is downloading; click for progress, pause, resume and cancel.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

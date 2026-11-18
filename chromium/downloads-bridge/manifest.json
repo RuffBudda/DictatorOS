@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Downloads bridge",
+  "version": "1.0.0",
+  "description": "Reports Chromium downloads to the desktop bar (DictatorOS abu.downloads).",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqE14Czo0ETU2G45qqSzSSN6RrJI4NJxsJRkTq4qAQ3s3JkLz+a7l7fhm2LSlZIhCcEOFtEzOM6k4DOBXQ54ui0Z6cL8VJVH8fHVrY2+cNqrQjX1Qn2MFv45JhX7DjSa8Ud3YEbSxs/JamKikL0Gl+o5+/MSVwSdho4vr/vbjMjhKFQcjA5+feAF98RxkxyFWdYCjA7nbBXZsRbDpWXei6dvJlQ1eF1bewIcu4vuAQ/mCiqFxSV/wX/L9RLa/tVp8Luc810SPuYWWupZ4jXP+UoZiUD6mwKSJmCTK8LL1eRcBHtlS4wTwMbK7QRxO8WG/v4dLtJbIGPS0myKHXAvnVQIDAQAB",
+  "permissions": [
+    "downloads",
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

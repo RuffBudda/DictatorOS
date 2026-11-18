@@ -1,0 +1,275 @@
+#!/usr/bin/env python3
+"""Bridge between the downloads-bridge Chromium extension and the bar.
+
+Host mode (started by Chromium through native messaging, origin in argv[1]):
+  reads download snapshots from the extension on stdin, writes them to
+  $XDG_RUNTIME_DIR/abu-downloads/state.json, sends "Download complete/failed"
+  notifications, and serves commands from the bar on ctl.sock.
+
+Client mode, used by the bar widget:
+  downloads-host ctl <pause|resume|cancel|open|show> <id>
+  downloads-host ctl clear
+Prints one JSON line {"ok": bool, "error"?: str}.
+"""
+import json
+import os
+import socket
+import struct
+import subprocess
+import sys
+import threading
+import time
+
+ID_ACTIONS = {"pause", "resume", "cancel", "open", "show"}
+EXTENSION_ACTIONS = {"pause", "resume", "cancel"}
+MAX_MESSAGE = 8 * 1024 * 1024
+
+
+def runtime_dir():
+    base = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    return os.path.join(base, "abu-downloads")
+
+
+# ── native messaging framing: 4-byte native-endian length + UTF-8 JSON ──
+def read_message(stream):
+    header = stream.read(4)
+    if len(header) < 4:
+        return None
+    (length,) = struct.unpack("=I", header)
+    if length > MAX_MESSAGE:
+        return None
+    body = stream.read(length)
+    if len(body) < length:
+        return None
+    return json.loads(body.decode("utf-8"))
+
+
+def write_message(stream, obj):
+    body = json.dumps(obj).encode("utf-8")
+    stream.write(struct.pack("=I", len(body)) + body)
+    stream.flush()
+
+
+# ── pure helpers (tested) ──
+def validate_command(obj):
+    if not isinstance(obj, dict):
+        return False, "Bad request"
+    action = obj.get("action")
+    if action == "clear":
+        return True, ""
+    if action not in ID_ACTIONS:
+        return False, "Unknown action"
+    i = obj.get("id")
+    if not isinstance(i, int) or isinstance(i, bool):
+        return False, "Missing download id"
+    return True, ""
+
+
+def transitions(prev, downloads):
+    """Downloads that just finished: [("complete"|"failed", item)]."""
+    out = []
+    for d in downloads:
+        if prev.get(d.get("id")) != "in_progress":
+            continue
+        if d.get("state") == "complete":
+            out.append(("complete", d))
+        elif d.get("state") == "interrupted" and d.get("error") != "USER_CANCELED":
+            out.append(("failed", d))
+    return out
+
+
+def apply_clear(downloads, cleared):
+    return set(cleared) | {d["id"] for d in downloads if d.get("state") != "in_progress"}
+
+
+def visible(downloads, cleared):
+    return [d for d in downloads if d.get("id") not in cleared]
+
+
+# ── host ──
+class Host:
+    def __init__(self):
+        self.dir = runtime_dir()
+        self.state_path = os.path.join(self.dir, "state.json")
+        self.sock_path = os.path.join(self.dir, "ctl.sock")
+        self.lock = threading.Lock()
+        self.out_lock = threading.Lock()
+        self.downloads = []
+        self.prev = {}
+        self.cleared = set()
+        self.updated = 0
+
+    def write_state(self):
+        with self.lock:
+            data = {"connected": True, "updated": self.updated,
+                    "downloads": visible(self.downloads, self.cleared)}
+        tmp = self.state_path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, self.state_path)
+
+    def notify(self, kind, d):
+        name = str(d.get("name") or "file")
+        path = str(d.get("path") or "")
+        if kind == "complete":
+            argv = ["omarchy-notification-send", "-g", "󰇚", "Download complete", name]
+            if path:
+                argv += ["--action", "Open", "xdg-open",
+                         "--action", "Show folder", "sh", "-c", 'xdg-open "${1%/*}"', "_",
+                         "--with", path]
+        else:
+            argv = ["omarchy-notification-send", "-u", "normal", "-g", "󰅚",
+                    "Download failed", f"{name} ({d.get('error') or 'error'})"]
+        spawn(argv)
+
+    def on_snapshot(self, downloads):
+        if not isinstance(downloads, list):
+            return
+        downloads = [d for d in downloads if isinstance(d, dict) and isinstance(d.get("id"), int)]
+        with self.lock:
+            done = transitions(self.prev, downloads)
+            self.prev = {d["id"]: d.get("state") for d in downloads}
+            self.downloads = downloads
+            ids = {d["id"] for d in downloads}
+            self.cleared &= ids
+            self.updated = int(time.time() * 1000)
+        self.write_state()
+        for kind, d in done:
+            self.notify(kind, d)
+
+    def find(self, i):
+        with self.lock:
+            for d in self.downloads:
+                if d["id"] == i:
+                    return d
+        return None
+
+    def handle(self, req):
+        ok, err = validate_command(req)
+        if not ok:
+            return {"ok": False, "error": err}
+        action = req["action"]
+        if action == "clear":
+            with self.lock:
+                self.cleared = apply_clear(self.downloads, self.cleared)
+            self.write_state()
+            return {"ok": True}
+        d = self.find(req["id"])
+        if d is None:
+            return {"ok": False, "error": "That download is gone"}
+        if action in EXTENSION_ACTIONS:
+            with self.out_lock:
+                write_message(sys.stdout.buffer, {"action": action, "id": d["id"]})
+            return {"ok": True}
+        path = str(d.get("path") or "")
+        if action == "open":
+            if d.get("state") != "complete" or not os.path.isfile(path):
+                return {"ok": False, "error": "The file isn't there any more"}
+            spawn(["xdg-open", path])
+        else:  # show
+            folder = os.path.dirname(path)
+            if not os.path.isdir(folder):
+                return {"ok": False, "error": "The folder isn't there any more"}
+            spawn(["xdg-open", folder])
+        return {"ok": True}
+
+    def serve(self, server):
+        while True:
+            conn, _ = server.accept()
+            with conn:
+                try:
+                    conn.settimeout(2)
+                    data = b""
+                    while b"\n" not in data and len(data) < 4096:
+                        chunk = conn.recv(4096)
+                        if not chunk:
+                            break
+                        data += chunk
+                    reply = self.handle(json.loads(data.split(b"\n")[0] or b"null"))
+                except Exception:
+                    reply = {"ok": False, "error": "Bad request"}
+                try:
+                    conn.sendall((json.dumps(reply) + "\n").encode())
+                except OSError:
+                    pass
+
+    def run(self):
+        os.makedirs(self.dir, mode=0o700, exist_ok=True)
+        os.chmod(self.dir, 0o700)
+        try:
+            os.unlink(self.sock_path)
+        except FileNotFoundError:
+            pass
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        old = os.umask(0o177)
+        server.bind(self.sock_path)
+        os.umask(old)
+        server.listen(8)
+        threading.Thread(target=self.serve, args=(server,), daemon=True).start()
+        self.write_state()
+        try:
+            while True:
+                try:
+                    msg = read_message(sys.stdin.buffer)
+                except (ValueError, UnicodeDecodeError):
+                    continue
+                if msg is None:
+                    break
+                if isinstance(msg, dict) and msg.get("type") == "snapshot":
+                    self.on_snapshot(msg.get("downloads"))
+        finally:
+            for p in (self.sock_path, self.state_path):
+                try:
+                    os.unlink(p)
+                except FileNotFoundError:
+                    pass
+
+
+def spawn(argv):
+    try:
+        subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        pass
+
+
+# ── client ──
+def ctl(args):
+    if not args:
+        return {"ok": False, "error": "usage: downloads-host ctl <action> [id]"}
+    req = {"action": args[0]}
+    if len(args) > 1:
+        try:
+            req["id"] = int(args[1])
+        except ValueError:
+            return {"ok": False, "error": "Download id must be a number"}
+    ok, err = validate_command(req)
+    if not ok:
+        return {"ok": False, "error": err}
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(3)
+            s.connect(os.path.join(runtime_dir(), "ctl.sock"))
+            s.sendall((json.dumps(req) + "\n").encode())
+            data = b""
+            while b"\n" not in data:
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+        return json.loads(data.split(b"\n")[0])
+    except (OSError, ValueError):
+        return {"ok": False, "error": "Chromium isn't running"}
+
+
+def main(argv):
+    if len(argv) > 1 and argv[1] == "ctl":
+        reply = ctl(argv[2:])
+        print(json.dumps(reply))
+        return 0 if reply.get("ok") else 1
+    Host().run()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -49,13 +49,20 @@ link omarchy/plugins/abu.stickynotes         ~/.config/omarchy/plugins/abu.stick
 link omarchy/plugins/abu.power             ~/.config/omarchy/plugins/abu.power
 link omarchy/plugins/abu.wallpaper-fade      ~/.config/omarchy/plugins/abu.wallpaper-fade
 link omarchy/plugins/abu.printjobs           ~/.config/omarchy/plugins/abu.printjobs
+link omarchy/plugins/abu.downloads           ~/.config/omarchy/plugins/abu.downloads
 link omarchy/plugins/abu.optimizer            ~/.config/omarchy/plugins/abu.optimizer
 link omarchy/themes/red                      ~/.config/omarchy/themes/red
 link fastfetch/config.jsonc                    ~/.config/fastfetch/config.jsonc
 link bin/fetch                                ~/.local/bin/fetch
 link bin/fetch                                ~/.local/bin/neofetch
+link bin/downloads-host                       ~/.local/bin/downloads-host
 
 chmod +x "$DOT"/bin/*
+
+# Downloads in the bar: the downloads-bridge extension talks to bin/downloads-host.
+NMH=~/.config/chromium/NativeMessagingHosts
+mkdir -p "$NMH"
+sed "s#@HOST_PATH@#$HOME/.local/bin/downloads-host#" "$DOT/chromium/NativeMessagingHosts/dev.abu.downloads.json" >"$NMH/dev.abu.downloads.json"
 
 # ── Chromium: tabs on the left + black search-only new tab page ──
 # (Colours come from the Red theme's chromium.theme; policies from system/install.sh.)
@@ -68,6 +75,7 @@ if [[ -f $FLAGS ]]; then
   grep -q '^--load-extension=' "$FLAGS" || echo "--load-extension=$DOT/chromium/blank-newtab" >>"$FLAGS"
   grep -q "$DOT/chromium/blank-newtab" "$FLAGS" || sed -i "s#^--load-extension=.*#&,$DOT/chromium/blank-newtab#" "$FLAGS"
   grep -q "$DOT/chromium/outlook-red" "$FLAGS" || sed -i "s#^--load-extension=.*#&,$DOT/chromium/outlook-red#" "$FLAGS"
+  grep -q "$DOT/chromium/downloads-bridge" "$FLAGS" || sed -i "s#^--load-extension=.*#&,$DOT/chromium/downloads-bridge#" "$FLAGS"
   echo "Chromium flags: vertical tabs, new tab page"
 fi
 # Turn vertical tabs on in the profile (only while Chromium is closed, as it
