@@ -1,13 +1,16 @@
 # gnome-network-displays (patched)
 
-AUR package 0.99.0 + `fix-autofree-crash.patch`: the app aborted every time it
-was closed (a `g_autofree` variable declared inside a `switch` case without
-braces got freed uninitialised when the PulseAudio context disconnected).
+This is the AUR package 0.99.0 with `fix-autofree-crash.patch`. Without the patch, the app
+stops with an abort each time that you close it.
 
-Rebuild/reinstall:
+The cause: a `g_autofree` variable is declared in a `switch` case without braces. When the
+PulseAudio context disconnects, the app frees this variable before it has a value.
+
+To build and install the package again, run these commands:
 
     cd ~/dotfiles/packages/gnome-network-displays
     makepkg -sfi --nocheck
 
-If `yay` later updates the package from the AUR and the crash comes back,
-rebuild from here (bump pkgver if the AUR version moved and the patch still applies).
+If `yay` updates the package from the AUR later, the crash can come back. If this occurs,
+build the package again from this directory. If the AUR version is different and the patch
+still applies, increase `pkgver` first.

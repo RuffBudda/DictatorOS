@@ -1,35 +1,49 @@
 # Omarchy Power + CPU Boost
 
-An Omarchy Quickshell power widget with a **Disable turbo boost / Enable turbo boost** button. It extends the built-in power popup with live CPU boost status and automatic detection of Intel and AMD-compatible kernel controls.
+This is an Omarchy Quickshell power widget with a **Disable turbo boost / Enable turbo boost**
+button. It adds the live CPU boost status to the built-in power popup. It finds the Intel and
+the AMD-compatible kernel controls automatically.
 
-The plugin ID is `rasp.power`. It replaces `omarchy.power` in the bar while keeping Omarchy's power IPC target and existing battery controls.
+The plugin ID is `rasp.power`. It replaces `omarchy.power` in the bar. It keeps the Omarchy
+power IPC target and the current battery controls.
 
 ## What it does
 
-- Shows the existing battery icon, optional percentage, charge information, system statistics, and power profile buttons.
-- Adds a full-width turbo boost button below the profile buttons.
-- Shows whether CPU boost is currently enabled or disabled.
-- Reads the actual kernel state when the popup opens and every five seconds while it stays open.
-- Automatically uses Intel's `intel_pstate/no_turbo` control when available, otherwise the generic CPUFreq `boost` control used by AMD and some other drivers.
-- Requests administrator authorization through Polkit when changing boost.
-- Shows a busy label during the change and an error message if authorization is cancelled or the write fails.
-- Hides the boost controls when neither supported kernel interface is readable.
+- It shows the current battery icon, an optional percentage, the charge data, the system
+  statistics and the power profile buttons.
+- It adds a full-width turbo boost button below the profile buttons.
+- It shows if the CPU boost is enabled or disabled.
+- It reads the real kernel state when the popup opens. While the popup stays open, it reads
+  the state every five seconds.
+- If Intel's `intel_pstate/no_turbo` control is available, it uses that control. If not, it
+  uses the generic CPUFreq `boost` control that AMD and some other drivers use.
+- It asks for administrator authorization through Polkit when you change the boost.
+- It shows a busy label during the change. It shows an error message if you cancel the
+  authorization or the write fails.
+- It hides the boost controls if it cannot read one of the supported kernel interfaces.
 
-Disabling boost may reduce heat, fan noise, and power use, with lower peak CPU performance. The effect depends on the CPU and workload. Enabling boost permits the CPU to boost; it does not force a particular frequency.
+When you disable the boost, the CPU can make less heat, less fan noise and use less power. The
+peak CPU performance is then lower. The result changes with the CPU and the workload. When you
+enable the boost, the CPU can boost. This does not set a specific frequency.
 
 ## Requirements
 
-- Omarchy with the **Quickshell shell and plugin system**, including `omarchy plugin enable`, `omarchy-shell`, and the built-in `omarchy.power` widget. This is not a Waybar module.
-- A battery exposed through UPower. The inherited widget hides itself on machines without a battery, including desktops; this version retains that behavior.
-- `bash`, `jq`, `install`, Polkit's `pkexec`, and a running graphical authentication agent. Omarchy normally provides these.
-- A readable `/sys/devices/system/cpu/intel_pstate/no_turbo` or `/sys/devices/system/cpu/cpufreq/boost` interface for the new controls.
-- Node.js only if you want to run the development tests.
+- Omarchy with the **Quickshell shell and plugin system**. This includes `omarchy plugin enable`,
+  `omarchy-shell` and the built-in `omarchy.power` widget. This is not a Waybar module.
+- A battery that UPower shows. The widget hides itself on computers without a battery, for
+  example desktops. This version keeps that behavior.
+- `bash`, `jq`, `install`, Polkit's `pkexec` and a graphical authentication agent that runs.
+  Omarchy usually supplies these.
+- A `/sys/devices/system/cpu/intel_pstate/no_turbo` or `/sys/devices/system/cpu/cpufreq/boost`
+  interface that the widget can read. The new controls use it.
+- Node.js, only if you want to run the development tests.
 
-The installed CPU scaling driver and firmware determine which control exists. CPU brand alone does not guarantee a particular sysfs path.
+The CPU scaling driver and the firmware set which control exists. The CPU brand alone does not
+tell you the sysfs path.
 
 ## Install
 
-Run these commands as your normal desktop user, from an unlocked Omarchy session:
+Run these commands as your usual desktop user, in an unlocked Omarchy session:
 
 ```bash
 git clone https://github.com/nuo-yi/omarchy-power-widget.git
@@ -37,27 +51,51 @@ cd omarchy-power-widget
 ./install.sh
 ```
 
-The installer checks the shell connection, manifest, and QML syntax when Qt's `qmlformat` is available. It backs up `shell.json` and any existing `rasp.power` directory under `~/.config/omarchy/power-widget-backup.XXXXXX`, prints the backup path, and copies the four widget files into `~/.config/omarchy/plugins/rasp.power/`.
+The installer does these steps:
 
-It then rescans the plugins, enables `rasp.power`, and restarts the shell to clear any cached QML components. Omarchy uses `omarchy.clonedFrom` to replace the stock power entry while preserving its position and inline settings, such as `showPercentage`.
+1. It examines the shell connection and the manifest. If Qt's `qmlformat` is available, it
+   also examines the QML syntax.
+2. It makes a backup of `shell.json` and of a current `rasp.power` directory, in
+   `~/.config/omarchy/power-widget-backup.XXXXXX`. It shows the backup path.
+3. It copies the four widget files into `~/.config/omarchy/plugins/rasp.power/`.
+4. It scans the plugins again, enables `rasp.power` and starts the shell again. This removes
+   the cached QML components.
 
-`XDG_CONFIG_HOME` is respected if set. The installer requires the shell to be running; if it is not, it stops before changing files. If an installation fails later, its printed backup remains available for recovery.
+Omarchy uses `omarchy.clonedFrom` to replace the standard power entry. The entry keeps its
+position and its inline settings, for example `showPercentage`.
 
-To update, run `git pull --ff-only` in this repository and then `./install.sh` again.
+- The installer uses `XDG_CONFIG_HOME` if it is set.
+- The shell must run. If it does not run, the installer stops before it changes files.
+- If an installation fails later, use the backup path that the installer showed to recover.
+
+To update, run `git pull --ff-only` in this repository. Then run `./install.sh` again.
 
 ## Use
 
-Click the power icon in the bar. Under **POWER PROFILE**, select **Disable turbo boost** or **Enable turbo boost** and complete the authentication prompt. The status is refreshed after the command finishes. The button is temporarily disabled while authorization or the write is in progress.
+1. Click the power icon in the bar.
+2. Below **POWER PROFILE**, select **Disable turbo boost** or **Enable turbo boost**.
+3. Complete the authentication prompt.
 
-Changing boost applies to the current running system. This widget does not install a boot service, a privileged helper, a Polkit rule, or a saved boost preference. The setting can reset after reboot or be changed by another power management tool. Boost is independent of the profile buttons; selecting a profile does not explicitly set boost through this widget.
+The status updates after the command is complete. While the authorization or the write
+continues, the button is disabled.
+
+- A boost change applies to the system that runs now.
+- This widget does not install a boot service, a privileged helper, a Polkit rule or a saved
+  boost setting. Thus the setting can reset after a reboot. A different power management tool
+  can also change it.
+- The boost is independent of the profile buttons. When you select a profile, this widget does
+  not set the boost.
 
 ## AMD and Intel commands
 
-These commands are also useful without the widget. Use the interface that exists on your machine. Reads need no administrator privileges; writes use `sudo tee` so the privileged process performs the write.
+You can also use these commands without the widget. Use the interface that your computer has.
+To read the value, you do not need administrator access. To write it, use `sudo tee`. Then the
+privileged process does the write.
 
 ### AMD / generic CPUFreq boost
 
-This is commonly exposed by AMD-compatible scaling drivers. Some Intel configurations also use this interface.
+AMD-compatible scaling drivers usually supply this interface. Some Intel configurations also
+use it.
 
 ```bash
 # Read: 1 = boost enabled, 0 = boost disabled
@@ -72,7 +110,7 @@ printf '1\n' | sudo tee /sys/devices/system/cpu/cpufreq/boost
 
 ### Intel with intel_pstate
 
-The Intel interface is named `no_turbo`, so its values have the opposite meaning:
+The name of the Intel interface is `no_turbo`. Thus its values have the opposite meaning:
 
 ```bash
 # Read: 1 = turbo disabled, 0 = turbo enabled
@@ -90,51 +128,76 @@ printf '0\n' | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
 | `/sys/devices/system/cpu/cpufreq/boost` | `0` | `1` |
 | `/sys/devices/system/cpu/intel_pstate/no_turbo` | `1` | `0` |
 
-The widget checks Intel's interface first, then CPUFreq. It uses `pkexec /usr/bin/bash -c` to write a fixed `0` or `1` to the selected fixed path. It does not pass user-entered text to the privileged command.
+The widget examines the Intel interface first, then CPUFreq. It uses `pkexec /usr/bin/bash -c`
+to write a fixed `0` or `1` to the selected fixed path. It does not send text that the user
+types to the privileged command.
 
-See the Linux kernel's [CPU frequency boost documentation](https://docs.kernel.org/admin-guide/pm/cpufreq.html#frequency-boost-support) and [intel_pstate documentation](https://docs.kernel.org/admin-guide/pm/intel_pstate.html) for driver behavior and firmware restrictions.
+For the driver behavior and the firmware limits, refer to the Linux kernel
+[CPU frequency boost documentation](https://docs.kernel.org/admin-guide/pm/cpufreq.html#frequency-boost-support)
+and the [intel_pstate documentation](https://docs.kernel.org/admin-guide/pm/intel_pstate.html).
 
 ## Every change from the built-in widget
 
 ### `Panel.qml`
 
-1. Imports the new `Boost.js` module.
-2. Adds properties for boost availability, normalized enabled state, detected backend, and the latest action error.
-3. Adds a boost read to the existing refresh function. It shares the existing popup-open refresh and five-second timer, avoiding a separate background poll when the popup is closed.
-4. Adds `toggleBoost()`, which clears a previous error, rejects duplicate requests, and starts the privileged command for the selected backend.
-5. Adds `boostProc`, which detects the kernel interface and parses its state without requiring authorization.
-6. Adds `boostActionProc`, which performs the authorized write, reports nonzero exit codes, and refreshes the real kernel state after success or failure. The UI does not assume the write succeeded.
-7. Adds the action button under the profile row. Its text describes the available action, its active styling marks boost as disabled, and it displays a busy label while a command runs.
-8. Adds a `CPU boost` status row and a wrapped error message. Boost rows are hidden if no valid supported control is found.
+1. It imports the new `Boost.js` module.
+2. It adds properties for the boost availability, the normalized enabled state, the backend
+   that it found, and the last action error.
+3. It adds a boost read to the current refresh function. The read uses the same refresh when
+   the popup opens and the same five-second timer. Thus there is no separate background poll
+   when the popup is closed.
+4. It adds `toggleBoost()`. This function clears an earlier error, refuses duplicate requests
+   and starts the privileged command for the selected backend.
+5. It adds `boostProc`. This finds the kernel interface and reads its state without
+   authorization.
+6. It adds `boostActionProc`. This does the authorized write and reports exit codes that are
+   not zero. After a success or a failure, it reads the real kernel state again. The UI does
+   not think that the write was successful.
+7. It adds the action button below the profile row. Its text tells you the available action.
+   Its active style shows that the boost is disabled. While a command runs, it shows a busy
+   label.
+8. It adds a `CPU boost` status row and a wrapped error message. If the widget finds no valid
+   supported control, it hides the boost rows.
 
-The existing `moduleName`, IPC target, `manageIpc: false`, and `togglePercentage()` behavior remain compatible with Omarchy's cloned-plugin routing. Battery handling, profile selection, keyboard profile navigation, and system statistics are inherited from the upstream widget.
+The current `moduleName`, the IPC target, `manageIpc: false` and the `togglePercentage()`
+behavior stay compatible with the Omarchy cloned-plugin routing. The battery handling, the
+profile selection, the keyboard profile navigation and the system statistics come from the
+upstream widget.
 
 ### `Boost.js`
 
-This new module keeps interface detection, value interpretation, and privileged command construction together. It normalizes Intel's inverted values and CPUFreq's regular values to one boolean. Unknown interfaces and malformed status output are rejected. Only the two known paths can be used for writes.
+This new module keeps the interface detection, the value interpretation and the construction of
+the privileged command together. It changes the inverted Intel values and the usual CPUFreq
+values into one boolean. It refuses unknown interfaces and incorrect status output. Writes can
+use only the two known paths.
 
 ### `manifest.json`
 
-- Changes the plugin ID from `omarchy.power` to `rasp.power` so the extension lives in the user plugin directory.
-- Adds `omarchy.clonedFrom: "omarchy.power"` so Omarchy can replace the original bar entry and resolve its stable IPC target.
-- Uses the name **Power + CPU Boost**, version **1.1.0**, and a description covering boost support.
-- Credits Omarchy for the original widget and nuo-yi for the extension.
-- Retains the bar-widget entry point, System category, and single-instance restriction.
+- It changes the plugin ID from `omarchy.power` to `rasp.power`. Thus the extension is in the
+  user plugin directory.
+- It adds `omarchy.clonedFrom: "omarchy.power"`. Thus Omarchy can replace the original bar
+  entry and find its stable IPC target.
+- It uses the name **Power + CPU Boost**, the version **1.1.0** and a description that includes
+  the boost support.
+- It gives credit to Omarchy for the original widget and to nuo-yi for the extension.
+- It keeps the bar-widget entry point, the System category and the limit of one instance.
 
 ### Other files
 
 | File | Purpose |
 | --- | --- |
-| `Model.js` | Unmodified upstream battery/profile helpers. |
-| `install.sh` | Dependency and syntax checks, backups, file installation, enablement, and shell restart. |
-| `tests/boost.test.cjs` | Tests both interfaces' opposite value meanings, generated command paths, malformed status, and unknown-backend rejection. It never writes to sysfs. |
-| `upstream/Panel.qml` | Original installed Omarchy panel, retained as a comparison baseline. It is not installed. |
-| `upstream/CHANGES.patch` | Exact diff from that baseline to this panel. |
-| `upstream/PROVENANCE.md` | Source paths, checksums, and attribution for inherited code. |
-| `LICENSE` | Original Omarchy MIT license, preserved for the derived files. The extension is distributed under the same terms. |
+| `Model.js` | The upstream battery and profile helpers, without changes. |
+| `install.sh` | Dependency and syntax checks, backups, file installation, enablement and a shell restart. |
+| `tests/boost.test.cjs` | Tests the opposite value meanings of the two interfaces, the generated command paths, incorrect status and the refusal of unknown backends. It never writes to sysfs. |
+| `upstream/Panel.qml` | The original installed Omarchy panel, kept as a baseline for comparison. It is not installed. |
+| `upstream/CHANGES.patch` | The exact diff from that baseline to this panel. |
+| `upstream/PROVENANCE.md` | The source paths, checksums and attribution for the inherited code. |
+| `LICENSE` | The original Omarchy MIT license, kept for the derived files. The extension has the same terms. |
 | `.gitignore` | Excludes temporary files and Node dependency directories. |
 
-No files under `/usr/share/omarchy/` are modified. The plugin survives Omarchy package updates, but as a copy it does not automatically inherit future changes to the stock power widget.
+The plugin does not change files in `/usr/share/omarchy/`. The plugin stays after Omarchy
+package updates. But it is a copy, thus it does not get future changes to the standard power
+widget automatically.
 
 ## Validation and development
 
@@ -145,9 +208,16 @@ bash -n install.sh
 diff -u upstream/Panel.qml Panel.qml
 ```
 
-The `diff` command exits with status 1 when it finds the expected differences. `qmlformat` checks parsing; it does not prove that shell imports, hardware, or authentication work. The original widget and the initial CPUFreq version were loaded in the user's live Omarchy session. The published revision is also checked in that session during preparation. Intel polarity is covered by automated tests; no Intel hardware write has been tested here. Successful hardware writes on other machines depend on their driver, firmware, and authorization setup.
+- The `diff` command stops with status 1 when it finds the expected differences.
+- `qmlformat` examines the parse only. It does not show that the shell imports, the hardware
+  or the authentication work.
+- The original widget and the first CPUFreq version operated in the live Omarchy session of
+  the user. The published version also had a check in that session during preparation.
+- Automated tests cover the Intel polarity. There was no test of an Intel hardware write.
+- Hardware writes on other computers depend on their driver, their firmware and their
+  authorization setup.
 
-To inspect shell errors:
+To examine the shell errors:
 
 ```bash
 quickshell log --any-display -p /usr/share/omarchy/shell -t 80
@@ -155,15 +225,25 @@ quickshell log --any-display -p /usr/share/omarchy/shell -t 80
 
 ## Troubleshooting
 
-**Power icon disappeared:** check the shell log for `Plugin widget rasp.power failed`. A QML syntax error in an earlier local version caused the icon to disappear; that error was a missing closing brace and is fixed in this version. Reinstall and restart the shell to clear cached components. If needed, restore the stock widget using the commands below.
+**The power icon is not visible:** Look for `Plugin widget rasp.power failed` in the shell log.
+In an earlier local version, a QML syntax error removed the icon. The error was a missing
+closing brace, and this version corrects it. Install the widget again and start the shell
+again to clear the cached components. If necessary, restore the standard widget with the
+commands below.
 
-**No boost button:** check whether either sysfs file exists and contains `0` or `1`. Unsupported drivers, firmware settings, or unreadable controls prevent the widget from showing the feature.
+**There is no boost button:** Make sure that one of the sysfs files exists and contains `0` or
+`1`. The driver or the firmware can lack support for the feature. Or the widget cannot read the
+controls. In these cases, the widget does not show the feature.
 
-**Authorization fails or no prompt appears:** confirm that `pkexec` and a graphical Polkit authentication agent are available. Cancelled authorization leaves the current state unchanged and shows an error. Firmware can also reject an attempted change.
+**The authorization fails or no prompt shows:** Make sure that `pkexec` and a graphical Polkit
+authentication agent are available. If you cancel the authorization, the current state does
+not change and an error shows. The firmware can also refuse a change.
 
-**The value changes back:** another power management tool may be writing it. The widget reads the actual state again rather than saving its own preference.
+**The value changes back:** A different power management tool can write it. The widget reads
+the real state again. It does not save its own setting.
 
-**No icon on a desktop without a battery:** the inherited panel hides itself when UPower reports no battery. Supporting desktops requires a separate change to that behavior.
+**There is no icon on a desktop without a battery:** When UPower reports no battery, the
+inherited panel hides itself. Desktop support needs a separate change to that behavior.
 
 ## Restore the stock widget
 
@@ -173,8 +253,13 @@ omarchy plugin enable omarchy.power
 omarchy restart shell
 ```
 
-Omarchy restores the clone's source when the clone is disabled. The explicit enable command also covers a missing stock entry. The copied files can remain installed while disabled. To recover the exact previous configuration, use the installer backup path it printed; restoring an older `shell.json` also restores all other bar settings from that backup.
+When you disable the clone, Omarchy restores the source of the clone. The enable command also
+covers a missing standard entry. The copied files can stay installed while the plugin is
+disabled. To restore the exact earlier configuration, use the backup path that the installer
+showed. An older `shell.json` also restores all other bar settings from that backup.
 
 ## Credits
 
-Based on [Omarchy](https://github.com/basecamp/omarchy)'s built-in power panel and helpers. Original code copyright David Heinemeier Hansson and contributors; CPU boost extension by [nuo-yi](https://github.com/nuo-yi). Distributed under the MIT license.
+This widget uses the built-in power panel and helpers of [Omarchy](https://github.com/basecamp/omarchy).
+The original code is copyright David Heinemeier Hansson and contributors. The CPU boost
+extension is by [nuo-yi](https://github.com/nuo-yi). The license is MIT.

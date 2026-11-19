@@ -12,7 +12,7 @@ The agents do not move your pointer or type into your windows.
 - **The agent desktop continues to work when you go to a different workspace.**
 - **The agent can use your desktop when it asks for it** (`desktop: "host"`). For each click, the server
   moves your pointer for a short time. Then the server moves your pointer back.
-- **Keyboard input on your desktop goes only to the window that the agent clicked or focused.** If you
+- **On your desktop, the agent types only into the window that it clicked or focused.** If you
   focus a different window, the server refuses the input.
 - **Clicks on your desktop agree with the last screenshot.** If you change the workspace after the
   screenshot, the server refuses the clicks. The agent must then take a new screenshot.
