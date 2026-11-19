@@ -1,2 +1,5 @@
 # Update suggestions are for local review only (may contain personal details).
 updates/
+
+# desktop-mcp dependencies (installed by install.sh with npm ci)
+desktop-mcp/node_modules/

@@ -125,6 +125,9 @@
 - **Black bar**: shown by default, Super+B hides it; opaque black with red icons and a
   battery percentage (bolt while plugged in). Monitor panel with a built-in screen arranger, per-screen scale and
   rotation, plus an **AI agents** panel showing usage/limits across your coding assistants.
+- **Agent desktops**: AI agents (Claude, Codex, OpenCode) get their own tiled desktop. They do
+  not move your pointer. Credentials are always hidden from them. When an agent needs you, a pill
+  shows near the clock.
 - **Update-proof**: after every `omarchy update`, your settings are restored and any
   changes the update wanted are saved as a patch for you to approve. System tweaks
   re-apply themselves automatically.
@@ -186,6 +189,8 @@ in its profile.
    (`10.42.0.0/16`), so a TV can get an address and connect back for the stream.
    6c. Bluetooth (Legion 5 15AHP11 only): installs the RTL8852BD fix if Lenovo's Bluetooth
        driver `.exe` is in `~/Downloads`; otherwise prints where to get it.
+   6d. Agent desktops: loads `uinput` at boot. Gives only your user write access to
+       `/dev/uinput` (for ydotool). Your user does not go into the `input` group.
 7. A pacman hook that re-applies all of the above after relevant package updates.
    It runs a root-owned copy of the script, never the user-writable one.
 
@@ -213,6 +218,9 @@ WHOOP rings plugin, and reinstalls it whenever it's missing):
   qemu-user-static-binfmt, and `intel-ucode` on AMD machines only.
   Edit `REMOVE_PKGS` at the top to keep any of them.
 - **rmdesk**: clones it to `~/Work/rmdesk` and builds its Python environment.
+- **Agent desktops**: installs sway, ydotool, grim, wtype, wl-clipboard, tesseract,
+  `tesseract-data-eng`, python-gobject, at-spi2-core, Node.js and npm. Then it starts the
+  ydotool user service. Refer to [Agent desktops](#agent-desktops).
 
 ### Dual boot with Windows: keep Limine first
 
@@ -338,6 +346,40 @@ Only the shortcuts that differ from Omarchy's defaults. Full list: `omarchy menu
   token/session stats per agent (Claude, Codex, Grok and others as collectors are
   available), with account switching and sign-in flows from the panel. See
   [`omarchy/plugins/abu.agents/README.md`](omarchy/plugins/abu.agents/README.md) for details.
+
+### Agent desktops
+
+`desktop-mcp/` is an MCP server. It lets AI agents see and use the desktop. `install.sh`
+registers it with Claude Code, Codex and OpenCode. The tools show only in new agent sessions.
+
+- **Each agent has its own desktop.** This desktop is a nested sway session. It shows as a tiled
+  window on your screen. It does not float, and it does not take your keyboard focus.
+- **The agent does not move your pointer or type into your windows.** The agent desktop has its
+  own pointer, keyboard focus and clipboard.
+- **You can work on a different workspace.** The agent desktop continues to work.
+- **The agent can use your desktop when it asks for it.** For each click, it moves your pointer
+  for a short time and then moves it back. It types only into the window that it clicked.
+- **Credentials are always hidden.** Before the agent gets a screenshot, the server makes black the
+  password managers, password prompts, password fields and text that looks like a credential.
+  The server also removes credentials from text. You cannot set this protection to off.
+- **Alerts.** When an agent needs you, the `abu.agent-desk` pill near the clock shows
+  `󰂞 Claude needs you`. If the bar is hidden (Super+B), or a fullscreen video plays, a banner shows
+  above all windows.
+
+To answer an alert:
+
+1. Click the pill or the banner.
+2. Push **Show** to go to the agent desktop.
+3. Do the task that the agent asked for.
+4. Push **Done**. The agent then continues.
+
+To close an agent desktop, push **×**.
+
+CAUTION: THE CREDENTIAL PROTECTION IS NOT COMPLETE. OCR CAN MISS VERY SMALL TEXT OR TEXT IN UNUSUAL
+FONTS. DO NOT SHOW SECRETS ON YOUR DESKTOP WHEN AN AGENT USES IT.
+
+For the tools, the settings and the limits, refer to
+[`desktop-mcp/README.md`](desktop-mcp/README.md).
 
 ### Desktop widgets
 
@@ -595,6 +637,12 @@ Common tweaks:
 - Chromium: remove the `blank-newtab` path and `VerticalTabs` from
   `~/.config/chromium-flags.conf`.
 - Apps removed by `apps.sh` can be reinstalled with `omarchy-pkg-add <name>`.
+- Agent desktops: do these steps.
+  1. Remove the server from the agents: `claude mcp remove desktop -s user`. Then remove the
+     `desktop` entries from `~/.codex/config.toml` and `~/.config/opencode/opencode.json`.
+  2. Remove `abu.agent-desk` from `omarchy/shell.json`.
+  3. Stop the ydotool service: `systemctl --user disable --now ydotool`.
+  4. Delete `/etc/udev/rules.d/80-uinput.rules` and `/etc/modules-load.d/uinput.conf`.
 
 ## Repository layout
 
@@ -603,6 +651,7 @@ applications/        launcher entries (Display settings, New VPN profile, rmdesk
 backgrounds/         red-stripes wallpaper (SVG source + PNG) and plain black
 bin/                 scripts used by bindings, widgets and hooks
 obsidian/vault-ask/  "Ask the Vault" Obsidian plugin (local AI over your notes)
+desktop-mcp/         MCP server: agent desktops, agent cursors, credential protection
 chromium/            red-wave new tab page and the Outlook recolour (Chromium extensions)
 docs/                README images
 fastfetch/           fastfetch config and the DictatorOS crown logo
@@ -611,14 +660,14 @@ icons/               app icons
 omarchy/
   branding/          blank screensaver and fastfetch logo
   hooks/             theme-set (black wallpaper) and post-update (dotfiles check) hooks
-  plugins/abu.*      custom shell plugins (bar, lock, alt-tab, monitor, widgets, VPN, notes, print jobs…)
+  plugins/abu.*      custom shell plugins (bar, lock, alt-tab, monitor, widgets, VPN, notes, print jobs, agent desktops…)
   shell.json         bar layout and shell settings
   themes/red/        the Red theme
 packages/            patched gnome-network-displays build
 preview/             design mock-ups
 system/              root-level tweaks (install.sh, Limine helpers, bluetooth-rtl8852bd/)
 install.sh           user-level installer
-apps.sh              app choices: fonts, removals, web apps, rmdesk
+apps.sh              app choices: fonts, removals, web apps, rmdesk, agent desktop packages
 ```
 
 ## Third-party plugins

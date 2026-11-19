@@ -1,0 +1,79 @@
+#!/usr/bin/env node
+// Control helper for the bar widget.
+//   desktop-mcp-ctl list            → JSON array of live agents (dead ones are pruned)
+//   desktop-mcp-ctl ack  <agent-id> → mark the agent's request as handled ("Done")
+//   desktop-mcp-ctl show <agent-id> → focus the agent's sandbox window (switches to its workspace)
+//   desktop-mcp-ctl stop <agent-id> → close the agent's sandbox desktop
+// Agent ids are validated against the files on disk; nothing user-supplied reaches a shell.
+import { readdirSync, readFileSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+
+const dir = join(process.env.XDG_RUNTIME_DIR || `/run/user/${process.getuid()}`, "desktop-mcp", "agents");
+const out = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+
+function agents(all = false) {
+  let names = [];
+  try { names = readdirSync(dir).filter((n) => n.endsWith(".json")); } catch { return []; }
+  const list = [];
+  for (const n of names) {
+    try {
+      const a = JSON.parse(readFileSync(join(dir, n), "utf8"));
+      let alive = true;
+      try { process.kill(a.pid, 0); } catch { alive = false; }
+      if (!alive || Date.now() - a.updated > 30_000) { rmSync(join(dir, n), { force: true }); continue; }
+      // Only agents doing something: a desktop open, an action in the last 5 minutes, or a request for the user.
+      // (Every MCP client session loads the server, so idle ones would otherwise crowd the bar.)
+      const recent = a.lastAction && Date.now() - a.lastAction.at < 5 * 60_000;
+      if (all || a.attention || a.sandbox || recent) list.push(a);
+    } catch { /* partial write; skip */ }
+  }
+  return list.sort((a, b) => (b.attention ? 1 : 0) - (a.attention ? 1 : 0) || a.label.localeCompare(b.label));
+}
+
+function find(id) {
+  const a = agents(true).find((x) => x.id === id);
+  if (!a) { out({ ok: false, error: "No such agent" }); process.exit(0); }
+  return a;
+}
+
+const [cmd, id] = process.argv.slice(2);
+try {
+  if (cmd === "list") out(agents());
+  else if (cmd === "alert") {
+    // For the host overlay: who needs the user, and whether the bar can show it
+    // (it can't while hidden with Super+B, or under a fullscreen window).
+    const needy = agents().filter((a) => a.attention).map((a) => ({ id: a.id, label: a.label, color: a.color, message: a.attention.message, sandbox: !!a.sandbox }));
+    let barVisible = true, fullscreen = false;
+    if (needy.length) {
+      try {
+        const layers = JSON.parse(execFileSync("hyprctl", ["-j", "layers"], { encoding: "utf8" }));
+        const hiddenFlag = existsSync(join(process.env.HOME || "", ".local/state/omarchy/toggles/bar-off"));
+        barVisible = !hiddenFlag && Object.values(layers).some((m) => Object.values(m.levels ?? {}).some((l) => l.some((x) => /bar/.test(x.namespace ?? "") && x.w > 0 && x.h > 0)));
+        const ws = JSON.parse(execFileSync("hyprctl", ["-j", "activeworkspace"], { encoding: "utf8" }));
+        fullscreen = Boolean(ws.hasfullscreen);
+      } catch { /* default: assume hidden so the banner shows */ barVisible = false; }
+    }
+    out({ needy, barVisible, fullscreen, show: needy.length > 0 && (!barVisible || fullscreen) });
+  }
+  else if (cmd === "ack") { const a = find(id); writeFileSync(join(dir, `${a.id}.ack`), "done"); out({ ok: true }); }
+  else if (cmd === "show") {
+    const a = find(id);
+    const addr = a.sandbox?.host_window;
+    if (!addr || !/^0x[0-9a-f]+$/i.test(addr)) { out({ ok: false, error: "This agent has no sandbox window" }); }
+    else {
+      execFileSync("hyprctl", ["dispatch", `hl.dsp.focus({ window = "address:${addr}" })`]);
+      out({ ok: true });
+    }
+  } else if (cmd === "stop") {
+    const a = find(id);
+    const unit = a.sandbox?.unit;
+    if (!unit || !/^desktop-mcp-sb-[\w-]+$/.test(unit)) { out({ ok: false, error: "This agent has no sandbox" }); }
+    else {
+      for (const u of [`${unit}.slice`, unit]) { try { execFileSync("systemctl", ["--user", "stop", u]); } catch { /* ignore */ } }
+      out({ ok: true });
+    }
+  } else { out({ ok: false, error: `usage: desktop-mcp-ctl list|ack|show|stop <id>` }); }
+} catch (e) {
+  out({ ok: false, error: String(e.message || e).slice(0, 200) });
+}

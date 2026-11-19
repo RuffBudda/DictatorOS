@@ -51,6 +51,7 @@ link omarchy/plugins/abu.wallpaper-fade      ~/.config/omarchy/plugins/abu.wallp
 link omarchy/plugins/abu.printjobs           ~/.config/omarchy/plugins/abu.printjobs
 link omarchy/plugins/abu.downloads           ~/.config/omarchy/plugins/abu.downloads
 link omarchy/plugins/abu.optimizer            ~/.config/omarchy/plugins/abu.optimizer
+link omarchy/plugins/abu.agent-desk           ~/.config/omarchy/plugins/abu.agent-desk
 link omarchy/themes/red                      ~/.config/omarchy/themes/red
 link fastfetch/config.jsonc                    ~/.config/fastfetch/config.jsonc
 link bin/fetch                                ~/.local/bin/fetch
@@ -63,6 +64,48 @@ chmod +x "$DOT"/bin/*
 NMH=~/.config/chromium/NativeMessagingHosts
 mkdir -p "$NMH"
 sed "s#@HOST_PATH@#$HOME/.local/bin/downloads-host#" "$DOT/chromium/NativeMessagingHosts/dev.abu.downloads.json" >"$NMH/dev.abu.downloads.json"
+
+# ── Agent desktops (desktop-mcp): an MCP server for Claude, Codex and OpenCode ──
+# Packages come from apps.sh; /dev/uinput access from system/install.sh (6d).
+MCP="$DOT/desktop-mcp/server.js"
+chmod +x "$DOT/desktop-mcp/bin/desktop-mcp-ctl"
+if command -v npm >/dev/null; then
+  if [[ ! -d $DOT/desktop-mcp/node_modules ]]; then
+    npm ci --prefix "$DOT/desktop-mcp" --omit=dev --no-audit --no-fund --silent \
+      && echo "desktop-mcp: dependencies installed" || echo "desktop-mcp: npm ci failed (offline?)"
+  fi
+  # Claude Code
+  if command -v claude >/dev/null; then
+    if ! claude mcp get desktop 2>/dev/null | grep -qF "$MCP"; then
+      claude mcp remove desktop -s user >/dev/null 2>&1 || true
+      claude mcp add --scope user desktop -e DESKTOP_MCP_LABEL=Claude -- node "$MCP" >/dev/null \
+        && echo "desktop-mcp: registered with Claude Code"
+    fi
+  fi
+  # Codex (~/.codex/config.toml) and OpenCode (~/.config/opencode/opencode.json)
+  python3 -I - "$MCP" <<'PY5'
+import json, os, re, sys
+mcp = sys.argv[1]
+p = os.path.expanduser("~/.codex/config.toml")
+if os.path.isdir(os.path.dirname(p)):
+    s = open(p).read() if os.path.exists(p) else ""
+    # Drop any old [mcp_servers.desktop] / [mcp_servers.desktop.env] tables.
+    s = re.sub(r'(?ms)^\[mcp_servers\.desktop(\.env)?\]\n.*?(?=^\[|\Z)', "", s).rstrip() + "\n"
+    s += ('\n[mcp_servers.desktop]\ncommand = "node"\nargs = [%s]\nstartup_timeout_sec = 20\n'
+          'tool_timeout_sec = 60\n\n[mcp_servers.desktop.env]\nDESKTOP_MCP_LABEL = "Codex"\n' % json.dumps(mcp))
+    old = open(p).read() if os.path.exists(p) else None
+    if old != s:
+        open(p, "w").write(s); print("desktop-mcp: registered with Codex")
+p = os.path.expanduser("~/.config/opencode/opencode.json")
+if os.path.isdir(os.path.dirname(p)):
+    d = json.load(open(p)) if os.path.exists(p) else {"$schema": "https://opencode.ai/config.json"}
+    want = {"type": "local", "command": ["node", mcp], "environment": {"DESKTOP_MCP_LABEL": "OpenCode"}}
+    servers = d.setdefault("mcp", {}).setdefault("servers", {})  # OpenCode v2 layout
+    if servers.get("desktop") != want:
+        servers["desktop"] = want
+        json.dump(d, open(p, "w"), indent=2); print("desktop-mcp: registered with OpenCode")
+PY5
+fi
 
 # ── Chromium: tabs on the left + black search-only new tab page ──
 # (Colours come from the Red theme's chromium.theme; policies from system/install.sh.)

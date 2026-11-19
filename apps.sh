@@ -24,6 +24,11 @@ grep -q AuthenticAMD /proc/cpuinfo && REMOVE_PKGS+=(intel-ucode)
 ADD_PKGS=(claude-desktop fwupd obsidian)          # claude-desktop comes from the omarchy repo
 AUR_PKGS=(stremio)                                 # built from the AUR with yay
 
+# Agent desktops (desktop-mcp): nested sway desktops, pointer/keyboard control,
+# OCR and accessibility for credential redaction, Node.js for the server.
+AGENT_PKGS=(sway ydotool grim wtype wl-clipboard tesseract tesseract-data-eng
+            python-gobject at-spi2-core nodejs npm)
+
 # rmdesk (reMarkable app) runtime libraries
 RMDESK_PKGS=(pyside6 python-paramiko python-keyring python-opencv python-numpy
              python-requests python-websocket-client python-pytest python-pytest-qt)
@@ -43,8 +48,8 @@ FONT_PKGS=(
 
 # Add first, and mark rmdesk's libraries as explicitly installed, so the
 # removals below can't take them out as orphaned dependencies.
-omarchy-pkg-add "${ADD_PKGS[@]}" "${RMDESK_PKGS[@]}" "${FONT_PKGS[@]}"
-sudo pacman -D --asexplicit "${RMDESK_PKGS[@]}" >/dev/null
+omarchy-pkg-add "${ADD_PKGS[@]}" "${RMDESK_PKGS[@]}" "${AGENT_PKGS[@]}" "${FONT_PKGS[@]}"
+sudo pacman -D --asexplicit "${RMDESK_PKGS[@]}" "${AGENT_PKGS[@]}" >/dev/null
 omarchy-pkg-aur-add "${AUR_PKGS[@]}"
 omarchy-pkg-drop "${REMOVE_PKGS[@]}"
 
@@ -98,5 +103,9 @@ update-desktop-database ~/.local/share/applications &>/dev/null || true
 # ── rmdesk (reMarkable 2 desktop app), used by ~/dotfiles/bin/rmdesk ──
 [[ -d ~/Work/rmdesk ]] || { mkdir -p ~/Work && git clone -q https://github.com/RuffBudda/rmdesk.git ~/Work/rmdesk; }
 [[ -x ~/.local/share/rmdesk/venv/bin/python ]] || ~/Work/rmdesk/scripts/setup-venv.sh
+
+# ── Agent desktops: ydotool daemon (needs /dev/uinput, see system/install.sh 6d) ──
+systemctl --user enable --now ydotool.service >/dev/null 2>&1 \
+  || echo "ydotool: not started; run sudo ~/dotfiles/system/install.sh, then re-run this script"
 
 echo "Done."

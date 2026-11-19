@@ -11,6 +11,7 @@
 #     AI features off.  5. Battery: stop charging at ~80%.
 #  6. No automatic sleep (lid close ignored).  6b. Miracast firewall rules.
 #  6c. Bluetooth fix for the RTL8852BD (needs Lenovo's driver .exe in ~/Downloads).
+#  6d. Agent desktops (desktop-mcp): ydotool can write to /dev/uinput (your user only).
 #  7. A pacman hook re-applies all of this after relevant updates (root-owned copy).
 # Safe to re-run (e.g. after an `omarchy update` that resets anything).
 set -euo pipefail
@@ -454,6 +455,22 @@ if [[ ${1:-} != --from-hook ]] && bt_chip; then
       echo "  from pcsupport.lenovo.com into ~/Downloads and re-run, or: BT_DRIVER=/path/to.exe sudo -E $0"
     fi
   fi
+fi
+
+# ── 6d. Agent desktops (desktop-mcp): ydotool needs /dev/uinput ─────────
+# Load uinput at boot. Give only the installing user write access with an ACL.
+# (Adding the user to the "input" group would also let them read every
+# keyboard and mouse.) The pacman hook runs without SUDO_USER and keeps the
+# rule that is already there.
+if [[ -n ${SUDO_USER:-} && $SUDO_USER != root ]]; then
+  echo uinput >/etc/modules-load.d/uinput.conf
+  cat >/etc/udev/rules.d/80-uinput.rules <<RULES
+KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput", RUN+="/usr/bin/setfacl -m u:$SUDO_USER:rw /dev/uinput"
+RULES
+  modprobe uinput 2>/dev/null || true
+  udevadm control --reload-rules
+  udevadm trigger --name-match=uinput 2>/dev/null || true
+  echo "Agent desktops: /dev/uinput writable by $SUDO_USER (for ydotool)"
 fi
 
 # ── 7. Re-apply all of this automatically after relevant package updates ──

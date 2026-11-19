@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "abu.agent-desk",
+  "name": "Agent Desktops",
+  "version": "1.0.0",
+  "author": "abu",
+  "license": "MIT",
+  "description": "Shows AI agents working in their own desktops, and lights up when one needs you.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "Panel.qml" },
+  "barWidget": {
+    "displayName": "Agent Desktops",
+    "description": "Agent icon while desktop-mcp agents run; urgent when an agent needs your input. Click to see, jump to, finish or stop them.",
+    "category": "AI",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
