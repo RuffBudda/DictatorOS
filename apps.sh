@@ -22,6 +22,7 @@ grep -q AuthenticAMD /proc/cpuinfo && REMOVE_PKGS+=(intel-ucode)
 
 # ── Packages to add ────────────────────────────────────────
 ADD_PKGS=(claude-desktop fwupd obsidian)          # claude-desktop comes from the omarchy repo
+AUR_PKGS=(stremio)                                 # built from the AUR with yay
 
 # rmdesk (reMarkable app) runtime libraries
 RMDESK_PKGS=(pyside6 python-paramiko python-keyring python-opencv python-numpy
@@ -44,6 +45,7 @@ FONT_PKGS=(
 # removals below can't take them out as orphaned dependencies.
 omarchy-pkg-add "${ADD_PKGS[@]}" "${RMDESK_PKGS[@]}" "${FONT_PKGS[@]}"
 sudo pacman -D --asexplicit "${RMDESK_PKGS[@]}" >/dev/null
+omarchy-pkg-aur-add "${AUR_PKGS[@]}"
 omarchy-pkg-drop "${REMOVE_PKGS[@]}"
 
 # Superwhisper leaves a daemon and settings behind after the package is gone.

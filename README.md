@@ -199,7 +199,7 @@ WHOOP rings plugin, and reinstalls it whenever it's missing):
 
 **`apps.sh`** (asks for sudo):
 
-- **Adds** Claude Desktop, Obsidian, fwupd, Office-compatible fonts (Carlito for Calibri, Caladea
+- **Adds** Claude Desktop, Obsidian, fwupd, Stremio (from the AUR), Office-compatible fonts (Carlito for Calibri, Caladea
   for Cambria, Liberation/Croscore for Arial, Times New Roman and Courier New) and about 35
   common font families from the Arch repos, plus ~30 more Google Fonts (Poppins,
   Raleway, Playfair Display, Merriweather, Lora, DM Sans…) into `~/.local/share/fonts/google`.
@@ -540,7 +540,7 @@ Terminal colours. All reds and red-oranges, even the ones named after other colo
 ### Other
 
 - **Notifications** hide after 5 s, urgent ones included (they stay in the history).
-- `apps.sh`: app choices (fonts, removals, Claude Desktop, fwupd, web apps, rmdesk;
+- `apps.sh`: app choices (fonts, removals, Claude Desktop, Stremio, fwupd, web apps, rmdesk;
   see [Install](#install)).
 - `bin/rmdesk` + launcher: a reMarkable 2 desktop app (separate project with its own venv).
 - `bin/block-text`: render text in the Omarchy logo's block-letter style.
