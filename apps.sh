@@ -21,8 +21,8 @@ REMOVE_PKGS=(
 grep -q AuthenticAMD /proc/cpuinfo && REMOVE_PKGS+=(intel-ucode)
 
 # ── Packages to add ────────────────────────────────────────
-ADD_PKGS=(claude-desktop fwupd obsidian)          # claude-desktop comes from the omarchy repo
-AUR_PKGS=(stremio windterm-bin)                     # built from the AUR with yay
+ADD_PKGS=(claude-desktop fwupd obsidian blender speedtest-cli)  # claude-desktop comes from the omarchy repo
+AUR_PKGS=(stremio windterm-bin chiaki-ng)           # built from the AUR with yay
 
 # Agent desktops (desktop-mcp): nested sway desktops, pointer/keyboard control,
 # OCR and accessibility for credential redaction, Node.js for the server.
