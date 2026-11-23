@@ -22,7 +22,7 @@ grep -q AuthenticAMD /proc/cpuinfo && REMOVE_PKGS+=(intel-ucode)
 
 # ── Packages to add ────────────────────────────────────────
 ADD_PKGS=(claude-desktop fwupd obsidian)          # claude-desktop comes from the omarchy repo
-AUR_PKGS=(stremio)                                 # built from the AUR with yay
+AUR_PKGS=(stremio windterm-bin)                     # built from the AUR with yay
 
 # Agent desktops (desktop-mcp): nested sway desktops, pointer/keyboard control,
 # OCR and accessibility for credential redaction, Node.js for the server.
@@ -56,6 +56,26 @@ omarchy-pkg-drop "${REMOVE_PKGS[@]}"
 # Superwhisper leaves a daemon and settings behind after the package is gone.
 pkill -x superwhisper 2>/dev/null || true
 rm -rf ~/.config/superwhisper ~/.local/share/superwhisper ~/.cache/superwhisper
+
+# ── WindTerm: keep profiles in ~/.config, hide systemd OSC 3008 escapes ──
+# The package's profiles.config points at the read-only install dir, so saving fails.
+WT_CFG=/usr/lib/windterm/profiles.config
+if [[ -f $WT_CFG ]] && ! grep -q '/.config/windterm' "$WT_CFG"; then
+  mkdir -p ~/.config/windterm
+  printf '{\n    "path" : "%s"\n}\n' "$HOME/.config/windterm" | sudo tee "$WT_CFG" >/dev/null
+fi
+# WindTerm prints systemd's prompt context escapes as raw text; no-op the hooks there.
+if ! grep -q '__systemd_osc_context_ps0() { :; }' ~/.bashrc; then
+  cat >> ~/.bashrc <<'BASHRC'
+
+# WindTerm doesn't understand systemd's OSC 3008 context escapes and prints them raw,
+# so turn the hooks from /etc/profile.d/80-systemd-osc-context.sh into no-ops there.
+if [[ $(</proc/$PPID/comm) == WindTerm ]]; then
+  __systemd_osc_context_precmdline() { :; }
+  __systemd_osc_context_ps0() { :; }
+fi
+BASHRC
+fi
 
 # ── Google Fonts not packaged in Arch (from github.com/google/fonts) ──
 GOOGLE_FONTS=(raleway playfairdisplay merriweather poppins worksans crimsontext oswald
