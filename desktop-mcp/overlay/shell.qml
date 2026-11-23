@@ -3,19 +3,23 @@
 // Unix socket in $DMCP_SOCKET:
 //   {"op":"move","id":"a1","x":100,"y":200,"label":"Claude","color":"#d97757"}
 //   {"op":"click","id":"a1","x":100,"y":200}        // move + ripple
+//   {"op":"hide","id":"a1"}                          // fade out until the next move/click (agent is idle)
 //   {"op":"remove","id":"a1"}
 //   {"op":"suspend"} / {"op":"resume"}               // hide everything (for screenshots)
 //   {"op":"ping"}
 // Coordinates are global logical compositor coordinates.
+// On the host, a cursor belongs to the workspace it was put on: it is not drawn
+// while that monitor shows a different workspace (or a special workspace on top).
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 
 ShellRoot {
   id: root
 
-  property var cursors: ({})        // id -> {x, y, label, color, clickSeq}
+  property var cursors: ({})        // id -> {x, y, label, color, clickSeq, hidden, where}
   property int revision: 0          // bump to refresh bindings
   property bool suspended: false
 
@@ -30,7 +34,11 @@ ShellRoot {
         label: m.label ?? prev.label,
         color: m.color ?? prev.color,
         clickSeq: prev.clickSeq + (m.op === "click" ? 1 : 0),
+        hidden: false,
+        where: root.placeOf(m.x, m.y),
       };
+    } else if (m.op === "hide") {
+      if (c[m.id]) c[m.id] = Object.assign({}, c[m.id], { hidden: true });
     } else if (m.op === "remove") {
       delete c[m.id];
     } else if (m.op === "suspend") {
@@ -40,6 +48,41 @@ ShellRoot {
     }
     root.cursors = c;
     root.revision++;
+  }
+
+  // ---- which workspace a cursor belongs to (host overlay only) -------------
+  // monitor name -> name of the special workspace open on it ("" = none), from Hyprland events.
+  property var specials: ({})
+  function specialOf(mon) {
+    if (!mon) return "";
+    const s = root.specials[mon.name];
+    if (s !== undefined) return s;
+    const o = mon.lastIpcObject;   // state from before this overlay started
+    return (o && o.specialWorkspace && o.specialWorkspace.name) || "";
+  }
+  function wsOf(mon) { return mon && mon.activeWorkspace ? mon.activeWorkspace.id : 0; }
+  // The monitor + workspace now shown at a point; null when unknown (the cursor is then always drawn).
+  function placeOf(x, y) {
+    if (!root.isHost) return null;
+    const screens = Quickshell.screens;
+    for (let i = 0; i < screens.length; i++) {
+      const s = screens[i];
+      if (x < s.x || y < s.y || x >= s.x + s.width || y >= s.y + s.height) continue;
+      const mon = Hyprland.monitorFor(s);
+      return mon ? { mon: mon.name, ws: root.wsOf(mon), special: root.specialOf(mon) } : null;
+    }
+    return null;
+  }
+  Connections {
+    target: root.isHost ? Hyprland : null
+    function onRawEvent(event) {
+      if (event.name !== "activespecial") return;   // data: "<workspace name or empty>,<monitor name>"
+      const i = event.data.lastIndexOf(",");
+      if (i < 0) return;
+      const s = Object.assign({}, root.specials);
+      s[event.data.slice(i + 1)] = event.data.slice(0, i);
+      root.specials = s;
+    }
   }
 
   // ---- "an agent needs you" banner (host overlay only) -------------------
@@ -100,6 +143,12 @@ ShellRoot {
       WlrLayershell.layer: WlrLayer.Overlay
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
       WlrLayershell.namespace: "desktop-mcp-overlay"
+      readonly property var hmon: root.isHost ? Hyprland.monitorFor(modelData) : null
+      // True when this monitor still shows the workspace the cursor was put on.
+      function showsPlace(where) {
+        if (!where || !hmon) return true;
+        return where.mon === hmon.name && where.ws === root.wsOf(hmon) && where.special === root.specialOf(hmon);
+      }
       // Click-through everywhere, except the banner while it is shown.
       Region { id: noInput }
       Region { id: bannerInput; item: banner }
@@ -201,7 +250,10 @@ ShellRoot {
             id: cur
             required property string modelData
             readonly property var info: { root.revision; return root.cursors[modelData] || null; }
-            visible: info !== null
+            readonly property bool shown: info !== null && !info.hidden && win.showsPlace(info.where)
+            opacity: shown ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
             x: info ? info.x - win.modelData.x : 0
             y: info ? info.y - win.modelData.y : 0
             width: 1; height: 1

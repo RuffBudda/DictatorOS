@@ -113,6 +113,9 @@ export class HostDesktop {
     await this.overlay.send({ op, id: this.agent.id, x: p.x, y: p.y, label: this.agent.label, color: this.agent.color });
   }
 
+  /** Fade this agent's cursor out; the next pointer action shows it again. */
+  hideGhost() { this.overlay.sendIfConnected({ op: "hide", id: this.agent.id }); }
+
 
   /** Borrow the real pointer: glide the ghost there, run `act`, then put the user's pointer back. */
   async borrow(p, act, { restore = true } = {}) {
@@ -359,6 +362,9 @@ export class SandboxDesktop {
   async ghost(op, p) {
     await this.overlay.send({ op, id: this.agent.id, x: p.x, y: p.y, label: this.agent.label, color: this.agent.color });
   }
+
+  /** Fade this agent's cursor out; the next pointer action shows it again. */
+  hideGhost() { this.overlay.sendIfConnected({ op: "hide", id: this.agent.id }); }
 
   async monitors() {
     return (await this.swayGet("get_outputs")).filter((o) => o.active).map((o) => ({

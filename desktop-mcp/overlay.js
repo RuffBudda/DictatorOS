@@ -58,5 +58,10 @@ export class Overlay {
     } catch { /* ignore */ }
   }
 
+  /** Send only if this overlay is already in use: never start one just to hide a cursor. */
+  sendIfConnected(msg) {
+    try { this.conn?.write(JSON.stringify(msg) + "\n"); } catch { /* ignore */ }
+  }
+
   close() { try { this.conn?.end(); } catch { /* ignore */ } this.conn = null; }
 }

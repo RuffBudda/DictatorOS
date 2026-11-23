@@ -18,6 +18,9 @@ The agents do not move your pointer or type into your windows.
   screenshot, the server refuses the clicks. The agent must then take a new screenshot.
 - **Each agent has a cursor with a name and a color.** A click-through overlay shows the cursor. The
   overlay also shows a ripple for each click.
+- **The cursor shows only where and when the agent works.** On your desktop, the cursor stays on the
+  workspace where the agent put it. The cursor goes out of view when the agent stops for 10 seconds.
+  The next pointer action shows it again.
 - **The server always hides credentials from the agent.** Refer to [Credential protection](#credential-protection).
 - **The agent can ask for your help.** Refer to [Alerts](#alerts).
 
@@ -57,6 +60,7 @@ For Codex, add a `[mcp_servers.desktop]` table to `~/.codex/config.toml`.
 | `DESKTOP_MCP_LABEL` | The name on the cursor and in the bar. The default is `Agent`. |
 | `DESKTOP_MCP_COLOR` | The cursor color, as `#rrggbb`. The default is a different color for each session. |
 | `DESKTOP_MCP_DEFAULT` | Set to `host` to make your desktop the default. The default is `sandbox`. |
+| `DESKTOP_MCP_CURSOR_IDLE_MS` | The time without a tool call before the cursor goes out of view, in milliseconds. The default is `10000`. Set to `0` to keep the cursor in view. |
 | `DESKTOP_MCP_KEEP_SANDBOX` | Set to `1` to keep the agent desktop open after the agent session stops. |
 
 ## Tools

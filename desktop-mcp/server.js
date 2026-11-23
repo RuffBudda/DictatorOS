@@ -144,14 +144,31 @@ const text = (obj) => ({ content: [{ type: "text", text: typeof obj === "string"
 
 const server = new McpServer({ name: "desktop-mcp", version: "0.2.0" });
 
+// The agent's cursor is on screen only while it works: it fades out when no tool has run for this long.
+const CURSOR_IDLE_MS = /^\d+$/.test(process.env.DESKTOP_MCP_CURSOR_IDLE_MS ?? "") ? Number(process.env.DESKTOP_MCP_CURSOR_IDLE_MS) : 10_000;
+let toolsRunning = 0;
+let idleTimer = null;
+function goIdle() {
+  host.hideGhost();
+  sandbox.hideGhost();
+  status.update({ activity: "idle" });
+}
+
 function tool(name, description, inputSchema, handler) {
   server.registerTool(name, { description, inputSchema }, async (args) => {
+    toolsRunning++;
+    clearTimeout(idleTimer);
     try {
       if (!["sandbox_status", "wait", "request_user_input", "clear_user_input"].includes(name)) status.action(name);
       return await handler(args ?? {});
     } catch (err) {
       log(`${name}:`, err.message);
       return { isError: true, content: [{ type: "text", text: err.message }] };
+    } finally {
+      if (--toolsRunning === 0 && CURSOR_IDLE_MS > 0) {
+        idleTimer = setTimeout(goIdle, CURSOR_IDLE_MS);
+        idleTimer.unref();
+      }
     }
   });
 }
