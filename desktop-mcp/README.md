@@ -126,7 +126,22 @@ To close an agent desktop, push **×**.
 ## Bar widget
 
 The bar widget is `omarchy/plugins/abu.agent-desk`. It is in the `center` group of the bar, after the
-clock. It uses `bin/desktop-mcp-ctl` (`list`, `alert`, `ack`, `show` and `stop`).
+clock. It uses `bin/desktop-mcp-ctl` (`list`, `alert`, `ack`, `show`, `stop`, `kill`, `panic` and `resume`).
+
+## Hard stop
+
+Use the hard stop when an agent does not stop when you tell it to.
+
+- To stop one agent, push **󰓛** on its row in the bar panel. This kills the agent's MCP server, all the
+  processes that it started and its agent desktop. It also releases the mouse buttons and removes its cursor.
+- To stop all agents, push **Stop all agents** in the bar panel, or push `SUPER+CTRL+ESCAPE`. This kills
+  every desktop-mcp server and every agent desktop. It also latches: a server that starts after the stop
+  refuses all tools. The bar shows **󰓛 stopped** until you push **Resume**.
+- After a stop, the agent's MCP client shows the `desktop` server as failed. To use it again, reconnect it
+  (for example, `/mcp` in Claude Code).
+
+The control script makes sure that a PID is a `desktop-mcp/server.js` process of your user before it
+kills it. Thus, a changed status file cannot make it kill a different process.
 
 ## Files
 

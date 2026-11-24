@@ -146,6 +146,7 @@ const server = new McpServer({ name: "desktop-mcp", version: "0.2.0" });
 
 // The agent's cursor is on screen only while it works: it fades out when no tool has run for this long.
 const CURSOR_IDLE_MS = /^\d+$/.test(process.env.DESKTOP_MCP_CURSOR_IDLE_MS ?? "") ? Number(process.env.DESKTOP_MCP_CURSOR_IDLE_MS) : 10_000;
+const HALT_FILE = join(runtimeDir(), "halted");
 let toolsRunning = 0;
 let idleTimer = null;
 function goIdle() {
@@ -159,6 +160,10 @@ function tool(name, description, inputSchema, handler) {
     toolsRunning++;
     clearTimeout(idleTimer);
     try {
+      // The user's hard stop (desktop-mcp-ctl panic) latches until they press Resume in the bar.
+      if (existsSync(HALT_FILE)) {
+        return { isError: true, content: [{ type: "text", text: "Refused: the user hard-stopped all agent desktop control. Do not retry or work around this; ask the user in chat how to continue." }] };
+      }
       if (!["sandbox_status", "wait", "request_user_input", "clear_user_input"].includes(name)) status.action(name);
       return await handler(args ?? {});
     } catch (err) {

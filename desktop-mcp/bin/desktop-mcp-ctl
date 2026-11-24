@@ -4,13 +4,113 @@
 //   desktop-mcp-ctl ack  <agent-id> → mark the agent's request as handled ("Done")
 //   desktop-mcp-ctl show <agent-id> → focus the agent's sandbox window (switches to its workspace)
 //   desktop-mcp-ctl stop <agent-id> → close the agent's sandbox desktop
+//   desktop-mcp-ctl kill <agent-id> → HARD STOP one agent: kill its MCP server and everything it started
+//   desktop-mcp-ctl panic           → HARD STOP every agent and refuse desktop control until `resume`
+//   desktop-mcp-ctl resume          → allow desktop control again after `panic`
 // Agent ids are validated against the files on disk; nothing user-supplied reaches a shell.
-import { readdirSync, readFileSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, rmSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
+import net from "node:net";
 
-const dir = join(process.env.XDG_RUNTIME_DIR || `/run/user/${process.getuid()}`, "desktop-mcp", "agents");
+const base = join(process.env.XDG_RUNTIME_DIR || `/run/user/${process.getuid()}`, "desktop-mcp");
+const dir = join(base, "agents");
+// While this file exists, every desktop-mcp server refuses all tools (see server.js).
+const haltFile = join(base, "halted");
 const out = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+const quiet = (cmd, args) => { try { execFileSync(cmd, args, { stdio: "ignore", timeout: 5000 }); } catch { /* best effort */ } };
+
+// ---------- hard stop ----------
+
+/** True if <pid> is a desktop-mcp server (node .../desktop-mcp/server.js) owned by this user. */
+function isServer(pid) {
+  try {
+    if (readFileSync(`/proc/${pid}/status`, "utf8").match(/^Uid:\s+(\d+)/m)?.[1] !== String(process.getuid())) return false;
+    return readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0").some((a) => /(^|\/)desktop-mcp\/server\.js$/.test(a));
+  } catch { return false; }
+}
+
+function allServers() {
+  return readdirSync("/proc").filter((n) => /^\d+$/.test(n)).map(Number).filter(isServer);
+}
+
+function descendants(pid) {
+  const kids = new Map();
+  for (const n of readdirSync("/proc")) {
+    if (!/^\d+$/.test(n)) continue;
+    try {
+      const st = readFileSync(`/proc/${n}/stat`, "utf8");
+      const ppid = Number(st.slice(st.lastIndexOf(")") + 2).split(" ")[1]);
+      if (!kids.has(ppid)) kids.set(ppid, []);
+      kids.get(ppid).push(Number(n));
+    } catch { /* process exited */ }
+  }
+  const found = [];
+  const queue = [pid];
+  while (queue.length) for (const c of kids.get(queue.pop()) ?? []) { found.push(c); queue.push(c); }
+  return found;
+}
+
+const signal = (pid, sig) => { try { process.kill(pid, sig); return true; } catch { return false; } };
+
+/** Kill one server: freeze it first so it can start nothing new, then kill its helpers (ydotool, wtype...), then it. */
+function killServer(pid) {
+  if (!isServer(pid)) return false;
+  signal(pid, "SIGSTOP");
+  for (const c of descendants(pid)) signal(c, "SIGKILL");
+  return signal(pid, "SIGKILL");
+}
+
+/** systemd user units whose name matches <pattern> (systemctl glob), e.g. every sandbox of one server. */
+function units(pattern) {
+  try {
+    return execFileSync("systemctl", ["--user", "list-units", "--all", "--plain", "--no-legend", pattern], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] })
+      .split("\n").map((l) => l.trim().split(/\s+/)[0]).filter((u) => /^desktop-mcp-[\w.-]+$/.test(u));
+  } catch { return []; }
+}
+function stopUnits(list) {
+  // Slices first: they hold the apps the agent started in its sandbox.
+  const ordered = [...list.filter((u) => u.endsWith(".slice")), ...list.filter((u) => !u.endsWith(".slice"))];
+  for (const u of ordered) quiet("systemctl", ["--user", "kill", "--signal=SIGKILL", u]);
+  for (const u of ordered) quiet("systemctl", ["--user", "stop", u]);
+}
+
+/** A killed server can leave a mouse button down in ydotoold; send button-up for left, right and middle. */
+function releasePointer() { quiet("ydotool", ["click", "0x80", "0x81", "0x82"]); }
+
+/** Tell each host overlay to drop these cursors and to show again (a kill during a screenshot leaves it suspended). */
+async function overlaySend(msgs) {
+  let socks = [];
+  try { socks = readdirSync(base).filter((n) => /^overlay-host-.*\.sock$/.test(n)).map((n) => join(base, n)); } catch { return; }
+  await Promise.all(socks.map((p) => new Promise((resolve) => {
+    const c = net.createConnection(p);
+    const done = () => { c.destroy(); resolve(); };
+    c.setTimeout(500, done);
+    c.once("error", done);
+    c.once("connect", () => c.end(msgs.map((m) => JSON.stringify(m) + "\n").join(""), done));
+  })));
+}
+
+function forget(id) {
+  for (const ext of [".json", ".json.tmp", ".ack"]) rmSync(join(dir, `${id}${ext}`), { force: true });
+}
+
+/** Status files for every agent, live or not (no pruning, no filtering). */
+function rawAgents() {
+  let names = [];
+  try { names = readdirSync(dir).filter((n) => n.endsWith(".json")); } catch { return []; }
+  return names.flatMap((n) => { try { return [JSON.parse(readFileSync(join(dir, n), "utf8"))]; } catch { return []; } });
+}
+
+async function hardStop(a) {
+  const pid = Number(a.pid);
+  const killed = Number.isInteger(pid) && pid > 1 ? killServer(pid) : false;
+  const sb = Number.isInteger(pid) && pid > 1 ? [...units(`desktop-mcp-sb-*-${pid}.service`), ...units(`desktop-mcp-sb-*-${pid}.slice`)] : [];
+  if (a.sandbox?.unit && /^desktop-mcp-sb-[\w-]+$/.test(a.sandbox.unit)) sb.push(a.sandbox.unit, `${a.sandbox.unit}.slice`);
+  stopUnits([...new Set(sb)]);
+  forget(a.id);
+  return killed;
+}
 
 function agents(all = false) {
   let names = [];
@@ -39,7 +139,31 @@ function find(id) {
 
 const [cmd, id] = process.argv.slice(2);
 try {
-  if (cmd === "list") out(agents());
+  if (cmd === "list") out({ agents: agents(), halted: existsSync(haltFile) });
+  else if (cmd === "kill") {
+    const a = rawAgents().find((x) => x.id === id);
+    if (!a) out({ ok: false, error: "No such agent" });
+    else {
+      await hardStop(a);
+      releasePointer();
+      await overlaySend([{ op: "remove", id: a.id }, { op: "resume" }]);
+      out({ ok: true });
+    }
+  } else if (cmd === "panic") {
+    // Latch first: a server that starts (or restarts) from now on refuses every tool.
+    mkdirSync(base, { recursive: true });
+    writeFileSync(haltFile, String(Date.now()));
+    const known = rawAgents();
+    for (const a of known) await hardStop(a);
+    // Servers with no status file (still starting, or the file was removed).
+    for (const pid of allServers()) killServer(pid);
+    stopUnits(units("desktop-mcp-sb-*"));
+    releasePointer();
+    stopUnits(units("desktop-mcp-overlay-host-*"));
+    quiet("notify-send", ["-a", "Agent desktop", "-u", "critical", "-i", "process-stop",
+      "Agent desktops stopped", "Every agent lost desktop control. Resume it from the bar."]);
+    out({ ok: true, stopped: known.length });
+  } else if (cmd === "resume") { rmSync(haltFile, { force: true }); out({ ok: true }); }
   else if (cmd === "alert") {
     // For the host overlay: who needs the user, and whether the bar can show it
     // (it can't while hidden with Super+B, or under a fullscreen window).
@@ -73,7 +197,7 @@ try {
       for (const u of [`${unit}.slice`, unit]) { try { execFileSync("systemctl", ["--user", "stop", u]); } catch { /* ignore */ } }
       out({ ok: true });
     }
-  } else { out({ ok: false, error: `usage: desktop-mcp-ctl list|ack|show|stop <id>` }); }
+  } else { out({ ok: false, error: `usage: desktop-mcp-ctl list|ack|show|stop|kill <id> | panic | resume` }); }
 } catch (e) {
   out({ ok: false, error: String(e.message || e).slice(0, 200) });
 }

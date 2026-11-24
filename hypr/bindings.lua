@@ -209,6 +209,11 @@ o.bind("SUPER + E", "File manager", { launch = "flea --gui" })
 -- btop (terminal) is on SUPER+SHIFT+T (Omarchy 4.5 moved it from SUPER+CTRL+T).
 o.bind("CTRL + SHIFT + ESCAPE", "Task Manager", { launch = "missioncenter" })
 
+-- ── Agent desktops: hard stop ───────────────────────────────────────────
+-- Kills every AI agent's desktop control (desktop-mcp) and refuses it until
+-- Resume in the bar's agent panel. Works when the bar is hidden or the mouse is busy.
+o.bind("SUPER + CTRL + ESCAPE", "Hard-stop all agent desktops", os.getenv("HOME") .. "/dotfiles/desktop-mcp/bin/desktop-mcp-ctl panic")
+
 -- ── Top bar show/hide ───────────────────────────────────────────────────
 -- The bar shows by default; SUPER+B hides it (windows move up) or shows it again.
 o.bind("SUPER + B", "Show / hide top bar", "omarchy-toggle-bar")

@@ -12,6 +12,9 @@ import qs.Ui
 // The icon shows while any agent is running and turns urgent + pulses when one
 // asks for you (request_user_input, or a blocked password prompt).
 // Agent labels and messages are untrusted, so every text here is plain text.
+// Hard stop: the stop button on a row kills that agent's MCP server and all it
+// started; "Stop all" (also SUPER+CTRL+ESCAPE) kills every agent and refuses
+// desktop control until you press Resume.
 Panel {
   id: root
   moduleName: "abu.agent-desk"
@@ -26,16 +29,19 @@ Panel {
   property var agents: []
   property real now: Date.now()
   property string errorText: ""
+  property bool halted: false
 
   readonly property var needy: agents.filter(a => a.attention)
   readonly property bool needsYou: needy.length > 0
 
-  visible: agents.length > 0 || opened
+  visible: agents.length > 0 || halted || opened
   implicitWidth: barButton.implicitWidth
   implicitHeight: barButton.implicitHeight
 
   function refresh() { if (!readProc.running) readProc.running = true }
   function act(args) {
+    // Panic has its own process so a busy action can never swallow it.
+    if (args[0] === "panic") { if (!panicProc.running) panicProc.running = true; return }
     if (actProc.running) return
     actProc.command = [root.ctl].concat(args)
     actProc.running = true
@@ -64,8 +70,9 @@ Panel {
         root.now = Date.now()
         try {
           const r = JSON.parse(this.text)
-          root.agents = Array.isArray(r) ? r.slice(0, 20) : []
-        } catch (e) { root.agents = [] }
+          root.agents = Array.isArray(r.agents) ? r.agents.slice(0, 20) : []
+          root.halted = r.halted === true
+        } catch (e) { root.agents = []; root.halted = false }
       }
     }
   }
@@ -79,6 +86,11 @@ Panel {
     }
     onExited: root.refresh()
   }
+  Process {
+    id: panicProc
+    command: [root.ctl, "panic"]
+    onExited: root.refresh()
+  }
   Timer {
     interval: 1000; running: true; repeat: true; triggeredOnStart: true
     onTriggered: root.refresh()
@@ -90,15 +102,17 @@ Panel {
     id: barButton
     anchors.fill: parent
     bar: root.bar
-    text: root.needsYou
+    text: root.halted && root.agents.length === 0 ? "󰓛 stopped"
+          : root.needsYou
           ? "󰂞  " + (root.needy.length === 1 ? root.clip(root.needy[0].label, 20) + " needs you" : root.needy.length + " agents need you")
           : "󰍹 " + root.agents.length
     labelVisible: true
-    active: root.needsYou
-    dimmed: !root.needsYou
+    active: root.needsYou || root.halted
+    dimmed: !root.needsYou && !root.halted
     horizontalMargin: 8.75
     verticalPadding: 8.75
-    tooltipText: root.opened ? "" : root.needsYou ? root.clip(root.needy[0].attention.message, 120)
+    tooltipText: root.opened ? "" : root.halted ? "Agent desktop control is stopped"
+                 : root.needsYou ? root.clip(root.needy[0].attention.message, 120)
                  : (root.agents.length === 1 ? "1 agent working in its own desktop" : root.agents.length + " agents working")
     onPressed: function(b) { root.toggle() }
 
@@ -145,7 +159,8 @@ Panel {
             id: hero
             width: parent.width
             title: root.needsYou ? (root.needy.length === 1 ? "An agent needs you" : root.needy.length + " agents need you") : "Agent desktops"
-            meta: root.agents.length === 0 ? "No agents running"
+            meta: root.halted ? "Stopped · agents are refused"
+                  : root.agents.length === 0 ? "No agents running"
                   : root.agents.length === 1 ? "1 agent" : root.agents.length + " agents"
             foreground: root.foreground
             fontFamily: root.fontFamily
@@ -157,6 +172,32 @@ Panel {
                 font.family: hero.fontFamily
                 font.pixelSize: Style.font.display
               }
+            }
+          }
+
+          Row {
+            width: parent.width
+            spacing: Style.space(8)
+            visible: root.agents.length > 0 || root.halted
+
+            Button {
+              visible: root.agents.length > 0 || !root.halted
+              text: "󰓛  Stop all agents"
+              tooltipText: "Hard stop: kill every agent's desktop control now (SUPER+CTRL+ESCAPE)"
+              foreground: root.urgent
+              fontFamily: root.fontFamily
+              bordered: true
+              onClicked: root.act(["panic"])
+            }
+            Button {
+              visible: root.halted
+              enabled: !actProc.running
+              text: "󰐊  Resume"
+              tooltipText: "Allow agents to control the desktop again (reconnect their MCP server, e.g. /mcp in Claude Code)"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              bordered: true
+              onClicked: root.act(["resume"])
             }
           }
 
@@ -253,6 +294,16 @@ Panel {
                   fontFamily: root.fontFamily
                   Layout.alignment: Qt.AlignVCenter
                   onClicked: root.act(["ack", String(row.modelData.id)])
+                }
+                PanelActionButton {
+                  enabled: !actProc.running
+                  iconText: "󰓛"
+                  tooltipText: "Hard stop: kill this agent's desktop control"
+                  foreground: root.urgent
+                  hoverColor: root.urgent
+                  fontFamily: root.fontFamily
+                  Layout.alignment: Qt.AlignVCenter
+                  onClicked: root.act(["kill", String(row.modelData.id)])
                 }
                 PanelActionButton {
                   visible: !!row.modelData.sandbox
