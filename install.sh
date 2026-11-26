@@ -20,7 +20,6 @@ link hypr/input.lua                            ~/.config/hypr/input.lua
 link hypr/looknfeel.lua                        ~/.config/hypr/looknfeel.lua
 link hypr/hyprland.lua                         ~/.config/hypr/hyprland.lua
 link hypr/tiling.lua                           ~/.config/hypr/tiling.lua
-link hypr/desktops.lua                         ~/.config/hypr/desktops.lua
 link hypr/contain.lua                          ~/.config/hypr/contain.lua
 link hypr/shellfix.lua                         ~/.config/hypr/shellfix.lua
 link applications/nwg-displays.desktop          ~/.local/share/applications/nwg-displays.desktop
@@ -40,12 +39,10 @@ link omarchy/hooks/post-update.d/dotfiles-check.hook ~/.config/omarchy/hooks/pos
 link omarchy/plugins/abu.notifications         ~/.config/omarchy/plugins/abu.notifications
 link omarchy/plugins/abu.alttab              ~/.config/omarchy/plugins/abu.alttab
 link omarchy/plugins/abu.lock                ~/.config/omarchy/plugins/abu.lock
-link omarchy/plugins/abu.workspaces          ~/.config/omarchy/plugins/abu.workspaces
 link omarchy/plugins/abu.bar                 ~/.config/omarchy/plugins/abu.bar
 link omarchy/plugins/abu.monitor             ~/.config/omarchy/plugins/abu.monitor
 link omarchy/plugins/abu.github-graph        ~/.config/omarchy/plugins/abu.github-graph
 link omarchy/plugins/abu.openvpn             ~/.config/omarchy/plugins/abu.openvpn
-link omarchy/plugins/abu.desktop-osd         ~/.config/omarchy/plugins/abu.desktop-osd
 link omarchy/plugins/abu.stickynotes         ~/.config/omarchy/plugins/abu.stickynotes
 link omarchy/plugins/abu.power             ~/.config/omarchy/plugins/abu.power
 link omarchy/plugins/abu.wallpaper-fade      ~/.config/omarchy/plugins/abu.wallpaper-fade

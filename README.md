@@ -299,11 +299,11 @@ full list, run `omarchy menu keybindings --print`.
 
 ### Windows and desktops
 
-- **Desktops go across monitors** (`hypr/desktops.lua`). Desktop *N* is workspace *N* on the
-  laptop, *N+10* on the second screen and *N+20* on a third screen. The bar and Alt+Tab show
-  desktops, not the workspaces of each screen. When you disconnect a monitor, its windows go
-  to the same desktop on the laptop. When you connect the monitor again, the workspaces go
-  back to it.
+- **Each screen has its own workspaces** (Omarchy's `monitor-workspaces.lua`). SUPER+1..0
+  switches the focused screen. When you disconnect a monitor, its workspaces join the laptop's,
+  and they go back when you connect it again.
+- **A second screen duplicates by default** (`hypr/monitors.lua`). SUPER+P picks Extend,
+  Second screen only or PC screen only; the choice lasts until that screen is unplugged.
 - **Tiling only** (`hypr/tiling.lua`). The windows that Omarchy floats by default tile.
   File pickers and save dialogs continue to float.
 - **No focus stealing**. An app that asks for attention does not move you to its workspace

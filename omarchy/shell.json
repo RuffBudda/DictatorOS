@@ -13,7 +13,7 @@
     "layout": {
       "left": [
         {
-          "id": "abu.workspaces"
+          "id": "omarchy.workspaces"
         },
         {
           "id": "abu.stickynotes"
@@ -87,12 +87,6 @@
     },
     {
       "id": "abu.lock"
-    },
-    {
-      "id": "abu.desktop-osd"
-    },
-    {
-      "id": "abu.workspaces"
     },
     {
       "id": "abu.openvpn"

@@ -52,10 +52,26 @@ local function center_x(w)
 end
 
 -- Move the window to the next (r) / previous (l) screen, wherever that
--- screen physically sits (above, below or beside). Screen order comes from
--- desktops.lua: laptop first, then the others.
+-- screen physically sits (above, below or beside). Screen order: laptop
+-- first, then the others left to right. A screen duplicating another is skipped.
+local function screens_in_order()
+  local mons = {}
+  for _, m in ipairs(hl.get_monitors()) do
+    if not m.is_mirror then table.insert(mons, m) end
+  end
+  local function internal(name)
+    return name:match("^eDP%-") or name:match("^LVDS%-") or name:match("^DSI%-")
+  end
+  table.sort(mons, function(a, b)
+    local ai, bi = internal(a.name) and 0 or 1, internal(b.name) and 0 or 1
+    if ai ~= bi then return ai < bi end
+    return (a.x or 0) < (b.x or 0)
+  end)
+  return mons
+end
+
 local function move_to_other_screen(win, dir)
-  local mons = (_G.dotfiles_desktops and _G.dotfiles_desktops.monitors()) or hl.get_monitors()
+  local mons = screens_in_order()
   if #mons < 2 then return false end
   local cur = 1
   for i, m in ipairs(mons) do

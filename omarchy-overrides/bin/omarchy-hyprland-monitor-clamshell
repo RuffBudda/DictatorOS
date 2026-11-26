@@ -22,17 +22,14 @@ if omarchy-hw-laptop-closed && ! omarchy-hw-external-monitors; then
   exit 0
 fi
 
-# 3. "Second screen only" and the external screen was just unplugged: let the
-#    config decide instead of Omarchy's recovery. Omarchy would switch the panel
-#    on with `hyprctl eval`, guessing position "auto" and the remembered scale,
-#    not the layout in ~/dotfiles/hypr/displays.lua. A reload re-runs
-#    display-mode.lua, which sees no external screen and leaves the panel on with
-#    its real position and scale. Same source of truth in both directions.
-internal=$(sed -n 's/^-- display-mode: second-screen-only \([A-Za-z0-9._-]*\)$/\1/p' "$mode_file" 2>/dev/null | head -1)
-
-if [[ -n $internal ]] && ! omarchy-hw-external-monitors; then
-  hyprctl monitors -j | jq -e --arg m "$internal" 'any(.[]; .name == $m)' >/dev/null 2>&1 ||
-    omarchy-restart-hyprctl
+# 3. A SUPER+P choice lasts only while the screen stays plugged in. Once no
+#    external screen is connected, forget it and reload, so the next plug-in
+#    starts from the default in hypr/monitors.lua (duplicate). The reload also
+#    switches the panel back on after "Second screen only", using the real
+#    layout rather than Omarchy's guessed position and scale.
+if [[ -e $mode_file ]] && ! omarchy-hw-external-monitors; then
+  rm -f "$mode_file"
+  omarchy-restart-hyprctl
   exit 0
 fi
 
