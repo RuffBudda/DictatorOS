@@ -118,7 +118,7 @@
   also tile. Super+Left/Right moves a single window to half of the screen. The window
   continues to tile. Super+Up/Down puts windows one above the other. For a single window,
   it moves the window to the top or bottom half. Omarchy's Super+T (float a window) has no
-  function.
+  function. Workspaces also tile always: the scrolling and floating workspace layouts are off.
 - **Black and red**: The custom *Red* theme and a wallpaper with red stripes on black. There
   are no logos on the boot, login and lock screens. All corners are rounded. The Limine boot
   menu is also red on black. It shows DictatorOS and each Windows installation.
@@ -306,6 +306,10 @@ full list, run `omarchy menu keybindings --print`.
   Second screen only or PC screen only; the choice lasts until that screen is unplugged.
 - **Tiling only** (`hypr/tiling.lua`). The windows that Omarchy floats by default tile.
   File pickers and save dialogs continue to float.
+- **No workspace layout modes**. Omarchy can change a workspace to a scrolling or a floating
+  layout. This function is off. A click on the current workspace in the bar does nothing
+  (`abu.workspaces`), and Super+Alt+L has no function (`hypr/bindings.lua`). Super+L locks
+  the screen.
 - **No focus stealing**. An app that asks for attention does not move you to its workspace
   (`focus_on_activate = false`). An example is a terminal that completes a task.
 - **Windows stay with the app that started them** (`hypr/contain.lua`).
@@ -361,6 +365,8 @@ full list, run `omarchy menu keybindings --print`.
 - The bar shows by default. **Super+B** hides it. It is opaque black with red icons. When it
   shows, it pushes the windows down. The bar has an auto-hide function, but it is off
   (`autoHide` in `abu.bar/Bar.qml`).
+- **Workspaces** (`abu.workspaces`): A copy of Omarchy's workspace numbers. A click on a
+  different workspace goes to it. A click on the current workspace does not change its layout.
 - **Monitor panel** (`abu.monitor`): Brightness, text size, a screen map that you arrange
   with the pointer, and scale and rotation for each screen. `bin/monitor-layout` writes
   `hypr/displays.lua`.
