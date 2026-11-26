@@ -16,3 +16,10 @@ hl.monitor({
     scale = 1,
     transform = 0
 })
+hl.monitor({
+    output = "desc:Ancor Communications Inc ASUS PB287Q 0x00022D62",
+    mode = "2560x1440@59.95",
+    position = "1600x0",
+    scale = 1,
+    transform = 0
+})
