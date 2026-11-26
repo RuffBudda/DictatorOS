@@ -1,0 +1,45 @@
+#!/bin/bash
+# Omarchy's clamshell sync, adjusted for an HDMI switcher.
+#
+# Omarchy's monitor watcher runs this on every monitor add/remove (and again
+# after 1, 3 and 7 s), every 2 s while docked, and on lid open/close. It is
+# found before Omarchy's copy because hypr/shellfix.lua puts this folder ahead
+# of Omarchy's bin dir on PATH. Delete this file to undo.
+#
+# 1. Lid shut and no external screen (switcher pointed at another computer):
+#    do nothing. Omarchy would turn the laptop panel back on as a "no screen
+#    left" recovery, which only moves every workspace onto a panel nobody can
+#    see. Opening the lid runs this again with the lid open, and Omarchy's
+#    recovery takes over then.
+# 2. "Second screen only" (SUPER+P, ~/dotfiles/bin/display-mode): that mode
+#    lets the panel come on while no external screen is connected. When the
+#    screen comes back, reload so the mode turns the panel off again, and put
+#    the pointer back on a screen that exists.
+
+mode_file="${XDG_RUNTIME_DIR:-/run/user/$UID}/display-mode.lua"
+
+if omarchy-hw-laptop-closed && ! omarchy-hw-external-monitors; then
+  exit 0
+fi
+
+"${OMARCHY_PATH:-/usr/share/omarchy}/bin/omarchy-hyprland-monitor-clamshell" "$@"
+status=$?
+
+internal=$(sed -n 's/^-- display-mode: second-screen-only \([A-Za-z0-9._-]*\)$/\1/p' "$mode_file" 2>/dev/null | head -1)
+
+if [[ -n $internal ]] &&
+  omarchy-hw-external-monitors &&
+  omarchy-hyprland-monitor-external-active &&
+  hyprctl monitors -j | jq -e --arg m "$internal" 'any(.[]; .name == $m)' >/dev/null 2>&1; then
+  omarchy-restart-hyprctl
+
+  # The pointer can be left on the panel that just went away, and the hardware
+  # cursor is not redrawn after the output change. Move it to the middle of the
+  # focused screen and reload the cursor theme.
+  read -r cx cy < <(hyprctl monitors -j | jq -r '[.[] | select(.disabled == false)] | (map(select(.focused)) + .)[0] | "\(.x + (.width / .scale / 2 | floor)) \(.y + (.height / .scale / 2 | floor))"')
+  [[ $cx =~ ^-?[0-9]+$ && $cy =~ ^-?[0-9]+$ ]] &&
+    hyprctl dispatch "hl.dsp.cursor.move({ x = $cx, y = $cy })" >/dev/null 2>&1
+  hyprctl setcursor "${XCURSOR_THEME:-default}" "${XCURSOR_SIZE:-24}" >/dev/null 2>&1
+fi
+
+exit $status

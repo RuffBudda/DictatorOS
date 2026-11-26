@@ -47,7 +47,26 @@ case "$choice" in
       printf 'hl.monitor({ output = "%s", mode = "preferred", position = "auto", scale = "auto", mirror = "%s" })\n' "$e" "$internal" >>"$MODE_FILE"
     done ;;
   "Second screen only")
-    [[ -n $internal ]] && printf 'hl.monitor({ output = "%s", disabled = true })\n' "$internal" >>"$MODE_FILE" ;;
+    # Checked again on every reload: turn the laptop panel off only while an
+    # external screen is connected or the lid is shut. A plain "disabled = true"
+    # fought Omarchy's "no screen left" recovery when an HDMI switcher pointed
+    # away: the panel flickered on and off every ~2 s and the workspaces moved
+    # around. ~/dotfiles/omarchy-overrides/bin/omarchy-hyprland-monitor-clamshell
+    # reloads when the screen comes back. The marker line below is how it finds
+    # this mode.
+    [[ -n $internal ]] && cat >>"$MODE_FILE" <<EOF
+-- display-mode: second-screen-only $internal
+do
+  local bin = (os.getenv("OMARCHY_PATH") or "/usr/share/omarchy") .. "/bin/"
+  local p = io.popen(bin .. "omarchy-hw-external-monitors || " .. bin .. "omarchy-hw-laptop-closed && echo yes")
+  local away = p and p:read("a") or ""
+  if p then p:close() end
+  if away:find("yes") then
+    hl.monitor({ output = "$internal", disabled = true })
+  end
+end
+EOF
+    ;;
   "Extend") ;;
 esac
 
