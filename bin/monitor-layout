@@ -34,16 +34,47 @@ def clean_scale(s, w, h):
 def fmt(v):
     return ("%g" % v)
 
+def rule_output(m):
+    """External screens are matched by make/model/serial, not by port, so one
+    monitor's mode never lands on another plugged into the same HDMI port."""
+    desc = (m.get("description") or "").strip()
+    return m["name"] if internal(m["name"]) or not desc else "desc:" + desc
+
+def lua_str(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+RULE = re.compile(r'hl\.monitor\(\{.*?\n\}\)', re.S)
+RULE_OUTPUT = re.compile(r'output\s*=\s*"((?:[^"\\]|\\.)*)"')
+
+def kept_rules(current):
+    """Rules already in the file for screens that are not plugged in now."""
+    try:
+        text = open(FILE).read()
+    except FileNotFoundError:
+        return []
+    kept = []
+    for block in RULE.findall(text):
+        o = RULE_OUTPUT.search(block)
+        name = o and re.sub(r'\\(.)', r'\1', o.group(1))
+        if name and name not in current:
+            kept.append(block)
+    return kept
+
 def write(ms):
-    lines = ["-- Per-screen layout. Written by the bar's monitor panel / Display settings.", ""]
+    current = {rule_output(m) for m in ms}
+    old = kept_rules(current)
+    lines = ["-- Per-screen layout. Written by the bar's monitor panel (bin/monitor-layout).",
+             "-- External screens are matched by description, so each monitor keeps its own",
+             "-- mode; screens not plugged in keep their saved rules.", ""]
     for m in ms:
         lines += ["hl.monitor({",
-                  '    output = "%s",' % m["name"],
+                  '    output = %s,' % lua_str(rule_output(m)),
                   '    mode = "%dx%d@%.2f",' % (m["width"], m["height"], m["refreshRate"]),
                   '    position = "%dx%d",' % (m["x"], m["y"]),
                   "    scale = %s," % fmt(m["scale"]),
                   "    transform = %d" % m["transform"],
                   "})"]
+    lines += old
     open(FILE, "w").write("\n".join(lines) + "\n")
     subprocess.run(["hyprctl", "reload"], capture_output=True)
 
