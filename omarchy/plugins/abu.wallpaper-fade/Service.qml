@@ -31,8 +31,18 @@ Item {
   // (Quickshell's live toplevel lists can keep closed windows around.)
   readonly property var refreshEvents: ["openwindow", "closewindow", "movewindow", "movewindowv2",
     "workspace", "workspacev2", "focusedmon", "focusedmonv2", "createworkspace", "destroyworkspace",
-    "moveworkspace", "activespecial", "activespecialv2", "changefloatingmode"]
-  Timer { id: refreshSoon; interval: 60; onTriggered: Hyprland.refreshWorkspaces() }
+    "moveworkspace", "activespecial", "activespecialv2", "changefloatingmode",
+    // Screens coming and going (HDMI switcher, clamshell) and config reloads
+    // re-map workspaces to monitors without a workspace event of their own.
+    "monitoradded", "monitoraddedv2", "monitorremoved", "monitorremovedv2", "configreloaded"]
+  Timer {
+    id: refreshSoon
+    interval: 60
+    onTriggered: {
+      Hyprland.refreshMonitors()
+      Hyprland.refreshWorkspaces()
+    }
+  }
   Connections {
     target: Hyprland
     function onRawEvent(event) {
@@ -49,7 +59,16 @@ Item {
       required property var modelData
       screen: modelData
 
-      readonly property var monitor: Hyprland.monitorFor(modelData)
+      // Looked up by name from the live monitor list, so the binding re-runs when
+      // Hyprland re-adds the output. Hyprland.monitorFor() is evaluated once and
+      // stays null if the screen shows up before Hyprland's IPC knows about it,
+      // which left the wallpaper showing over every desktop after a hotplug.
+      readonly property var monitor: {
+        const all = Hyprland.monitors.values
+        for (let i = 0; i < all.length; i++)
+          if (all[i].name === modelData.name) return all[i]
+        return null
+      }
       readonly property var workspace: monitor ? monitor.activeWorkspace : null
       readonly property bool hasWindows: !!workspace && !!workspace.lastIpcObject
         && Number(workspace.lastIpcObject.windows || 0) > 0
