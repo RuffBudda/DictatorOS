@@ -1,0 +1,21 @@
+#!/bin/bash
+# Launch the Omarchy shell without Qt's GTK3 platform theme.
+#
+# With QT_QPA_PLATFORMTHEME=gtk3, Qt loads libgtk-3/libgdk-3 into Quickshell
+# and GDK keeps its own Wayland connection. When outputs vanish and reappear
+# quickly (HDMI switcher), GDK's output handling corrupts the heap and the
+# shell segfaults inside jemalloc (crash 2026-11-26 10:15:17). The shell
+# draws its own UI in QML, so it doesn't need the GTK theme. We only carry
+# over the icon theme, which Quickshell reads from QS_ICON_THEME.
+#
+# Hyprland finds this file first because hypr/shellfix.lua puts this folder
+# ahead of Omarchy's bin dir on PATH. Delete both files to undo.
+
+unset QT_QPA_PLATFORMTHEME
+
+if [[ -z ${QS_ICON_THEME:-} ]]; then
+  icon_theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'")
+  [[ -n $icon_theme ]] && export QS_ICON_THEME="$icon_theme"
+fi
+
+exec "${OMARCHY_PATH:-/usr/share/omarchy}/bin/omarchy-launch-shell" "$@"

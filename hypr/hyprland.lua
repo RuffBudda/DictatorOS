@@ -24,6 +24,7 @@ require("hypr.autostart")
 require("hypr.tiling")   -- ~/dotfiles/hypr/tiling.lua: tile instead of float
 require("hypr.desktops") -- ~/dotfiles/hypr/desktops.lua: one desktop across all monitors
 require("hypr.contain")  -- ~/dotfiles/hypr/contain.lua: new windows open where their launcher is
+require("hypr.shellfix") -- ~/dotfiles/hypr/shellfix.lua: start the bar without GTK3 (HDMI hotplug crash)
 
 -- Toggle config flags dynamically.
 require("default.hypr.toggles")
