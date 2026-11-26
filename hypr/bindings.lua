@@ -331,6 +331,8 @@ end)
 -- Was: Toggle workspace layout.
 hl.unbind("SUPER + L")
 o.bind("SUPER + L", "Lock screen", "omarchy-system-lock")
+-- Workspace layout cycling (scrolling / floating modes) is disabled.
+hl.unbind("SUPER + ALT + L")
 
 -- ── Calculator (Fn+F12 on keyboards where it emits XF86Calculator) ──────
 o.bind("XF86Calculator", "Calculator", "omacalc")
